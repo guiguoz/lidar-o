@@ -1,0 +1,85 @@
+{
+  "pipeline": [
+    {
+      "type": "readers.copc",
+      "filename": "LIDAR/airelles/LHD_FXX_0621_6159_PTS_LAMB93_IGN69.copc.laz",
+      "bounds": "([620000, 626000], [6157000, 6161500])"
+    },
+    {
+      "type": "readers.copc",
+      "filename": "LIDAR/airelles/LHD_FXX_0622_6159_PTS_LAMB93_IGN69.copc.laz",
+      "bounds": "([620000, 626000], [6157000, 6161500])"
+    },
+    {
+      "type": "readers.copc",
+      "filename": "LIDAR/airelles/LHD_FXX_0623_6158_PTS_LAMB93_IGN69.copc.laz",
+      "bounds": "([620000, 626000], [6157000, 6161500])"
+    },
+    {
+      "type": "readers.copc",
+      "filename": "LIDAR/airelles/LHD_FXX_0623_6159_PTS_LAMB93_IGN69.copc.laz",
+      "bounds": "([620000, 626000], [6157000, 6161500])"
+    },
+    {
+      "type": "readers.copc",
+      "filename": "LIDAR/airelles/LHD_FXX_0624_6158_PTS_LAMB93_IGN69.copc.laz",
+      "bounds": "([620000, 626000], [6157000, 6161500])"
+    },
+    {
+      "type": "readers.copc",
+      "filename": "LIDAR/airelles/LHD_FXX_0624_6159_PTS_LAMB93_IGN69.copc.laz",
+      "bounds": "([620000, 626000], [6157000, 6161500])"
+    },
+    {
+      "type": "readers.copc",
+      "filename": "LIDAR/airelles/LHD_FXX_0625_6158_PTS_LAMB93_IGN69.copc.laz",
+      "bounds": "([620000, 626000], [6157000, 6161500])"
+    },
+    {
+      "type": "readers.copc",
+      "filename": "LIDAR/airelles/LHD_FXX_0625_6159_PTS_LAMB93_IGN69.copc.laz",
+      "bounds": "([620000, 626000], [6157000, 6161500])"
+    },
+    {
+      "type": "readers.copc",
+      "filename": "LIDAR/airelles/LHD_FXX_0621_6160_PTS_LAMB93_IGN69.copc.laz",
+      "bounds": "([620000, 626000], [6157000, 6161500])"
+    },
+    {
+      "type": "readers.copc",
+      "filename": "LIDAR/airelles/LHD_FXX_0622_6160_PTS_LAMB93_IGN69.copc.laz",
+      "bounds": "([620000, 626000], [6157000, 6161500])"
+    },
+    {
+      "type": "readers.copc",
+      "filename": "LIDAR/airelles/LHD_FXX_0623_6160_PTS_LAMB93_IGN69.copc.laz",
+      "bounds": "([620000, 626000], [6157000, 6161500])"
+    },
+    {
+      "type": "readers.copc",
+      "filename": "LIDAR/airelles/LHD_FXX_0623_6161_PTS_LAMB93_IGN69.copc.laz",
+      "bounds": "([620000, 626000], [6157000, 6161500])"
+    },
+    {
+      "type": "readers.copc",
+      "filename": "LIDAR/airelles/LHD_FXX_0624_6160_PTS_LAMB93_IGN69.copc.laz",
+      "bounds": "([620000, 626000], [6157000, 6161500])"
+    },
+    {
+      "type": "readers.copc",
+      "filename": "LIDAR/airelles/LHD_FXX_0625_6160_PTS_LAMB93_IGN69.copc.laz",
+      "bounds": "([620000, 626000], [6157000, 6161500])"
+    },
+    {
+      "type": "filters.merge"
+    },
+    {
+      "type": "writers.gdal",
+      "filename": "output_airelles/total_count.tif",
+      "resolution": 1.0,
+      "output_type": "count",
+      "data_type": "float32",
+      "nodata": -1
+    }
+  ]
+}

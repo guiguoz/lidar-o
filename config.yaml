@@ -1,0 +1,89 @@
+crs: EPSG:2154
+scale: 10000                  # 1:10000 par défaut ; accepté : 10000 | 15000
+max_area_km2: 9.0             # Emprise max v1 — rejet bloquant au-delà (une carte CO = 1-5 km²)
+
+vegetation:
+  source: "pdal"                # HAG 0.3–3 m — fixé au spike Phase 1 (2026-06-24)
+  resolution_m: 1.0             # Cap 1 m — sous-métrique inutile à 1:15000 et explose polygonize
+  majority_radius: 3            # Filtre majoritaire post-polygonize dans vegetation.py (pixels)
+  density_metric:
+    mode: ratio                 # "count" = comportement actuel (baseline) | "ratio" = HAG/total (T8)
+  process_hag:
+    gaussian_sigma: 3.0         # Gaussien avant normalisation — valeur de production depuis l'origine
+    median_size: 9              # Médian avant seuillage — valeur de production depuis l'origine
+  sieve_threshold: 50           # en pixels ; = min_area_m2 / resolution_m² — recalculer si résolution change
+  opening_kernel: 3             # Ouverture morphologique (supprime bandes < largeur mini ISOM)
+  active_preset: grimbosq_v0      # seuils actifs — changer pour basculer de preset
+  presets:
+    grimbosq_v0:
+      thresholds: [0.20, 0.45, 0.85]  # T9 2026-07-05 : test 0.20->0.30 → fragmentation accrue, résultat défavorable — revenu à 0.20
+    dense_summer:
+      thresholds: [0.15, 0.40, 0.75]
+    sparse_winter:
+      thresholds: [0.25, 0.55, 0.80]
+
+# CO Generalization Engine
+# Profil actif : "grimbosq_v0" — SEUILS_V0, un seul terrain (Grimbosq, forêt feuillue mature)
+# Changer active_profile pour basculer de profil sans modifier le moteur
+generalization:
+  active_profile: grimbosq_v0
+
+  profiles:
+    grimbosq_v0:
+      # Source mesures : measure_corpus.py sur density_hag_classified.tif, 2026-06-24
+      # Risque biais : résineux / jeunes plantations / coupes → variation possible 10–300 %
+      # À re-calibrer via measure_corpus.py compare <ffco.geojson> quand corpus disponible
+      min_area_m2:
+        406: 100   # T10 2026-07-05 : 50→100 — filtre généralisation petites taches diffuses sous-bois
+        408: 50    # vert moyen  — 30→50 m² (expérience A 2026-06-24 : 56% résiduel < 100 m² après V0)
+        410: 20    # vert foncé  — élimine 13% (médiane=78 m²)
+      min_hole_area_m2: 30    # prudent — au-delà = vraies clairières potentielles
+      fusion_distance_m:
+        406: 8     # 32% des voisins à < 8 m
+        408: 5     # 30% des voisins à < 5 m
+        410: 5     # corpus Airelles : 49% voisins <5m → 8m trop agressive (Test 3 2026-06-27)
+      remove_isolated:       # Test 7 2026-06-27 — valeurs conservatrices initiales
+        enabled: true
+        max_area_m2:
+          406: 60
+          408: 80
+          410: 40
+        search_distance_m:
+          406: 12
+          408: 10
+          410: 8
+      min_corridor_width_m: 5
+      douglas_peucker_tolerance_m: 2.0
+      chaikin_passes: 1
+
+karttapullautin:
+  binary: pullauta
+  version: "2.12.1"                 # Confirmé 2026-06-24 — à épingler dans Dockerfile (KP_VERSION)
+  expected_dxf_layers:              # Confirmés 2026-06-24 via inspect_kp_outputs() sur dalle IGN
+    # out2.dxf — relief principal (à utiliser pour le CRT)
+    - "contour"
+    - "contour_index"
+    - "contour_intermed"
+    - "depression"
+    - "depression_intermed"
+    # fichiers séparés
+    - "cliff2"          # c2g.dxf
+    - "cliff3"          # c3g.dxf
+    - "dotknoll"        # dotknolls.dxf
+    - "udepression"     # dotknolls.dxf
+    - "formline"        # formlines.dxf
+
+bd_topo:
+  use_archives: true          # Préférer archives départementales (téléchargement direct) au WFS
+  wfs_url: "https://data.geopf.fr/wfs"
+  wfs_max_features: 1000      # Limite par page WFS — pagination obligatoire au-delà
+  layers:                     # Confirmés le 2026-06-23 via GetCapabilities data.geopf.fr/wfs
+    - "BDTOPO_V3:troncon_de_route"
+    - "BDTOPO_V3:batiment"
+    - "BDTOPO_V3:troncon_de_voie_ferree"
+    - "BDTOPO_V3:ligne_electrique"
+    - "BDTOPO_V3:troncon_hydrographique"
+    - "BDTOPO_V3:surface_hydrographique"
+    - "BDTOPO_V3:zone_de_vegetation"
+    - "BDTOPO_V3:haie"
+  mnh_layer: "IGNF_MNH-LIDAR-HD:dalle"   # index MNH — utilisé si vegetation.source: "mnh"
