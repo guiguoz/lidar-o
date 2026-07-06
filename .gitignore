@@ -20,6 +20,7 @@ temp/
 # Fichiers OCAD et images
 *.ocd
 *.jgw
+*.pgw
 *.jpg
 *.png
 comparatif.png

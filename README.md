@@ -1,183 +1,200 @@
-# The "Map Machine" ***(Karttapullautin)***
-## What it this?
+# co-vector-fr
 
-The rust-lang source code of the map generator application that go through the alias ***pullauta*** which is available as binary executable for Linux, Mac and Windows (find attachment in each releases).
+Automated pipeline for generating orienteering map vegetation layers from IGN LiDAR HD data (France).
 
-## What is ***pullauta***?
+Converts LAS/LAZ point clouds into ISOM 2017-2 compliant vegetation polygons, ready for import in OpenOrienteering Mapper (OOM) or OCAD.
 
-***pullauta*** is an application designed to generate highly accurate maps out of LiDAR data input files that supports many file formats, namely LAS, LAZ, and XYZ files. It uses advanced algorithms for filtering, classification, and feature extraction, ensuring that users can generate highly accurate maps with ease.
+---
 
-## Download ***pullauta*** 
+## What it does
 
-Download the latest binary for your platform (Linux, Mac or Windows) from https://github.com/karttapullautin/karttapullautin/releases/latest and extract the files where you want to use them.
+Standard LiDAR tools (Karttapullautin, OmapMaker) produce vegetation as a raster image. **co-vector-fr produces clean vector polygons** with geometric generalization calibrated for orienteering cartography at 1:10,000.
 
-## Compiling ***pullauta*** from source code
-
-1) You need first to install the rust toolchain.
-
- - See https://rustup.rs  
-
-2) Then download the latest code at https://github.com/karttapullautin/karttapullautin/releases/latest
-
-3) Finally compile it
-   
-    ```
-   cargo build --release
-    ```
-
-    For maximum performance, it is recommended to compile targeting the native cpu by specifying the `target-cpu` flag. This makes sure that any instruction set extensions such as SIMD and FMA are used. This includes if your processor supports AVX, AVX2 and AVX512 (and NEON on ARM targets) as 
-the default release binaries are compiled without these enabled to be as portable as possible. If you have a relatively recent CPU (eg. Intel `skylake` or later) you should instead compile like this:
-    
-    ```
-    RUSTFLAGS="-C target-cpu=native" cargo build --release
-    ```
-
-4) The ***pullauta*** binary will be accessible in the `target/release/` directory. You can proceed and copy it to your desired directory.
-
-
-### Converting a LiDAR file
-
-***pullauta*** accepts .LAS, .LAZ or .XYZ file with classification (xyzc).
-
-You can run the `pullauta` executable with the path to your file as argument:  
-    
-    ./pullauta L3323H3.laz
-
-> Note: By defaut messages with the log level _info_ will be printed to the console. To show more information (eg. timings of each operation),
-> set the `RUST_LOG` environment variable to `debug` or specify it on the command line like so:
-> ```bash
-> RUST_LOG=debug ./pullauta [..]
-> ```
-> Other log level available is `warn`, in which no info of current run will be displayed, `error`, which will only show errors, and `trace` which will output a lot of log messages about small details during the processing.
-
-As output Karttapullautin writes two 600 dpi png map images. One without depressions and one with purple depressions. It also writes contours and cliffs as dxf files to temp folder to be post processed, for example using Open Orienteering Mapper or OCAD.
-
-You can re-render png map files (like with changed north line settings) by running the binary without arguments.  
-    
-    ./pullauta
-
-Karttapullautin can also render zip files containing shape files downloaded from differents sources. After normal process just run the binary with the zip(s) as arguments. You must define your configuration file describing the shape file content, in the ini file, parameter `vectorconf` (see osm.txt and fastighetskartan.txt).
-
-    ./pullauta yourzipfile1.zip yourzipfile2.zip yourzipfile3.zip yourzipfile4.zip
-
-For Finns: Karttapullautin render Maastotietokanta zip files (shape files) downloaded from the download site of Maanmittauslaitos without setting a configuration file. Just leave `vectorconf` parameter empty.
-
-To print a map at right scale, you download for example IrfanView http://www.irfanview.com/ open png map, Image -> Information, set resolution 600 x 600 DPI and push "change" button and save.  Then crop map if needed (Select area with mouse and Edit -> crop selection). Print using "Print size: Original Size srom DPI". Like this your map should end up 1:10000 scale on paper.
-
-#### Creating shape file from OSM file
-
-You can download OSM files from Open Street Map website https://www.openstreetmap.org/export in a form of a .osm file extension. To convert this file in something that can be used by karttapullautin you'll need the GDAL ogr2ogr program (Download from https://gdal.org/en/latest/download.html)
-
-Run the following commands in your terminal
 ```
-ogr2ogr --config OSM_USE_CUSTOM_INDEXING NO -skipfailures -f "ESRI Shapefile" output_shapes map.osm -overwrite -t_srs EPSG:3067
-zip -r -j map.shp.zip output_shapes/*
+IGN LiDAR HD (COPC)
+        │
+        ▼
+PDAL — HAG density ratio (0.3–3 m above ground / total returns)
+        │
+        ▼
+classification raster  →  [406] slow run  [408] walk  [410] fight
+        │
+        ▼
+CO Generalization Engine (7 stages)
+  dissolve → remove holes → filter small → merge proximate
+  → remove isolated → Douglas-Peucker → Chaikin smooth
+        │
+        ▼
+veg_406.geojson  veg_408.geojson  veg_410.geojson
+        │
+        ▼
+OOM import (ISOM 2017-2)
 ```
 
-Replace `EPSG:3067` by the coordinates ESPG codename of that the LAZ file uses.
+**Key design choices:**
+- **Ratio metric** — normalizes HAG density by total return count, removing scan angle and flight line artifacts
+- **Per-class independent polygons** — no topological nesting constraint (unlike isoline-based approaches); a 410 patch can touch open terrain directly
+- **Fully parameterized** — all thresholds in `config.yaml`, nothing hardcoded
 
-You will have a zip file `map.shp.zip` that you can use with karttapullautin.
+---
 
-#### Converting the internal XYZ format
+## Status
 
-Previously, Karttapullautin used regular text-based `.xyz` files to store the temporary files which could be opened and visualized by many external tools. But with the introduction of an internal (non-stable) binary format for increased performance and reduced disk usage, there is now a new command that can do the conversion into the previous format for you. This will, for example, convert the `xyztemp.xyz.bin` file into a regular `xyztemp.xyz` file (with one line per point) which can be opened by external tools:
+| Component | Status |
+|-----------|--------|
+| HAG density ratio (vegetation source) | Calibrated |
+| CO Generalization Engine | `v1_vegetation_baseline` — frozen |
+| Multi-terrain validation | In progress (4 terrains tested) |
+| Full pipeline (fetch → export OOM) | Under development |
+
+Calibration terrain: Grimbosq (Normandy, mature deciduous), Les Airelles (Font-Romeu, Pyrenees mountain conifers).
+
+---
+
+## Requirements
+
+- Python 3.11+, conda environment
+- PDAL (point cloud processing)
+- GeoPandas, rasterio, Shapely ≥ 2.1
+- Karttapullautin v2.12.1 (relief generation, included in `build/`)
+- IGN LiDAR HD data — COPC format, France
+
+```bash
+conda install -c conda-forge geopandas rasterio shapely pdal
+pip install pyyaml
 ```
-./pullauta internal2xyz temp/xyztemp.xyz.bin temp/xyztemp.xyz
+
+---
+
+## Usage
+
+### Run on a new terrain
+
+```bash
+python scripts/run_terrain.py --name grimbosq --tiles LIDAR/*.copc.laz
 ```
-> Note: this also works for the binary `.hmap` files.
 
-#### Converting the internal binary geometry format to DXF
+Output in `output_<name>/`:
 
-Similar as the XYZ files mentioned above, Karttapullautin previously used regular text-based `.dxf` files to store the temporary geometry which could be opened and visualized by many external tools. But with the introduction of an internal (non-stable) binary format for increased performance and reduced disk usage, there is now a new command that can do the conversion into `DXF` for you. Example usage:
+| File | Content |
+|------|---------|
+| `density_hag.tif` | Raw HAG density raster |
+| `total_count.tif` | Total return count raster |
+| `density_hag_classified.tif` | 3-class raster (406 / 408 / 410) |
+| `veg_406.geojson` | Generalized slow-run polygons |
+| `veg_408.geojson` | Generalized walk polygons |
+| `veg_410.geojson` | Generalized fight polygons |
+| `vegetation_final.gpkg` | All classes, GeoPackage |
+
+### Import in OpenOrienteering Mapper
+
+1. Open your `.omap` file
+2. File → Import → `veg_406.geojson` → assign symbol 406
+3. Repeat for 408 and 410
+
+### Configuration
+
+Edit `config.yaml`. Active preset: `grimbosq_v0`.
+
+```yaml
+vegetation:
+  density_metric:
+    mode: ratio           # HAG / total_count (recommended)
+  active_preset: grimbosq_v0
+
+generalization:
+  active_profile: grimbosq_v0
 ```
-./pullauta bin2dxf temp/c2g.dxf.bin temp/c2g.dxf
+
+Switch terrain profile without touching the engine:
+
+```yaml
+generalization:
+  active_profile: dense_summer   # or sparse_winter
 ```
 
-There is also a configuration option `output_dxf` which when set to `1` will output regular `.dxf` files next to the binary files at the expense of higher disk usage and performance.
+### Measure against a reference map
 
-### Fine tuning the output
+```bash
+python scripts/measure_corpus.py compare \
+  --hag output_grimbosq/density_hag_classified.tif \
+  --ffco reference.gpkg
+```
 
-`pullauta` creates a `pullauta.ini` file if it doesn't already exists. Your settings are there. For the second run you can change settings as you wish. Experiment with small file to find best settings for your taste/terrain/lidar data.
+---
 
-For Ini file configuration explanation, see ini file comments.
+## Architecture
 
-### Re-processing steps again
+```
+scripts/
+  run_terrain.py        orchestrator — PDAL → classify → generalize → export
+  process_hag.py        HAG raster normalization and classification
+  measure_corpus.py     compare against FFCO reference maps (3 modes)
+  phase0_recon.py       reconnaissance — WFS capabilities, KP outputs, endpoints
 
-When the process is done and you find there is too much green or too small cliffs, you can make parts of the process again with different parameters without having to do it all again. To re-generate only vegetation type from command line:
+src/
+  vegetation.py         CO Generalization Engine (7-stage pipeline)
+  crt_mapping.py        DXF / BD TOPO → ISOM symbol mapping
+  fetch.py              LiDAR HD + BD TOPO download (IGN Géoplateforme)
+  run_engine.py         Karttapullautin + PDAL orchestration
+  assemble.py           multi-tile merge
+  export_oom.py         OOM packaging (GPKG + CRT)
+  qa.py                 QA report + PNG diff
 
-    ./pullauta makevege
-    ./pullauta 
+config.yaml             all parameters — thresholds, profiles, endpoints
+symbols_isom.yaml       ISOM 2017-2 symbol table + BD TOPO mapping
+```
 
-To make cliffs again:
+---
 
-    ./pullauta makecliffs xyztemp.xyz 1.0 1.15
-    ./pullauta
+## Data sources
 
-### Vectors
+- **LiDAR HD** — [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd), COPC format, France only
+- **BD TOPO v3** — [data.geopf.fr/wfs](https://data.geopf.fr/wfs), typenames confirmed 2026-06-23
+- Point cloud processing: [PDAL](https://pdal.io/)
+- Relief generation: [Karttapullautin](https://github.com/karttapullautin/karttapullautin) v2.12.1
 
-In additon to the png raster map imges, Karttapullautin makes also vector contours and cliffs and also some raster vector files one might find intresting for mapping use. After the process you can find them in temp folder.
+Data is not included in this repository.
 
-- `out2.dxf`: final contours with 2.5 m interval
-- `dotknolls.dxf`: dot knolls and small U -depressions. Some are not rendered to png files for legibility reasons.
-- `c1g.dxf`: small cliffs
-- `c2g.dxf`: big cliffs
-- `vegetation.png + vegetation.pgw`: generalized green/yellow as raster, same as at the background of final map png files.
+---
 
-For importing Maastotietokanta, try reading shape filed directly to your mapping app. Note that the `dxf` files need to be converted from the internal `.bin.dxf` format using the command `bin2dxf` as mentioned above.
+## Validation methodology
 
-### Batch processing
+Parameters were derived experimentally over 10 calibration iterations (T1–T10) on two independent reference terrains, with simultaneous validation from T5 onward to prevent terrain-specific overfitting.
 
-Karttapulautin can also batch process all las/las files + Maastotietokanta zips in a directory. To do it, turn batch processing on in ini file. configure your input file directory and output directory for map tiles. Copy your input files to input directory and run `./pullauta`. It starts processing las/laz files one by one until everything is done. If you have several cores 
-in your CPU, you can make use of all of them to process multiple file at once. you can configure it with `processes` parameter in ini file. Note, processes parameter effects only batch mode, in normal mode it uses just one worker process. You will also need lots of RAM to process simultaneously several large laser files. To re-process tiles in bach mode you need to remove previous png files from output folder.
+Each test measured polygon count, class area, and visual match against FFCO reference maps before freezing any parameter. The `measure_corpus.py` script reproduces all measurements.
 
-You can merge png files in output folder with Karttapullautin.
+Current known limits:
+- Open deciduous forests may produce more polygons than their cartographic representation (documented, cause under investigation)
+- Road-side vegetation (branches, hedgerows) not yet masked — BD TOPO road mask planned
 
-Without the depressions
+---
 
-    ./pullauta pngmerge 1
+## License
 
-and depression versions
+**GNU Affero General Public License v3.0** — see [LICENSE](LICENSE).
 
-    ./pullauta pngmergedepr 1
+This means:
+- Free to use, study, modify, and distribute
+- Any derivative work — including running this as a network service — must be released under AGPL v3 with source code available
+- Commercial use is permitted **only** if source modifications are shared back under AGPL v3
 
-vegetation backround images (if saved, there is parameter for saving there)
+---
 
-    ./pullauta pngmergevege
+## Citation
 
+If you use this pipeline in research or map production:
 
-The last paramameter (number) is scale factor. 2 reduces size to 50%, 4 to 25%, 20 to 5% and so on. Command writes out jpg and png versions. 
-Note, you easily run out of memory if you try merging together too large area with too high resolution.
+```
+co-vector-fr — Automated orienteering map vegetation pipeline from IGN LiDAR HD
+Guillaume Lemichez, 2026
+https://github.com/[username]/co-vector-fr
+```
 
-You can also merge dxf files (if saved, there is parameter for saving there)
+---
 
-    ./pullauta dxfmerge
+## Related
 
-### Note:
-
-Some commands from the original perl karttapullatin that are either obsolete or not necessary for the map generation are not supported by this new rust version:  
-
-They are:
-  - `cliffgeneralize`
-  - `ground`
-  - `ground2`
-  - `groundfix`
-  - `makecliffsold`
-  - `makeheight`
-  - `vege`
-  - `profile`
-  - `xyzfixer`
-
-If you need to run one of those, you must use the original perl script https://www.routegadget.net/karttapullautin/ or https://github.com/linville/kartta-pack for mac and linux
-
-## Development
-
-Make your changes, then youd run:
-
-    cargo build --release
-
-The new binary will be accessible in the `target/release/` directory
-
-## Contributors
-
-@jagge @rphlo @antbern
-
+- [Karttapullautin](https://github.com/karttapullautin/karttapullautin) — relief generation from LiDAR
+- [Blaze](https://github.com/trailblaze-software/blaze) — LiDAR mapping tool (C++), independent project with similar vegetation approach
+- [OpenOrienteering Mapper](https://www.openorienteering.org/) — OOM, open-source orienteering map editor

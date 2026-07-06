@@ -1,0 +1,17 @@
+services:
+  covector:
+    build: .
+    volumes:
+      - ./data:/app/data        # Dalles LIDAR, BD TOPO en entrée
+      - ./output:/app/output    # Résultats en sortie
+      - ./assets:/app/assets    # CRT + jeu ISOM
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python3 -m src.main
+
+  test:
+    build: .
+    volumes:
+      - .:/app
+    command: pytest tests/ -v --tb=short
+    profiles: [test]

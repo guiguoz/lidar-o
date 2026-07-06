@@ -46,6 +46,10 @@ if MODE == "ratio":
         total_nodata = ds_t.nodata
     if total_nodata is not None:
         total[total == total_nodata] = 0.0
+    # Aligne les shapes si PDAL a produit des tailles légèrement différentes
+    r = min(arr.shape[0], total.shape[0])
+    c = min(arr.shape[1], total.shape[1])
+    arr, total, mask = arr[:r, :c], total[:r, :c], mask[:r, :c]
     with np.errstate(invalid="ignore", divide="ignore"):
         arr = np.where((total > 0) & ~mask, arr / total, 0.0)
     arr = np.clip(arr, 0, 1)
