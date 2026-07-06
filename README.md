@@ -187,8 +187,8 @@ If you use this pipeline in research or map production:
 
 ```
 co-vector-fr — Automated orienteering map vegetation pipeline from IGN LiDAR HD
-Guillaume Lemichez, 2026
-https://github.com/[username]/co-vector-fr
+Guillaume Lemiègre, 2026
+https://github.com/guiguoz/Ovector
 ```
 
 ---
