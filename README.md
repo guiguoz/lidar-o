@@ -196,5 +196,4 @@ https://github.com/guiguoz/Ovector
 ## Related
 
 - [Karttapullautin](https://github.com/karttapullautin/karttapullautin) — relief generation from LiDAR
-- [Blaze](https://github.com/trailblaze-software/blaze) — LiDAR mapping tool (C++), independent project with similar vegetation approach
 - [OpenOrienteering Mapper](https://www.openorienteering.org/) — OOM, open-source orienteering map editor
