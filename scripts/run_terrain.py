@@ -303,13 +303,36 @@ def main() -> None:
     log.info("process_hag.py → lancer manuellement si besoin :")
     log.info("  py -3.14 scripts/process_hag.py --src %s", hag_tif)
 
-    if not pathlib.Path(classified_tif).exists():
-        log.warning("density_hag_classified.tif absent — lancer process_hag.py d'abord (py -3.14)")
-        log.warning(
-            "Puis relancer : python scripts/run_terrain.py --name %s --tiles ... --skip-pdal",
-            args.name,
+    classified_path = pathlib.Path(classified_tif)
+    if not classified_path.exists():
+        log.error(
+            "ARRÊT : density_hag_classified.tif absent — lancer process_hag.py :\n"
+            "  py -3.14 scripts/process_hag.py --src %s\n"
+            "  Puis relancer avec --skip-pdal.",
+            hag_tif,
         )
         sys.exit(1)
+
+    # Garde-fou fraîcheur : classified doit être plus récent que density_hag.tif.
+    # Indépendant de --skip-pdal : un classified périmé produit des chiffres plausibles
+    # mais faux (cf. Airelles 16 tuiles → résultats calculés sur artefact 14 tuiles).
+    hag_path = pathlib.Path(hag_tif)
+    if hag_path.exists():
+        hag_mtime = hag_path.stat().st_mtime
+        cls_mtime = classified_path.stat().st_mtime
+        if cls_mtime < hag_mtime:
+            fmt = datetime.datetime.fromtimestamp
+            log.error(
+                "ARRÊT — GARDE-FOU FRAÎCHEUR : density_hag_classified.tif (%s)"
+                " est antérieur à density_hag.tif (%s).\n"
+                "  Artefact périmé détecté — lancer process_hag.py pour régénérer :\n"
+                "  py -3.14 scripts/process_hag.py --src %s\n"
+                "  Puis relancer avec --skip-pdal.",
+                fmt(cls_mtime).strftime("%Y-%m-%dT%H:%M:%S"),
+                fmt(hag_mtime).strftime("%Y-%m-%dT%H:%M:%S"),
+                hag_tif,
+            )
+            sys.exit(1)
 
     # ── 3. Pipeline généralisation ────────────────────────────────────────────
     log.info("Pipeline généralisation ...")
