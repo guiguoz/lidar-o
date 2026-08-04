@@ -6,11 +6,100 @@ vegetation:
   source: "pdal"                # HAG 0.3–3 m — fixé au spike Phase 1 (2026-06-24)
   resolution_m: 1.0             # Cap 1 m — sous-métrique inutile à 1:15000 et explose polygonize
   majority_radius: 3            # Filtre majoritaire post-polygonize dans vegetation.py (pixels)
+
+  # ── Étape A (Phase 1) : résolution grille HAG ─────────────────────────────
+  # Changer uniquement cette valeur pour l'expérience A (1 → 2 → 3 m).
+  # Les rayons de lissage restent exprimés en mètres physiques ; process_hag.py
+  # les convertit automatiquement en pixels selon la résolution effective.
+  # Valeur identique à resolution_m au départ.
+  grid_resolution_m: 1.0        # Résolution de la grille HAG (m) — 1 | 2 | 3
+
+  # ── Étape B (Phase 1) : métrique de densité ───────────────────────────────
+  # PROTOCOLE FACTORIEL 2×2 résolution × métrique (PLAN §Phase1 avertissement) :
+  # Risque : le NRD à 1 m peut paraître mauvais faute de points (taux NoData élevé),
+  # pas parce que la formule est mauvaise — variable confondue à isoler.
+  #
+  # Mapping des 4 runs (RES = résolution retenue par l'Étape A) :
+  #
+  #   B0  grid_resolution_m: 1.0  mode: ratio   ← témoin absolu (déjà fait en Étape A)
+  #   B1  grid_resolution_m: 1.0  mode: nrd     ← NRD à 1 m  (risque NoData selon D2)
+  #   B2  grid_resolution_m: RES  mode: ratio   ← résolution retenue, témoin métrique
+  #   B3  grid_resolution_m: RES  mode: nrd     ← NRD à résolution retenue (run principal)
+  #
+  # ⚠ DIVERGENCE POSSIBLE résolution optimale ratio ≠ résolution viable NRD :
+  # D2 montre que ratio et NRD peuvent avoir des résolutions optimales différentes.
+  # Si le ratio est meilleur à 2 m (moins de perte de détail) mais que le NRD
+  # n'est fiable qu'à 4 m (34 % < n_min à 4 m sur Grimbosq), le protocole
+  # B0–B3 avec une seule RES désavantage structurellement le NRD.
+  #
+  # Deux options, à choisir AVANT de lancer B1–B3 :
+  #
+  # Option A — "Toutes choses égales par ailleurs" (question causale pure) :
+  #   Retenir RES_ratio (meilleur IoU_406 ratio, ex. 2 m) ET RES_nrd (résolution
+  #   où taux < n_min reste acceptable, ex. 4 m). Lire δ_R à chacune :
+  #     δ_R(ratio_opt) = IoU_406(NRD@2m) − IoU_406(ratio@2m)
+  #     δ_R(nrd_opt)   = IoU_406(NRD@4m) − IoU_406(ratio@4m)
+  #   Répond à : "la formule NRD aide-t-elle à résolution égale ?"
+  #
+  # Option B — "Meilleure combinaison en pratique" (question opérationnelle) :
+  #   Comparer directement le meilleur ratio (ratio@RES_ratio) contre le meilleur
+  #   NRD (nrd@RES_nrd), sans contrainte de résolution égale.
+  #   Répond à : "quelle combinaison métrique+résolution donne le meilleur 406 ?"
+  #   C'est la vraie question du projet si on cherche le meilleur pipeline, pas
+  #   à tester isolément la formule NRD.
+  #
+  # Les deux questions sont légitimes — les réponses peuvent diverger.
+  # Documenter explicitement laquelle on répond dans le rapport de l'Étape B.
+  #
+  # Règle de lecture commune (δ portent sur IoU_406 UNIQUEMENT) :
+  #   H1 validée si δ_R > 0 à RES_nrd.
+  #   Vérifier séparément IoU_408 et IoU_410 comme garde-fous (pas inclus dans δ).
+  #   NE PAS comparer B3 vs B1 : mélange effet résolution + effet métrique.
+  #
+  # Runs réellement nouveaux : seulement B1 et B3 (+ éventuellement B3 à RES_nrd
+  # si RES_nrd ≠ RES_ratio). B0 et B2 déjà produits par l'Étape A.
   density_metric:
-    mode: ratio                 # "count" = comportement actuel (baseline) | "ratio" = HAG/total (T8)
+    mode: ratio                 # "count" (baseline) | "ratio" HAG/total (T8) | "nrd" (Étape B)
+    n_min: 8                    # NRD : nb min impulsions pénétrantes par cellule (sous n_min → NoData)
+                                # IMPORTANT : n_min est un paramètre arbitraire, pas une constante physique.
+                                # D2 montre 73 % des cellules sous n_min=8 à 1 m (Grimbosq).
+                                # Le seuil s'applique aux impulsions pénétrantes (bande + sol),
+                                # pas au total — avec médiane_HAG=1, n_min=8 est élevé relativement
+                                # au signal disponible, pas "confortable".
+                                # Tester la sensibilité (n_min: 4, 8, 16) via --n-min dans
+                                # diag_point_density.py avant de fixer cette valeur.
+                                # Alternative plus propre (pour plus tard) : remplacer le seuil dur
+                                # par un lissage gaussien pondéré par confiance — les cellules à faible
+                                # comptage contribuent moins, sans binarisation NoData puis fill.
+                                # Voir compute_nrd docstring dans src/metrics.py.
+    nrd_fill_radius: 2          # NRD : rayon (cellules) pour combler les NoData par voisinage
+                                # Avec 73 % de NoData à 1 m, le fill domine le signal : l'échelle
+                                # réelle de NRD@1m est ~5 m (rayon fill), pas 1 m. δ₁ mesure alors
+                                # "fill NRD vs fill ratio" plutôt que "formule NRD vs formule ratio".
+    # ── Étape D (Phase 1) : séparation bandes low / mid ─────────────────────
+    band_split: false           # true = NRD séparé 406←nrd_low / 408-410←nrd_mid (après A+B+C)
+    low_height_m: 1.3           # Séparation basse/haute si band_split (m)
+
+  # ── Hauteurs HAG — paramètres PDAL (runes de flight-line) ─────────────────
+  heights:
+    min_m: 0.3                  # Borne basse bande principale (sous-sol écarté)
+    band_max_m: 3.0             # Borne haute bande principale (density_hag.tif)
+    mid_max_m: 4.0              # Borne haute bande mid si band_split (count_band_mid.tif)
+
+  # ── Étape C (Phase 1) : normalisation ─────────────────────────────────────
+  # Protocole T11/T12 : tester fixed_percentile puis none, comparer au témoin p95_local.
+  normalization:
+    mode: p95_local             # "p95_local" (défaut) | "fixed_percentile" | "none"
+    fixed_value: null           # Percentile fixe si mode=fixed_percentile
+                                # (mesurer une fois sur corpus de calibration, geler ici)
+
   process_hag:
-    gaussian_sigma: 3.0         # Gaussien avant normalisation — valeur de production depuis l'origine
-    median_size: 9              # Médian avant seuillage — valeur de production depuis l'origine
+    gaussian_sigma: 1.0   # 2026-08-04 : 3.0→1.0. σ=3 m sur grille 1 m comblait les creux
+                          # entre taches voisines → vallée de densité continue → nappe unique
+                          # de 75 ha (51% du 406) présente dans le raster AVANT toute fusion.
+                          # σ=1.0 : max%406 passe de 51.3% à 7.2% (cible FFCO 5.4%),
+                          # coverage 24.4%→16.6% (cible 15.0%). Ne pas remonter sans re-mesurer.
+    median_size: 9              # Médian avant seuillage — distance physique en mètres
   sieve_threshold: 50           # en pixels ; = min_area_m2 / resolution_m² — recalculer si résolution change
   opening_kernel: 3             # Ouverture morphologique (supprime bandes < largeur mini ISOM)
   active_preset: grimbosq_v0      # seuils actifs — changer pour basculer de preset

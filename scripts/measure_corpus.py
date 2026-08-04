@@ -57,15 +57,24 @@ _OOM_VEGE_NAMES: dict[str, str] = {
     "Terrain boisé, course ralentie": "406",
     "Végétation - course ralentie": "406",
     "Vegetation: slow running": "406",
+    # 406 — ISOM 2017 (virgule, export OOM — noms tronqués à 32 cars par le champ GPKG)
+    "Végétation, course lente": "406",
+    "Végétation, course lente, bonne": "406",   # "...bonne visibilité" tronqué
     # 408
     "Végétation : marche": "408",
     "Forêt - course difficile": "408",
     "Végétation - course difficile": "408",
     "Vegetation: walk": "408",
+    # 408 — ISOM 2017
+    "Végétation, marche": "408",
+    "Végétation, marche, bonne visibi": "408",  # "...bonne visibilité" tronqué
+    "Végétation, marche dans une dire": "408",  # "...une direction" tronqué
     # 410
     "Végétation : combat": "410",
     "Végétation impénétrable": "410",
     "Vegetation: fight": "410",
+    # 410 — ISOM 2017
+    "Végétation, progression difficil": "410",  # "...difficile" tronqué
 }
 
 
@@ -517,14 +526,129 @@ def cmd_hag(args: argparse.Namespace) -> None:
     save_histograms(gdf, "class", out_dir, "hag")
 
 
+def compute_comparison_metrics(
+    gdf_ref: gpd.GeoDataFrame,
+    ref_col: str,
+    gdf_pred: gpd.GeoDataFrame,
+    classes: list[int] | None = None,
+) -> dict[str, Any]:
+    """Calcule IoU par classe, écart de surface et ratio de polygones.
+
+    Les deux GDFs sont d'abord clippées à leur emprise commune pour que
+    l'IoU soit calculée sur la même zone géographique.
+
+    Args:
+        gdf_ref:  GeoDataFrame de référence (carte FFCO).
+        ref_col:  Nom de la colonne classe dans gdf_ref.
+        gdf_pred: GeoDataFrame prédite (sortie pipeline).
+        classes:  Classes à évaluer. Défaut : [406, 408, 410].
+
+    Returns:
+        Dict {str(cls): {iou, surface_diff_pct, count_ref, count_pred, count_ratio,
+                         area_ref_m2, area_pred_m2}}
+    """
+    if classes is None:
+        classes = [406, 408, 410]
+
+    from shapely.geometry import box as _box
+
+    ref_bounds = gdf_ref.total_bounds   # [minx, miny, maxx, maxy]
+    pred_bounds = gdf_pred.total_bounds
+
+    common_minx = max(ref_bounds[0], pred_bounds[0])
+    common_miny = max(ref_bounds[1], pred_bounds[1])
+    common_maxx = min(ref_bounds[2], pred_bounds[2])
+    common_maxy = min(ref_bounds[3], pred_bounds[3])
+
+    if common_minx >= common_maxx or common_miny >= common_maxy:
+        print("[AVERT] Aucun recouvrement géographique entre FFCO et raster HAG — IoU non calculable.",
+              file=sys.stderr)
+        return {}
+
+    roi = _box(common_minx, common_miny, common_maxx, common_maxy)
+    # buffer(0) corrige les géométries invalides (auto-intersections, TopologyException)
+    gdf_ref_valid = gdf_ref.copy()
+    gdf_ref_valid.geometry = gdf_ref_valid.geometry.buffer(0)
+    gdf_pred_valid = gdf_pred.copy()
+    gdf_pred_valid.geometry = gdf_pred_valid.geometry.buffer(0)
+    gdf_ref_c = gdf_ref_valid.clip(roi)
+    gdf_pred_c = gdf_pred_valid.clip(roi)
+
+    results: dict[str, Any] = {}
+    for cls in classes:
+        cls_str = str(cls)
+        ref_sub = gdf_ref_c[gdf_ref_c[ref_col].astype(str) == cls_str]
+        pred_sub = gdf_pred_c[gdf_pred_c["class"].astype(str) == cls_str]
+
+        area_ref = float(ref_sub.geometry.area.sum())
+        area_pred = float(pred_sub.geometry.area.sum())
+        n_ref = len(ref_sub)
+        n_pred = len(pred_sub)
+
+        # IoU spatial (union des polygones de chaque côté)
+        if area_ref == 0.0 and area_pred == 0.0:
+            iou = 1.0
+        elif area_ref == 0.0 or area_pred == 0.0:
+            iou = 0.0
+        else:
+            try:
+                from shapely.ops import unary_union as _union
+                ref_union = _union(ref_sub.geometry.values)
+                pred_union = _union(pred_sub.geometry.values)
+                intersection = ref_union.intersection(pred_union)
+                union = ref_union.union(pred_union)
+                iou = intersection.area / union.area if union.area > 0 else 0.0
+            except Exception as exc:
+                print(f"[AVERT] IoU classe {cls} : {exc}", file=sys.stderr)
+                iou = float("nan")
+
+        surface_diff_pct = (
+            (area_pred - area_ref) / area_ref * 100.0 if area_ref > 0 else float("inf")
+        )
+        count_ratio = n_pred / n_ref if n_ref > 0 else float("inf")
+
+        results[cls_str] = {
+            "iou":              round(iou, 4),
+            "surface_diff_pct": round(surface_diff_pct, 1),
+            "count_ref":        n_ref,
+            "count_pred":       n_pred,
+            "count_ratio":      round(count_ratio, 3),
+            "area_ref_m2":      round(area_ref, 0),
+            "area_pred_m2":     round(area_pred, 0),
+        }
+
+    return results
+
+
+def print_comparison(metrics: dict[str, Any]) -> None:
+    print(f"\n{'='*60}")
+    print(" COMPARAISON FFCO ↔ PIPELINE (emprise commune)")
+    print(f"{'='*60}")
+    for cls, m in metrics.items():
+        iou = m.get("iou", float("nan"))
+        sdiff = m.get("surface_diff_pct", float("nan"))
+        cratio = m.get("count_ratio", float("nan"))
+        n_ref = m.get("count_ref", "?")
+        n_pred = m.get("count_pred", "?")
+        print(f" Classe {cls}")
+        print(f"   IoU             : {iou:.3f}")
+        print(f"   Surface diff    : {sdiff:+.1f}%  "
+              f"({m.get('area_ref_m2',0):.0f} m² → {m.get('area_pred_m2',0):.0f} m²)")
+        print(f"   Ratio polygones : {cratio:.3f}  ({n_ref} réf → {n_pred} préd)")
+        print()
+
+
 def cmd_compare(args: argparse.Namespace) -> None:
     out_dir = Path(args.out_dir)
 
     gdf_ffco = load_ffco(args.fichier, args.class_col)
+    # load_ffco crée toujours une colonne "class" pour les GPKG OOM
+    ffco_col = "class" if args.fichier.lower().endswith(".gpkg") else args.class_col
+
     rep_ffco: dict[str, Any] = {
         "source": "ffco",
         "file": str(args.fichier),
-        **analyze_gdf(gdf_ffco, args.class_col),
+        **analyze_gdf(gdf_ffco, ffco_col),
     }
     save_json(rep_ffco, out_dir, "ffco_stats")
 
@@ -539,11 +663,29 @@ def cmd_compare(args: argparse.Namespace) -> None:
     print_summary(rep_ffco, "FFCO (carte réelle)")
     print_summary(rep_hag, "HAG (sortie pipeline)")
 
-    gdf_ffco_r = gdf_ffco.rename(columns={args.class_col: "_class"})
+    gdf_ffco_r = gdf_ffco.rename(columns={ffco_col: "_class"})
     save_histograms(gdf_ffco_r, "_class", out_dir, "ffco")
     save_histograms(gdf_hag, "class", out_dir, "hag")
 
-    print(f"[COMPARE] Rapports -> {out_dir}/ffco_stats.json et hag_stats.json")
+    # ── Métriques de comparaison (Phase 1 — PLAN_vegetation_406.md) ──────────
+    comparison = compute_comparison_metrics(gdf_ffco, ffco_col, gdf_hag)
+    print_comparison(comparison)
+    rep_comparison: dict[str, Any] = {
+        "source": "comparison",
+        "ref_file": str(args.fichier),
+        "pred_file": str(args.raster),
+        "classes": comparison,
+    }
+    # Injecter les métadonnées du run PDAL si disponibles (traçabilité tuiles)
+    meta_path = Path(args.raster).parent / "run_metadata.json"
+    if meta_path.exists():
+        run_meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        rep_comparison["tiles_count"] = run_meta.get("tiles_count")
+        rep_comparison["tile_ids"] = run_meta.get("tile_ids")
+        rep_comparison["run_date"] = run_meta.get("run_date")
+    save_json(rep_comparison, out_dir, "comparison_stats")
+
+    print(f"[COMPARE] Rapports -> {out_dir}/ffco_stats.json, hag_stats.json, comparison_stats.json")
 
 
 # --------------------------------------------------------------------------- #

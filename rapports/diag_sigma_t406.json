@@ -1,0 +1,56 @@
+{
+  "ffco_targets": {
+    "coverage_pct": 15.0,
+    "max_pct_406": 5.4,
+    "source": "rapports/ffco_clip_stats.json"
+  },
+  "runs": {
+    "Baseline": {
+      "count": 728,
+      "total_ha": 146.65833125,
+      "coverage_pct": 24.42270295587011,
+      "max_ha": 75.17885,
+      "max_pct_406": 51.261220115648904,
+      "sigma_m": 3.0,
+      "t406": 0.2,
+      "delta_coverage_pct": 9.422702955870111,
+      "delta_max_pct": 45.861220115648905
+    },
+    "Run A": {
+      "count": 1264,
+      "total_ha": 99.603690625,
+      "coverage_pct": 16.586792776852622,
+      "max_ha": 7.19634375,
+      "max_pct_406": 7.224977011237128,
+      "sigma_m": 1.0,
+      "t406": 0.2,
+      "delta_coverage_pct": 1.5867927768526222,
+      "delta_max_pct": 1.8249770112371273
+    },
+    "Run B": {
+      "count": 953,
+      "total_ha": 28.049621875,
+      "coverage_pct": 4.6710444421315565,
+      "max_ha": 0.363315625,
+      "max_pct_406": 1.295260330492423,
+      "sigma_m": 3.0,
+      "t406": 0.35,
+      "delta_coverage_pct": -10.328955557868444,
+      "delta_max_pct": -4.104739669507577
+    },
+    "Run C": {
+      "count": 437,
+      "total_ha": 7.8345125,
+      "coverage_pct": 1.3046648626144879,
+      "max_ha": 0.20894375,
+      "max_pct_406": 2.666965557844218,
+      "sigma_m": 1.0,
+      "t406": 0.35,
+      "delta_coverage_pct": -13.695335137385513,
+      "delta_max_pct": -2.733034442155782
+    }
+  },
+  "conclusions": [
+    "σ ET t406 contribuent indépendamment"
+  ]
+}
