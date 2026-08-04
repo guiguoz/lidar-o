@@ -1,0 +1,23 @@
+{
+  "preset": "sparse_winter",
+  "t406": 0.25,
+  "t408": 0.55,
+  "t410": 0.8,
+  "sigma_m": 1.0,
+  "bbox_ha": 2501.0001,
+  "pipeline_fd0": {
+    "count": 3824,
+    "total_ha": 280.793603125,
+    "coverage_pct": 11.227252774799968,
+    "max_pct_406": 5.620854543817344
+  },
+  "ffco_airelles": {
+    "coverage_pct": 1.7,
+    "max_pct_406": 6.6
+  },
+  "prev_grimbosq_v0": {
+    "coverage_pct": 12.2,
+    "max_pct_406": 3.4
+  },
+  "verdict": "Seuil insuffisant (coverage=11.2%, >4%) → hypothèse sémantique plus probable"
+}
