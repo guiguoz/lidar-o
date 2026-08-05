@@ -1,0 +1,134 @@
+{
+  "terrain": "kilemaed",
+  "pipeline": "output_kilemaed/vegetation.gpkg",
+  "ffco": "autres cartes/Kilemäed.gpkg",
+  "mapping": "scripts/mappings/isom_en.yaml",
+  "classes": {
+    "406": {
+      "n_polygons": 1411,
+      "total_ha": 533.72,
+      "by_group": [
+        {
+          "group": "_outside_ffco",
+          "label": "Hors emprise FFCO",
+          "area_m2": 4032708.4463080494,
+          "pct": 75.55880017115432
+        },
+        {
+          "group": "veg_406",
+          "label": "Vegetation 406 (slow running)",
+          "area_m2": 126725.67166528045,
+          "pct": 2.3743942388590935
+        },
+        {
+          "group": "scattered_trees",
+          "label": "Scattered trees (402/404)",
+          "area_m2": 107515.65419150182,
+          "pct": 2.0144659447830713
+        },
+        {
+          "group": "open_terrain",
+          "label": "Open land (401/403)",
+          "area_m2": 75420.28647436715,
+          "pct": 1.4131114188988938
+        },
+        {
+          "group": "veg_408",
+          "label": "Vegetation 408 (walk)",
+          "area_m2": 17174.035568688836,
+          "pct": 0.32178114013048886
+        },
+        {
+          "group": "forest",
+          "label": "Forest (405)",
+          "area_m2": 479.4253273822652,
+          "pct": 0.008982747696980346
+        }
+      ]
+    },
+    "408": {
+      "n_polygons": 4001,
+      "total_ha": 231.42,
+      "by_group": [
+        {
+          "group": "_outside_ffco",
+          "label": "Hors emprise FFCO",
+          "area_m2": 1711017.071125788,
+          "pct": 73.93501578657786
+        },
+        {
+          "group": "veg_406",
+          "label": "Vegetation 406 (slow running)",
+          "area_m2": 68122.73578481423,
+          "pct": 2.943661773264
+        },
+        {
+          "group": "scattered_trees",
+          "label": "Scattered trees (402/404)",
+          "area_m2": 62490.842772811506,
+          "pct": 2.7003011979795195
+        },
+        {
+          "group": "open_terrain",
+          "label": "Open land (401/403)",
+          "area_m2": 40224.40916394767,
+          "pct": 1.738142989178628
+        },
+        {
+          "group": "veg_408",
+          "label": "Vegetation 408 (walk)",
+          "area_m2": 12492.538231594059,
+          "pct": 0.5398169468640164
+        },
+        {
+          "group": "forest",
+          "label": "Forest (405)",
+          "area_m2": 6.322236187811474,
+          "pct": 0.0002731910979969124
+        }
+      ]
+    },
+    "410": {
+      "n_polygons": 3669,
+      "total_ha": 112.24,
+      "by_group": [
+        {
+          "group": "_outside_ffco",
+          "label": "Hors emprise FFCO",
+          "area_m2": 854046.8529674397,
+          "pct": 76.09394781549044
+        },
+        {
+          "group": "scattered_trees",
+          "label": "Scattered trees (402/404)",
+          "area_m2": 36960.07011316925,
+          "pct": 3.293071845738177
+        },
+        {
+          "group": "veg_406",
+          "label": "Vegetation 406 (slow running)",
+          "area_m2": 26769.254701935643,
+          "pct": 2.38508960400832
+        },
+        {
+          "group": "open_terrain",
+          "label": "Open land (401/403)",
+          "area_m2": 20866.052542130597,
+          "pct": 1.859125535957804
+        },
+        {
+          "group": "veg_408",
+          "label": "Vegetation 408 (walk)",
+          "area_m2": 5223.399675013532,
+          "pct": 0.4653949615397538
+        },
+        {
+          "group": "forest",
+          "label": "Forest (405)",
+          "area_m2": 0.0,
+          "pct": 0.0
+        }
+      ]
+    }
+  }
+}

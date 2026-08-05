@@ -1,0 +1,25 @@
+{
+  "_status": "SUPERSEDED",
+  "_superseded_by": "Mesure à refaire sur output_airelles/ corrigé (16 tuiles, 2026-08-02)",
+  "_reason": "Mesures effectuées sur 14 tuiles avec 30,1 % de cellules total_count=0 (3 zones ~200 ha de dalles manquantes). Les chiffres ci-dessous reflètent une couverture LiDAR incomplète, pas la densité réelle de points.",
+  "_corrective_action": "Relancer diag_point_density.py après le re-run PDAL Airelles 16 tuiles (lancé 2026-08-02). Supprimer ce fichier et écraser avec les nouvelles valeurs.",
+  "stale_figures": {
+    "terrain": "airelles",
+    "tiles_count_used": 14,
+    "tiles_count_available": 16,
+    "missing_tiles": [
+      "LHD_FXX_0621_6157_PTS_LAMB93_IGN69",
+      "LHD_FXX_0622_6157_PTS_LAMB93_IGN69"
+    ],
+    "extra_tiles_ignored_by_pdal": [
+      "LHD_FXX_0621_6159_PTS_LAMB93_IGN69",
+      "LHD_FXX_0622_6159_PTS_LAMB93_IGN69",
+      "LHD_FXX_0621_6160_PTS_LAMB93_IGN69",
+      "LHD_FXX_0622_6160_PTS_LAMB93_IGN69"
+    ],
+    "nodata_total_count_pct": 30.1,
+    "D2_nrd_median_at_1m": 0.0,
+    "D2_below_nmin_pct_at_1m": 76.7,
+    "note": "Ces deux chiffres (médiane NRD=0.0, 76.7% sous n_min=8) apparaissent dans les échanges de la session 2026-07 et dans le diagnostic D2 du PLAN_vegetation_406.md. Ils ne reflètent pas la densité de points sur l'emprise LiDAR disponible."
+  }
+}

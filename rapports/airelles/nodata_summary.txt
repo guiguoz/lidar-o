@@ -1,0 +1,7 @@
+Diagnostic nodata Airelles -- output_airelles\total_count.tif
+Composantes connexes : 371
+Aire nodata totale   : 601.3 ha
+
+Causes :
+  indetermine                      368 composantes  1.7 ha
+  eau_probable                       3 composantes  599.6 ha

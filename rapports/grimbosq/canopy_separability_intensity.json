@@ -1,0 +1,49 @@
+{
+  "terrain": "grimbosq",
+  "intensity_tif": "output/intensity_veg.tif",
+  "angle_tif": "output/angle_veg.tif",
+  "ffco_gpkg": "grimbosq.gpkg",
+  "raster_shape": [
+    3001,
+    2001
+  ],
+  "angle_dependence": {
+    "pearson_r": 0.033774818241085185,
+    "std_between_angles": 54.49019676849992,
+    "std_global": 607.1283569335938,
+    "ratio_angle_to_global": 0.08975070287230864,
+    "verdict": "OK — variance angulaire modérée, test séparabilité valide"
+  },
+  "zones": {
+    "open_terrain": {
+      "n": 76872,
+      "mean": 941.2384033203125,
+      "std": 674.3517456054688,
+      "p05": 336.0,
+      "p25": 469.3333435058594,
+      "median": 741.3333129882812,
+      "p75": 1169.490966796875,
+      "p95": 2280.189453125
+    },
+    "scattered_trees": {
+      "n": 4263,
+      "mean": 936.4359741210938,
+      "std": 567.2544555664062,
+      "p05": 384.0,
+      "p25": 528.0,
+      "median": 757.3333129882812,
+      "p75": 1139.199951171875,
+      "p95": 2119.771484375
+    },
+    "veg_406": {
+      "n": 689491,
+      "mean": 640.0806274414062,
+      "std": 369.48187255859375,
+      "p05": 328.0,
+      "p25": 419.20001220703125,
+      "median": 525.3333129882812,
+      "p75": 752.0,
+      "p95": 1271.7607421875
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "source": "comparison",
+  "ref_file": "grimbosq.gpkg",
+  "pred_file": "output_etapeA_2m/density_hag_classified.tif",
+  "classes": {
+    "406": {
+      "iou": 0.2103,
+      "surface_diff_pct": 29.1,
+      "count_ref": 550,
+      "count_pred": 1659,
+      "count_ratio": 3.016,
+      "area_ref_m2": 898870.0,
+      "area_pred_m2": 1160743.0
+    },
+    "408": {
+      "iou": 0.1373,
+      "surface_diff_pct": 57.0,
+      "count_ref": 566,
+      "count_pred": 1693,
+      "count_ratio": 2.991,
+      "area_ref_m2": 337129.0,
+      "area_pred_m2": 529369.0
+    },
+    "410": {
+      "iou": 0.3417,
+      "surface_diff_pct": 4.2,
+      "count_ref": 347,
+      "count_pred": 604,
+      "count_ratio": 1.741,
+      "area_ref_m2": 251081.0,
+      "area_pred_m2": 261726.0
+    }
+  }
+}

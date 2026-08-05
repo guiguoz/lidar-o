@@ -1,0 +1,55 @@
+{
+  "terrain": "airelles",
+  "intensity_tif": "output_airelles/intensity_veg.tif",
+  "angle_tif": "output_airelles/angle_veg.tif",
+  "ffco_gpkg": "airelles.gpkg",
+  "raster_shape": [
+    5001,
+    5001
+  ],
+  "angle_dependence": {
+    "pearson_r": -0.0014183321809693996,
+    "std_between_angles": 1.1915687184875632,
+    "std_global": 25.599483489990234,
+    "ratio_angle_to_global": 0.04654659219798257,
+    "verdict": "OK — variance angulaire modérée, test séparabilité valide"
+  },
+  "zones": {
+    "open_terrain": {
+      "n": 758707,
+      "mean": 38.256591796875,
+      "std": 25.667264938354492,
+      "p05": 9.857142448425293,
+      "p25": 18.032787322998047,
+      "median": 30.66666603088379,
+      "p75": 53.5,
+      "p95": 89.66666412353516
+    },
+    "scattered_trees": {
+      "n": 286919,
+      "mean": 34.90032196044922,
+      "std": 24.64712142944336,
+      "p05": 9.0,
+      "p25": 16.33333396911621,
+      "median": 26.869565963745117,
+      "p75": 47.599998474121094,
+      "p95": 85.55555725097656
+    },
+    "veg_406": {
+      "n": 135444,
+      "mean": 36.77052688598633,
+      "std": 25.075695037841797,
+      "p05": 9.714285850524902,
+      "p25": 17.5,
+      "median": 29.0,
+      "p75": 50.277137756347656,
+      "p95": 88.0
+    },
+    "veg_408": {
+      "n": 0
+    },
+    "veg_410": {
+      "n": 0
+    }
+  }
+}

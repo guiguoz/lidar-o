@@ -39,8 +39,8 @@ PY314 = "py -3.14"
 # Constructeurs de pipelines PDAL
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _readers(tiles: list[str]) -> list[dict]:
-    return [{"type": "readers.copc", "filename": t} for t in tiles]
+def _readers(tiles: list[str], reader: str = "readers.copc") -> list[dict]:
+    return [{"type": reader, "filename": t} for t in tiles]
 
 
 def _gdal_writer(out_tif: str, resolution: float) -> dict:
@@ -55,10 +55,10 @@ def _gdal_writer(out_tif: str, resolution: float) -> dict:
 
 
 def build_pdal_hag(tiles: list[str], out_tif: str, resolution: float,
-                   min_h: float, max_h: float) -> dict:
+                   min_h: float, max_h: float, reader: str = "readers.copc") -> dict:
     """Compte les retours HAG dans [min_h, max_h] — density_hag.tif."""
     return {
-        "pipeline": _readers(tiles) + [
+        "pipeline": _readers(tiles, reader) + [
             {"type": "filters.merge"},
             {"type": "filters.hag_nn", "count": 8},
             {"type": "filters.range",
@@ -68,10 +68,11 @@ def build_pdal_hag(tiles: list[str], out_tif: str, resolution: float,
     }
 
 
-def build_pdal_total(tiles: list[str], out_tif: str, resolution: float) -> dict:
+def build_pdal_total(tiles: list[str], out_tif: str, resolution: float,
+                     reader: str = "readers.copc") -> dict:
     """Compte tous les retours (toutes hauteurs) — total_count.tif."""
     return {
-        "pipeline": _readers(tiles) + [
+        "pipeline": _readers(tiles, reader) + [
             {"type": "filters.merge"},
             _gdal_writer(out_tif, resolution),
         ]
@@ -79,14 +80,14 @@ def build_pdal_total(tiles: list[str], out_tif: str, resolution: float) -> dict:
 
 
 def build_pdal_below(tiles: list[str], out_tif: str, resolution: float,
-                     min_h: float) -> dict:
+                     min_h: float, reader: str = "readers.copc") -> dict:
     """Compte les retours HAG sous la bande [0, min_h] — count_below.tif.
 
     Ces retours ont traversé la bande de végétation sans y être absorbés :
     ils constituent le dénominateur du NRD (impulsions pénétrantes).
     """
     return {
-        "pipeline": _readers(tiles) + [
+        "pipeline": _readers(tiles, reader) + [
             {"type": "filters.merge"},
             {"type": "filters.hag_nn", "count": 8},
             {"type": "filters.range",
@@ -97,10 +98,11 @@ def build_pdal_below(tiles: list[str], out_tif: str, resolution: float,
 
 
 def build_pdal_band_low(tiles: list[str], out_tif: str, resolution: float,
-                        min_h: float, low_h: float) -> dict:
+                        min_h: float, low_h: float,
+                        reader: str = "readers.copc") -> dict:
     """Bande basse [min_h, low_h] — count_band_low.tif (Étape D)."""
     return {
-        "pipeline": _readers(tiles) + [
+        "pipeline": _readers(tiles, reader) + [
             {"type": "filters.merge"},
             {"type": "filters.hag_nn", "count": 8},
             {"type": "filters.range",
@@ -111,10 +113,11 @@ def build_pdal_band_low(tiles: list[str], out_tif: str, resolution: float,
 
 
 def build_pdal_band_mid(tiles: list[str], out_tif: str, resolution: float,
-                        low_h: float, mid_max: float) -> dict:
+                        low_h: float, mid_max: float,
+                        reader: str = "readers.copc") -> dict:
     """Bande moyenne [low_h, mid_max] — count_band_mid.tif (Étape D)."""
     return {
-        "pipeline": _readers(tiles) + [
+        "pipeline": _readers(tiles, reader) + [
             {"type": "filters.merge"},
             {"type": "filters.hag_nn", "count": 8},
             {"type": "filters.range",
@@ -145,13 +148,16 @@ def run_pdal(pipeline_dict: dict, label: str) -> None:
     log.info("PDAL %s OK", label)
 
 
-def _resolve_tiles(tiles: list[str] | None, tiles_dir: str | None, force: bool) -> list[str]:
+def _resolve_tiles(tiles: list[str] | None, tiles_dir: str | None, force: bool,
+                   reader: str = "readers.copc") -> list[str]:
     """Retourne la liste des tuiles, avec garde-fou si des tuiles du dossier sont ignorées."""
+    pattern = "*.laz" if reader == "readers.las" else "*.copc.laz"
+
     if tiles_dir is not None:
         p = pathlib.Path(tiles_dir)
-        found = sorted(p.glob("*.copc.laz"))
+        found = sorted(p.glob(pattern))
         if not found:
-            raise ValueError(f"Aucun .copc.laz dans {tiles_dir}")
+            raise ValueError(f"Aucun {pattern} dans {tiles_dir}")
         log.info("--tiles-dir : %d tuile(s) dans %s", len(found), tiles_dir)
         return [str(f) for f in found]
 
@@ -161,7 +167,7 @@ def _resolve_tiles(tiles: list[str] | None, tiles_dir: str | None, force: bool) 
     if not force:
         parents = {pathlib.Path(t).parent for t in tiles}
         for parent in parents:
-            all_in_dir = set(parent.glob("*.copc.laz"))
+            all_in_dir = set(parent.glob(pattern))
             provided = {pathlib.Path(t) for t in tiles if pathlib.Path(t).parent == parent}
             missing = all_in_dir - provided
             if missing:
@@ -221,11 +227,18 @@ def main() -> None:
                         help="Desactive le garde-fou tuiles manquantes (terrain partiel)")
     parser.add_argument("--skip-pdal", action="store_true",
                         help="Saute PDAL si rasters déjà générés")
+    parser.add_argument("--reader", default="readers.copc",
+                        choices=["readers.copc", "readers.las"],
+                        help="Type de reader PDAL (defaut: readers.copc)")
+    parser.add_argument("--min-h", type=float, default=None,
+                        help="Override de min_m (ex: 0.50 pour variante flip-zone)")
     args = parser.parse_args()
 
-    tiles = _resolve_tiles(args.tiles, args.tiles_dir, args.force_tiles)
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    READER = args.reader
+    tiles = _resolve_tiles(args.tiles, args.tiles_dir, args.force_tiles, READER)
 
-    cfg = yaml.safe_load(open("config.yaml"))
+    cfg = yaml.safe_load(open("config.yaml", encoding="utf-8"))
     veg = cfg["vegetation"]
     dm = veg.get("density_metric", {})
     heights = veg.get("heights", {})
@@ -233,7 +246,7 @@ def main() -> None:
     MODE = dm.get("mode", "count")
     BAND_SPLIT = bool(dm.get("band_split", False))
     RESOLUTION = float(veg.get("grid_resolution_m", 1.0))
-    MIN_H = float(heights.get("min_m", 0.3))
+    MIN_H = args.min_h if args.min_h is not None else float(heights.get("min_m", 0.3))
     BAND_MAX = float(heights.get("band_max_m", 3.0))
     LOW_H = float(dm.get("low_height_m", 1.3))
     MID_MAX = float(heights.get("mid_max_m", 4.0))
@@ -268,28 +281,28 @@ def main() -> None:
     if not args.skip_pdal:
         # Raster principal : HAG [min_h:band_max]
         run_pdal(
-            build_pdal_hag(tiles, hag_tif, RESOLUTION, MIN_H, BAND_MAX),
+            build_pdal_hag(tiles, hag_tif, RESOLUTION, MIN_H, BAND_MAX, READER),
             f"{args.name}_hag",
         )
         # Ratio mode : besoin du total
         if MODE in ("ratio", "count"):
             run_pdal(
-                build_pdal_total(tiles, total_tif, RESOLUTION),
+                build_pdal_total(tiles, total_tif, RESOLUTION, READER),
                 f"{args.name}_total",
             )
         # NRD mode : besoin des retours sous la bande
         if MODE == "nrd":
             run_pdal(
-                build_pdal_below(tiles, below_tif, RESOLUTION, MIN_H),
+                build_pdal_below(tiles, below_tif, RESOLUTION, MIN_H, READER),
                 f"{args.name}_below",
             )
             if BAND_SPLIT:
                 run_pdal(
-                    build_pdal_band_low(tiles, low_tif, RESOLUTION, MIN_H, LOW_H),
+                    build_pdal_band_low(tiles, low_tif, RESOLUTION, MIN_H, LOW_H, READER),
                     f"{args.name}_low",
                 )
                 run_pdal(
-                    build_pdal_band_mid(tiles, mid_tif, RESOLUTION, LOW_H, MID_MAX),
+                    build_pdal_band_mid(tiles, mid_tif, RESOLUTION, LOW_H, MID_MAX, READER),
                     f"{args.name}_mid",
                 )
     else:

@@ -1,12 +1,13 @@
 """Test preset sparse_winter (t406=0.25) sur Airelles — tranche seuil vs sémantique.
 
-Si coverage passe de 12.2% (grimbosq_v0, t406=0.20) vers ~1.7% (FFCO Airelles)
-sans reformer de blob → cause = seuil par type de peuplement.
-Si coverage reste >> 1.7% ou max%406 explose → cause distincte du seuil.
+Question : le seuil seul (t406=0.25) suffit-il à ramener la surface 406 vers la cible
+FFCO (5.7% sur hull FFCO ~389 ha) ? Si oui → problème de calibration preset.
+Si non → cause structurelle (sémantique ou canopée).
 
-Protocole identique à diag_airelles_sigma1.py mais avec les seuils sparse_winter :
-  t406=0.25 / t408=0.55 / t410=0.80
-  σ=1.0 m (config production)
+Correction dénominateur (2026-08-04) : emprise de référence = hull convex FFCO (~389 ha),
+non bbox pipeline (2501 ha). Les deux sources clippées sur ce hull avant comparaison.
+
+407 exclu de la cible (directionnel, non détectable par pipeline raster).
 """
 from __future__ import annotations
 
@@ -17,35 +18,66 @@ import tempfile
 
 import numpy as np
 import yaml
-from osgeo import gdal
+from osgeo import gdal, ogr
 from scipy.ndimage import gaussian_filter, median_filter
-from shapely.geometry import box
+from shapely.ops import unary_union
+from shapely.wkt import loads as wkt_loads
 
 gdal.UseExceptions()
+
+import geopandas as gpd
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from scripts.measure_corpus import load_ffco
 from src.metrics import compute_ratio
 from src.vegetation import run_pipeline
 
-import geopandas as gpd
-
 ROOT = pathlib.Path(".")
 HAG_TIF = ROOT / "output_airelles" / "density_hag.tif"
 TOTAL_TIF = ROOT / "output_airelles" / "total_count.tif"
 GPKG = ROOT / "airelles.gpkg"
-FFCO_COV_AIRELLES = 1.7
-FFCO_MAX_AIRELLES = 6.6
 
 # Preset sparse_winter
 T_406, T_408, T_410 = 0.25, 0.55, 0.80
 SIGMA_M = 1.0
 MEDIAN_PX = 9
 
-# Pour comparaison directe avec le run précédent
-PREV_COV = 12.2   # grimbosq_v0 t406=0.20
-PREV_MAX = 3.4
+for p, label in [(HAG_TIF, "density_hag.tif"), (TOTAL_TIF, "total_count.tif"), (GPKG, "airelles.gpkg")]:
+    if not p.exists():
+        raise FileNotFoundError(f"{label} absent : {p}")
 
+
+# ── Hull convex FFCO ──────────────────────────────────────────────────────────
+
+def _ffco_hull_geom(gpkg_path: pathlib.Path):
+    ds = ogr.Open(str(gpkg_path))
+    lyr = None
+    for i in range(ds.GetLayerCount()):
+        n = ds.GetLayer(i).GetName()
+        if n.endswith("_areas"):
+            lyr = ds.GetLayer(i)
+            break
+    if lyr is None:
+        lyr = ds.GetLayer(0)
+    geoms = []
+    for feat in lyr:
+        ref = feat.GetGeometryRef()
+        if ref:
+            geoms.append(wkt_loads(ref.ExportToWkt()))
+    ds = None
+    return unary_union(geoms).convex_hull
+
+
+hull_geom = _ffco_hull_geom(GPKG)
+FFCO_HULL_HA = hull_geom.area / 1e4
+print(f"Hull convex FFCO : {FFCO_HULL_HA:.1f} ha", flush=True)
+
+# Référence grimbosq_v0 (σ=1.0, t406=0.20) sur hull
+PREV_COV = None   # recalculé ci-dessous si on l'a
+PREV_MAX = None
+
+
+# ── I/O raster ───────────────────────────────────────────────────────────────
 
 def _load(path):
     ds = gdal.Open(str(path))
@@ -71,11 +103,6 @@ total, _, _, mt = _load(TOTAL_TIF)
 r, c = min(hag.shape[0], total.shape[0]), min(hag.shape[1], total.shape[1])
 hag, total = hag[:r, :c], total[:r, :c]
 mask = (mh | mt | (total <= 0))[:r, :c]
-
-XMIN, YMAX = gt[0], gt[3]
-XMAX, YMIN = XMIN + c * gt[1], YMAX + r * gt[5]
-BBOX = (XMIN, YMIN, XMAX, YMAX)
-BBOX_HA = (XMAX - XMIN) * (YMAX - YMIN) / 1e4
 
 metric = compute_ratio(hag, total, mask)
 sigma_px = SIGMA_M / abs(gt[1])
@@ -108,35 +135,52 @@ with tempfile.TemporaryDirectory(prefix="diag_preset_") as tmpdir:
     gdf, _ = run_pipeline(str(out_tif), cfg, debug_dir=None)
 
 sub = gdf[gdf["class"] == 406]
-areas = sub.geometry.area.values if len(sub) > 0 else np.array([0.0])
+sub_hull = sub.clip(hull_geom) if len(sub) > 0 else sub
+areas = sub_hull.geometry.area.values if len(sub_hull) > 0 else np.array([0.0])
 total_ha = areas.sum() / 1e4
 max_pct = 100.0 * areas.max() / areas.sum() if areas.sum() > 0 else 0.0
-cov = 100.0 * total_ha / BBOX_HA
+cov = 100.0 * total_ha / FFCO_HULL_HA
+
+# FFCO 406 sur hull
+gdf_ffco = load_ffco(str(GPKG), class_col="class")
+gdf_ffco.geometry = gdf_ffco.geometry.buffer(0)
+ffco_clip = gdf_ffco.clip(hull_geom)
+ffco_406 = ffco_clip[ffco_clip["class"].astype(str) == "406"]
+FFCO_COV = 100.0 * ffco_406.geometry.area.sum() / 1e4 / FFCO_HULL_HA if len(ffco_406) > 0 else 0.0
+FFCO_MAX = float(100.0 * ffco_406.geometry.area.max() / ffco_406.geometry.area.sum()) if len(ffco_406) > 0 else 0.0
+print(f"\nFFCO 406 (hull) : {len(ffco_406)} poly | cov={FFCO_COV:.1f}% | max%406={FFCO_MAX:.1f}%", flush=True)
+
+# Résultats grimbosq_v0 depuis JSON si disponible (même dénominateur hull → non disponible, on skip)
 
 print(f"\n{'='*55}", flush=True)
 print(f"  {'':20} {'coverage%':>10} {'max%406':>10}", flush=True)
-print(f"  {'FFCO Airelles (réf)':20} {FFCO_COV_AIRELLES:>10.1f}% {FFCO_MAX_AIRELLES:>10.1f}%", flush=True)
-print(f"  {'grimbosq_v0 (t=0.20)':20} {PREV_COV:>10.1f}% {PREV_MAX:>10.1f}%", flush=True)
+print(f"  {'FFCO Airelles (cible)':20} {FFCO_COV:>10.1f}% {FFCO_MAX:>10.1f}%", flush=True)
 print(f"  {'sparse_winter(t=0.25)':20} {cov:>10.1f}% {max_pct:>10.1f}%", flush=True)
-print(f"  {'Δ vs FFCO':20} {cov-FFCO_COV_AIRELLES:>+10.1f}% {max_pct-FFCO_MAX_AIRELLES:>+10.1f}%", flush=True)
+print(f"  {'Δ vs FFCO':20} {cov-FFCO_COV:>+10.1f}% {max_pct-FFCO_MAX:>+10.1f}%", flush=True)
+print(f"\n  [Hull {FFCO_HULL_HA:.0f} ha — dénominateur corrigé (ancien: bbox pipeline 2501 ha)]", flush=True)
 
-delta_cov = cov - PREV_COV
-print(f"\n  Δcov grimbosq→sparse : {delta_cov:+.1f}%", flush=True)
 if cov < 4.0 and max_pct < 15.0:
     verdict = "Seuil seul suffit → calibration preset par type de peuplement"
 elif cov < 4.0 and max_pct > 20.0:
-    verdict = "Seuil réduit la surface mais crée un blob → effet non monotone, à examiner"
+    verdict = "Seuil réduit la surface mais crée un blob → effet non monotone"
 else:
-    verdict = f"Seuil insuffisant (coverage={cov:.1f}%, >4%) → hypothèse sémantique plus probable"
+    verdict = f"Seuil insuffisant (coverage={cov:.1f}%>{FFCO_COV+4:.1f}%) → cause structurelle"
 print(f"  Verdict : {verdict}", flush=True)
 
 out = {
     "preset": "sparse_winter", "t406": T_406, "t408": T_408, "t410": T_410,
-    "sigma_m": SIGMA_M, "bbox_ha": BBOX_HA,
-    "pipeline_fd0": {"count": int(len(sub)), "total_ha": float(total_ha),
-                     "coverage_pct": float(cov), "max_pct_406": float(max_pct)},
-    "ffco_airelles": {"coverage_pct": FFCO_COV_AIRELLES, "max_pct_406": FFCO_MAX_AIRELLES},
-    "prev_grimbosq_v0": {"coverage_pct": PREV_COV, "max_pct_406": PREV_MAX},
+    "sigma_m": SIGMA_M,
+    "ffco_hull_ha": float(FFCO_HULL_HA),
+    "pipeline_fd0": {
+        "count_hull": int(len(sub_hull)),
+        "total_ha_hull": float(total_ha),
+        "coverage_pct_hull": float(cov),
+        "max_pct_406": float(max_pct),
+    },
+    "ffco_airelles": {
+        "coverage_pct_hull": float(FFCO_COV), "max_pct_406": float(FFCO_MAX),
+        "note_407": "407 exclu de la cible (directionnel, pipeline non détectable)",
+    },
     "verdict": verdict,
 }
 (ROOT / "rapports" / "diag_airelles_preset.json").write_text(

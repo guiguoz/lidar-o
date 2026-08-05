@@ -55,11 +55,14 @@ _OOM_VEGE_NAMES: dict[str, str] = {
     "Végétation : course lente": "406",
     "Terrain boisé,course ralentie": "406",   # pas d'espace après virgule (OCAD export)
     "Terrain boisé, course ralentie": "406",
-    "Végétation - course ralentie": "406",
     "Vegetation: slow running": "406",
     # 406 — ISOM 2017 (virgule, export OOM — noms tronqués à 32 cars par le champ GPKG)
     "Végétation, course lente": "406",
     "Végétation, course lente, bonne": "406",   # "...bonne visibilité" tronqué
+    # 407 — ISOM "course ralentie dans une direction" (structure directionnelle)
+    # "Végétation - course ralentie" est le nom OOM de l'ISOM 407 dans les exports Airelles
+    # (confirmé : 420 features Airelles = 262×406 + 158×407)
+    "Végétation - course ralentie": "407",
     # 408
     "Végétation : marche": "408",
     "Forêt - course difficile": "408",

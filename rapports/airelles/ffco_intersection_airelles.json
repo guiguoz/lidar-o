@@ -1,0 +1,98 @@
+{
+  "terrain": "airelles",
+  "pipeline": "output_airelles/vegetation_final.geojson",
+  "ffco": "airelles.gpkg",
+  "mapping": "scripts/mappings/ffco_fr.yaml",
+  "classes": {
+    "406": {
+      "n_polygons": 1760,
+      "total_ha": 428.16,
+      "by_group": [
+        {
+          "group": "_outside_ffco",
+          "label": "Hors emprise FFCO",
+          "area_m2": 3671837.5422757897,
+          "pct": 85.75918230857758
+        },
+        {
+          "group": "open_terrain",
+          "label": "Terrain découvert (403/404)",
+          "area_m2": 434676.4969373528,
+          "pct": 10.152274036339817
+        },
+        {
+          "group": "scattered_trees",
+          "label": "Arbres dispersés (404 ambigu)",
+          "area_m2": 132226.1845479289,
+          "pct": 3.0882655716802807
+        },
+        {
+          "group": "veg_406",
+          "label": "Végétation 406",
+          "area_m2": 59440.82211246886,
+          "pct": 1.3882957079183513
+        }
+      ]
+    },
+    "408": {
+      "n_polygons": 4163,
+      "total_ha": 210.18,
+      "by_group": [
+        {
+          "group": "_outside_ffco",
+          "label": "Hors emprise FFCO",
+          "area_m2": 1735148.6764050834,
+          "pct": 82.55522562397859
+        },
+        {
+          "group": "open_terrain",
+          "label": "Terrain découvert (403/404)",
+          "area_m2": 273886.2797724071,
+          "pct": 13.031012229320078
+        },
+        {
+          "group": "scattered_trees",
+          "label": "Arbres dispersés (404 ambigu)",
+          "area_m2": 73740.23960983341,
+          "pct": 3.5084268001567116
+        },
+        {
+          "group": "veg_406",
+          "label": "Végétation 406",
+          "area_m2": 35587.402838457085,
+          "pct": 1.693184054283519
+        }
+      ]
+    },
+    "410": {
+      "n_polygons": 3979,
+      "total_ha": 110.28,
+      "by_group": [
+        {
+          "group": "_outside_ffco",
+          "label": "Hors emprise FFCO",
+          "area_m2": 905388.0076907045,
+          "pct": 82.0962696231992
+        },
+        {
+          "group": "open_terrain",
+          "label": "Terrain découvert (403/404)",
+          "area_m2": 152496.13293759926,
+          "pct": 13.82762256601172
+        },
+        {
+          "group": "scattered_trees",
+          "label": "Arbres dispersés (404 ambigu)",
+          "area_m2": 40663.38657497325,
+          "pct": 3.6871621003310273
+        },
+        {
+          "group": "veg_406",
+          "label": "Végétation 406",
+          "area_m2": 21400.321847296404,
+          "pct": 1.9404791950801576
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,51 @@
+# Convention FFCO française — noms OOM/OCAD pour Airelles, Grimbosq
+# Utilisé par diag_intensity_separability.py et diag_canopy_separability.py
+# avec l'option --mapping scripts/mappings/ffco_fr.yaml (défaut)
+#
+# Les noms sont mis en correspondance après _decode() + strip().
+# Les noms tronqués à 32 caractères par OCAD sont listés tels quels (après strip).
+# Le groupe "skip" désigne les zones reconnues mais exclues de l'analyse.
+
+groups:
+
+  open_terrain:
+    label: "Terrain découvert (403/404)"
+    color: "#e6b800"
+    names:
+      - "Terrain découvert"
+      - "Terrain découvert encombré"
+      - "Terrain découvert encombré avec"   # tronqué
+      - "Terrain sablonneux découvert"
+
+  scattered_trees:
+    label: "Arbres dispersés (404 ambigu)"
+    color: "#cc6600"
+    names:
+      - "Zone découv.+ arbres dispersés"     # Airelles
+      - "Terrain découvert avec arbres di"   # Grimbosq, tronqué
+
+  veg_406:
+    label: "Végétation 406"
+    color: "#1a7a1a"
+    names:
+      - "Terrain boisé,course ralentie"
+      - "Végétation, course lente"
+      - "Végétation, course lente, bonne"    # tronqué (407 → traité ici comme 406)
+
+  veg_408:
+    label: "Végétation 408 (marche)"
+    color: "#004d00"
+    names:
+      - "Végétation, marche"
+      - "Végétation, marche, bonne visibi"   # tronqué (409)
+      - "Végétation, marche dans une dire"   # tronqué (408 directionnel)
+
+  veg_410:
+    label: "Végétation 410 (lutte)"
+    color: "#001a00"
+    names:
+      - "Végétation, progression difficil"   # tronqué
+
+  skip:
+    names:
+      - "Végétation - course ralentie"        # 407 Airelles (directionnel)
