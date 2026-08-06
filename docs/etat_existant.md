@@ -126,9 +126,45 @@ Action : ~~remplacer les `PLACEHOLDER_*` dans `config.yaml → bd_topo.layers` e
 
 ## 4. CRT Karttapullautin existant
 
-- [ ] Récupéré depuis Orienteering BC
-- Chemin : `assets/kp_crt.crt`
-- Symboles mappés : `TODO`
+- [x] Récupéré depuis **Blaze** (Trailblaze Software, Apache 2.0) — `src/lib/crt/crt.hpp`, `write_to_crt()` — 2026-08-06
+- Chemin : `assets/kp_crt.crt` (25 entrées)
+
+### Correspondance calques DXF KP v2.12.1 ↔ codes CRT
+
+> Calques DXF réels (Phase 0) vs noms CRT (Blaze). Les décalages silencieux sont signalés.
+
+| Calque DXF KP | Fichier DXF | Code CRT | Nom CRT | Statut |
+|---|---|---|---|---|
+| `contour` | `out2.dxf` | 101 | `101_Contour` | ✓ match |
+| `contour_index` | `out2.dxf` | 102 | `102_Index_Contour` | ✓ match |
+| `contour_intermed` | `out2.dxf` | 103 | `103_Form_Line` | ⚠ ambigu — intermed ≠ formline strictement |
+| `depression` | `out2.dxf` | — | — | ✗ pas de code CRT depression standard (106 absent du CRT) |
+| `depression_intermed` | `out2.dxf` | — | — | ✗ sans correspondance |
+| `cliff2` | `c2g.dxf` | 202 | `202_Cliff` | ✓ match |
+| `cliff3` | `c3g.dxf` | 201 | `201_Impassable_Cliff` | ✓ match |
+| `dotknoll` | `dotknolls.dxf` | 109 | `109_Small_Knoll` | ✓ match |
+| `udepression` | `dotknolls.dxf` | 111 | `111_Small_Depression` | ✓ match |
+| `formline` | `formlines.dxf` | 103 | `103_Form_Line` | ✓ match |
+| `uglydotknoll` | `dotknolls.dxf` | — | — | ✗ sans correspondance (calque auxiliaire KP) |
+| `uglyudepression` | `dotknolls.dxf` | — | — | ✗ sans correspondance (calque auxiliaire KP) |
+| `cont` | `out.dxf` | — | — | ✗ brut pré-lissage, non utilisé en production |
+| `cont` | `contours03.dxf` | — | — | ✗ 0,3 m (9,5 MB), non utilisé |
+| `1010` | `detected.dxf` | — | — | ✗ usage inconnu |
+
+**Codes CRT sans calque DXF KP** (fournis par d'autres sources) :
+
+| Code CRT | Nom CRT | Source attendue |
+|---|---|---|
+| 115 | `115_Prominent_Landform_Feature` | Manuel |
+| 204–206 | Rochers/blocs | Manuel |
+| 301–304, 313 | Eau | BD TOPO (troncon/surface_hydrographique) |
+| 401, 403, 405 | Terrain ouvert / forêt | BD TOPO (zone_de_vegetation) |
+| 406, 408, 410 | Végétation franchissabilité | Pipeline HAG (`vegetation_t8.gpkg`) |
+| 407, 409 | Végétation bonne visibilité | Pipeline HAG (non généré à ce stade) |
+| 419 | Élément végétation proéminent | Manuel |
+| 531 | Élément anthropique proéminent | BD TOPO / Manuel |
+
+**À retenir** : `depression` (dépression standard ISOM 106) est produite par KP mais **absente du CRT Blaze**. À surveiller lors du mapping CRT → OOM.
 
 ---
 
