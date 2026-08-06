@@ -124,6 +124,37 @@ le problème était l'agglomération. **À reprendre** (Phase 6.6).
 Contrôle à `fd=0` : la nappe existe déjà (75 ha, 51 %) — la fusion **amplifie** un défaut raster,
 elle ne le crée pas. Avec σ=1.0 la question est à re-mesurer ; 4 m est le candidat par défaut.
 
+**⚠ Mise à jour 2026-08-06 — sweep fd ∈ {0.5, 1, 2, 4, 6} à σ=1.0 (Grimbosq) :**
+
+La transition a glissé. Avec σ=1.0, fd=4 est **déjà de l'autre côté** (max%=13,2 %). Un signal
+moins lissé produit des patches plus fins → plus faciles à reconnecter à faible distance.
+
+| fd | n (prod) | ha | cov% | max% | verdict |
+|---|---|---|---|---|---|
+| 0,5 | 1 160 | 101,1 | 16,8 | 7,5 | plateau |
+| 1 | 1 120 | 103,0 | 17,2 | 7,4 | plateau |
+| **2** | **1 076** | **105,8** | **17,6** | **7,7** | **retenu** |
+| 4 | 928 | 112,7 | 18,8 | 13,2 | percolation naissante |
+| 6 | 772 | 122,2 | 20,4 | 16,0 | percolation |
+
+La max% plafonne entre fd=0,5 et fd=2 (~7,4–7,7 %) : le dominant se reconstitue dès le
+polygonize (patches contigus sur grille 1 m), indépendamment de la fusion. Plancher effectif
+~7,4 % ; la cible FFCO 5,4 % n'est pas atteignable par fd seul.
+
+**fd=2 retenu** : 1 076 poly, 105,8 ha, max%=7,7 %. La fusion à 2 m consolide des micro-patches
+en taches cartographiquement utiles plutôt que de les laisser tomber sous `remove_small`. fd=0,5
+et fd=1 ont un compte légèrement plus élevé (1 160, 1 120) mais moins de surface (101, 103 ha) —
+plus de confettis que de signal.
+
+**Cible 5,4 % max% inatteignable par fd** : le plancher est ~7,4 % quel que soit fd ≤ 2.
+Le dominant se reconstitue dès le polygonize (patches contigus sur grille 1 m, indépendamment
+de la fusion). La piste « ajuster fd pour atteindre 5,4 % » est fermée.
+
+**Couverture à fd=2 : 17,6 % (Δ+2,6 pp vs cible 15,0 %).** Le diagnostic fd=0 donnait Δ+1,6 pp —
+cette valeur est obsolète comme référence de production. À mettre à jour partout où elle figure.
+
+Ne pas utiliser « fd=4 comme candidat par défaut » — cette valeur est fausse à σ=1.0.
+
 ### 6.3 — Domaine de validité (nouveau — absent du plan v2)
 
 Le pipeline **n'est pas uniformément fiable**. Mesuré :

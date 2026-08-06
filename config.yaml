@@ -128,7 +128,10 @@ generalization:
         410: 20    # vert foncé  — élimine 13% (médiane=78 m²)
       min_hole_area_m2: 30    # prudent — au-delà = vraies clairières potentielles
       fusion_distance_m:
-        406: 8     # 32% des voisins à < 8 m
+        406: 2     # 2026-08-06 : 8→2. Sweep fd∈{0.5,1,2,4,6} @ σ=1.0 — transition percolation
+                   # glissée à fd=4 (13,2% max) vs 4-8m doc. sous σ=3. Plateau 7,4-7,7% à fd≤2.
+                   # Plancher effectif ~7,4% (patches contigus dès polygonize grille 1m).
+                   # Ancienne valeur 8 → 72% max (percolation, nappe identique à σ=3).
         408: 5     # 30% des voisins à < 5 m
         410: 5     # corpus Airelles : 49% voisins <5m → 8m trop agressive (Test 3 2026-06-27)
       remove_isolated:       # Test 7 2026-06-27 — valeurs conservatrices initiales
