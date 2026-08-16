@@ -79,7 +79,7 @@ def _fetch_osm(
     r = requests.get(
         "https://overpass-api.de/api/interpreter",
         params={"data": query},
-        headers={"User-Agent": "Ovector/1.0 (orienteering map research)"},
+        headers={"User-Agent": "lidar-o/1.0 (orienteering map research)"},
         timeout=60,
     )
     r.raise_for_status()

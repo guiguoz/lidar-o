@@ -459,7 +459,7 @@ def check_kp_version(kp_binary: str = "pullauta") -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Phase 0 — Reconnaissance co-vector-fr")
+    parser = argparse.ArgumentParser(description="Phase 0 — Reconnaissance lidar-o")
     sub = parser.add_subparsers(dest="cmd")
 
     sub.add_parser("wfs", help="Lister les couches WFS BD TOPO")

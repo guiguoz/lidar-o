@@ -1,4 +1,4 @@
-# co-vector-fr
+# Lidar'O
 
 Génération d'une carte de base ISOM à partir du LiDAR HD IGN (France), sortie en `.omap` ouvrable dans OpenOrienteering Mapper ou OCAD.
 

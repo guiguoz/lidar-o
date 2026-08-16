@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.backends.legacy:build"
 
 [project]
-name = "co-vector-fr"
+name = "lidar-o"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [

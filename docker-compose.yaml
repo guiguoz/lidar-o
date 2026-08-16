@@ -1,5 +1,5 @@
 services:
-  covector:
+  lidar-o:
     build: .
     volumes:
       - ./data:/app/data        # Dalles LIDAR, BD TOPO en entrée
