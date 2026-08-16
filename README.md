@@ -40,19 +40,69 @@ Generate an ISOM base map from IGN HD LiDAR (France), output as a `.omap` file r
 
 Download 1–3 LiDAR tiles covering your area. Expect 10–30 min processing time (PDAL + rasterisation + vectorisation). A single tile (1×1 km) is enough for a first test.
 
+### Declare your terrain
+
+Add an entry in `config.yaml` under `terrains:`:
+
+```yaml
+terrains:
+  my_forest:
+    bbox: [448000, 6886000, 451000, 6889000]  # projected bounding box (same CRS as below)
+    crs: EPSG:2154          # Lambert-93 for France; EPSG:3301 for Estonia, etc.
+    departement: "14"       # French department code — omit entirely if outside France
+```
+
+Then create `assets/georef_my_forest.xml` — it tells OpenOrienteering Mapper where to place the map:
+
+```xml
+<georeferencing scale="10000" auxiliary_scale_factor="0.999966" declination="-2.5">
+  <projected_crs id="EPSG">
+    <spec language="PROJ.4">+init=epsg:2154</spec>
+    <parameter>2154</parameter>
+    <ref_point x="449000" y="6887000"/>  <!-- any round coordinate inside the bbox -->
+  </projected_crs>
+  <geographic_crs id="Geographic coordinates">
+    <spec language="PROJ.4">+proj=latlong +datum=WGS84</spec>
+    <ref_point_deg lat="49.043" lon="-0.421"/>  <!-- WGS84 equivalent — use epsg.io/transform -->
+  </geographic_crs>
+</georeferencing>
+```
+
+- `ref_point`: pick a round projected coordinate inside your bbox (e.g. 449000 / 6887000)
+- `ref_point_deg`: convert it to WGS84 at [epsg.io/transform](https://epsg.io/transform)
+- `declination`: magnetic declination for your area — look it up at [ngdc.noaa.gov/geomag/calculators/magcalc.shtml](https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml)
+
+See `assets/` for working examples (grimbosq, kilemaed, kuti, port_en_bessin).
+
 ### Run the pipeline
 
 ```bash
-# Declare the terrain in config.yaml (EPSG:2154 bbox, CRS, department code)
-python main.py grimbosq --tiles-dir LIDAR/ --skip-pdal
+# First run — processes LiDAR through all steps (30–60 min depending on area size)
+python main.py my_forest --tiles-dir LIDAR/
+
+# Subsequent runs — skip PDAL if density_hag_classified.tif already exists (5 min)
+python main.py my_forest --skip-pdal
+```
+
+Expected directory layout:
+
+```
+lidar-o/
+├── LIDAR/                        ← put your .copc.laz tiles here
+│   └── LHD_FXX_0448_6887_...laz
+├── data/bdtopo/                  ← put the BD TOPO department GPKG here (France only)
+├── out_kp/                       ← Karttapullautin DXF output (optional, for contours)
+├── output/                       ← created automatically
+│   └── my_forest.omap            ← the result
+└── config.yaml                   ← declare your terrain here
 ```
 
 Options:
 
 | Option | Description |
 |--------|-------------|
-| `--skip-pdal` | Skip PDAL if `density_hag_classified.tif` already exists |
 | `--tiles-dir DIR` | Directory containing `.copc.laz` tiles |
+| `--skip-pdal` | Skip PDAL (only if `density_hag_classified.tif` already exists from a previous run) |
 | `--from-step STEP` | Resume from: `fetch`, `pdal`, `process_hag`, `vegetation`, `mask`, `assemble`, `qa` |
 | `--force` | Ignore freshness checks and rerun all steps |
 

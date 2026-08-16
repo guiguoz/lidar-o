@@ -226,6 +226,16 @@ bd_topo:
       - haie
 
 terrains:
+  # ── Template — copy and adapt for a new terrain ──────────────────────────
+  # my_forest:
+  #   bbox: [448000, 6886000, 451000, 6889000]  # projected bounding box (xmin, ymin, xmax, ymax)
+  #   crs: EPSG:2154        # Lambert-93 (France); EPSG:3301 (Estonia); EPSG:32632 (UTM 32N)…
+  #   departement: "14"     # French department code for BD TOPO — OMIT if outside France
+  #   reader: readers.copc  # readers.copc (default) or readers.las for non-COPC .laz files
+  #   output_dir: output_my_forest  # optional; defaults to output_{terrain}
+  #   ffco_gpkg: "my_reference.gpkg"  # optional: reference map for QA metrics
+  # ─────────────────────────────────────────────────────────────────────────
+
   grimbosq:
     bbox: [448000, 6886000, 450001, 6889001]  # EPSG:2154, Lambert 93
     crs: EPSG:2154
