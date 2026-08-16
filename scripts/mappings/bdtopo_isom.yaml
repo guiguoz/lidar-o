@@ -1,0 +1,59 @@
+# Mapping BD TOPO 3-5 -> codes ISOM 2017-2
+# Phase 7 -- anthropique Grimbosq
+# Codes ISOM verifies sur assets/ISOM 2017-2_10000.omap (pas de liste externe)
+#
+# Logique : chaque couche GPKG est traitee par une regle (layer + filtre attributaire + code ISOM).
+# Les entites non couvertes par une regle sont ignorees silencieusement (pas d'echec).
+
+layers:
+
+  troncon_de_route:
+    geometry: line
+    filter: "etat_de_l_objet == 'En service'"
+    rules:
+      # Cle : valeur de l'attribut 'nature'
+      - match: {nature: "Route à 2 chaussées"}
+        isom: 502   # Wide road
+      - match: {nature: "Route à 1 chaussée"}
+        isom: 503   # Road
+      - match: {nature: "Route empierrée"}
+        isom: 504   # Vehicle track
+      - match: {nature: "Chemin"}
+        isom: 504   # Vehicle track (largeur_de_chaussee non renseignee -> traite comme piste)
+      - match: {nature: "Sentier"}
+        isom: 505   # Footpath
+      # Escalier : pas de symbole ISOM adapte -> ignore
+
+  batiment:
+    geometry: area
+    rules:
+      - match: {}   # Tous les batiments
+        isom: 521   # Building (verifie : 521=Building, 526=Cairn dans le gabarit)
+
+  surface_hydrographique:
+    geometry: area
+    rules:
+      - match: {nature: "Mare"}
+        isom: 302   # Shallow body of water
+      - match: {nature: "Retenue"}
+        isom: 301   # Uncrossable body of water
+      - match: {nature: "Réservoir-bassin"}
+        isom: 301   # Uncrossable body of water
+
+  troncon_hydrographique:
+    geometry: line
+    filter: "fictif == False and etat_de_l_objet == 'En service'"
+    rules:
+      - match: {nature: "Ecoulement naturel", classe_de_largeur: "Entre 0 et 5 m"}
+        isom: 305   # Small crossable watercourse
+      - match: {nature: "Ecoulement naturel", classe_de_largeur: "Sans objet"}
+        isom: 305   # Largeur inconnue -> traite comme mineur
+      - match: {nature: "Ecoulement naturel", classe_de_largeur: "Entre 5 et 15 m"}
+        isom: 304   # Crossable watercourse
+      # Conduit buse : enterre -> ignore
+
+# Couches non rendues (usage masque uniquement ou vides)
+skip:
+  - cours_d_eau          # Entite administrative, geometrie dans troncon_hydrographique
+  - zone_de_vegetation   # Reserve au masque vegetation (pas de rendu ISOM direct)
+  - plan_d_eau           # Vide sur Grimbosq

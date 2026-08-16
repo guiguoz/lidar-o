@@ -1,0 +1,62 @@
+# Symboles ISOM 2017-2 utilisés dans co-vector-fr
+# Référence : https://orienteering.sport/iof/mapping/
+
+relief:
+  contour:          301  # Courbe de niveau
+  index_contour:    302  # Courbe maîtresse (1/5)
+  form_line:        303  # Courbe de forme
+  depression:       306  # Dépression
+  cliff:            202  # Falaise
+  cliff_small:      203  # Petite falaise
+  knoll:            109  # Butte/tertre
+  pit:              108  # Fosse
+
+vegetation:
+  open_land:        401  # Terrain découvert (blanc)
+  open_rough:       402  # Terrain découvert avec végétation basse
+  rough_open:       403  # Terrain semi-découvert
+  forest:           406  # Forêt dégagée (vert clair)
+  dense_forest:     408  # Forêt dense (vert moyen)
+  very_dense:       410  # Végétation très dense (vert foncé)
+  undergrowth:      407  # Sous-bois difficile
+
+water:
+  lake:             301.1  # Plan d'eau (code à confirmer avec jeu ISOM OOM réel)
+  stream:           304    # Cours d'eau
+  marsh:            310    # Zone humide
+
+man_made:
+  road_paved:       502    # Route revêtue
+  road_unpaved:     503    # Route non revêtue
+  path:             505    # Sentier
+  railway:          515    # Voie ferrée
+  power_line:       516    # Ligne électrique
+  building:         521    # Bâtiment
+  ruin:             523    # Ruine
+
+# Mapping BD TOPO attribut → code ISOM
+# Format : couche_bd_topo.attribut.valeur: code_isom
+bd_topo_mapping:
+  # Typenames confirmés 2026-06-23. Valeurs d'attribut NATURE à vérifier sur données réelles.
+  "BDTOPO_V3:troncon_de_route":
+    NATURE:
+      "Route à 2 chaussées": 502
+      "Route à 1 chaussée": 502
+      "Route empierrée": 503
+      "Chemin": 505
+      "Sentier": 505
+      "_default": 503
+  "BDTOPO_V3:batiment":
+    _all: 521
+  "BDTOPO_V3:troncon_de_voie_ferree":
+    _all: 515
+  "BDTOPO_V3:ligne_electrique":
+    _all: 516
+  "BDTOPO_V3:troncon_hydrographique":
+    _all: 304
+  "BDTOPO_V3:surface_hydrographique":
+    _all: 301.1
+  "BDTOPO_V3:zone_de_vegetation":
+    _all: 407
+  "BDTOPO_V3:haie":
+    _all: 516  # Clôture/haie → à recalibrer (pas de symbole ISOM dédié haie en 2017-2)

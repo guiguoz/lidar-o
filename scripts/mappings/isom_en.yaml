@@ -1,0 +1,74 @@
+# Convention ISOM anglaise — noms exportés depuis OCAD/OpenOrienteering
+# Pour cartes estoniennes (Kilemäed, Kuti) et UK (Sandringham, Broadland)
+# avec l'option --mapping scripts/mappings/isom_en.yaml
+#
+# "Forest" (405) est gardé comme groupe de contrôle distinct de open_terrain :
+# c'est là que tombait 18,6 % de la sur-détection Airelles sous couvert,
+# et il teste la prédiction « ouvert vs couvert » sur terrains estoniens.
+#
+# 408 et 410 restent séparés de 406 pour permettre le test sous-couvert
+# (ordre non monotone découvert > 410 > 408 > 406 observé sur Grimbosq).
+
+groups:
+
+  open_terrain:
+    label: "Open land (401/403)"
+    color: "#e6b800"
+    names:
+      - "Open land "                          # trailing space (OCAD export)
+      - "Open land"
+      - "Rough open land"
+
+  scattered_trees:
+    label: "Scattered trees (402/404)"
+    color: "#cc6600"
+    names:
+      - "Open land with scattered trees "
+      - "Rough open land with scattered t"    # tronqué (trees)
+      - "Rough open land with scattered b"    # tronqué (bushes)
+
+  forest:
+    label: "Forest (405)"
+    color: "#aad4aa"
+    names:
+      - "Forest"
+
+  veg_406:
+    label: "Vegetation 406 (slow running)"
+    color: "#1a7a1a"
+    names:
+      - "Vegetation: slow running"
+
+  veg_408:
+    label: "Vegetation 408 (walk)"
+    color: "#004d00"
+    names:
+      - "Vegetation: walk"
+
+  veg_410:
+    label: "Vegetation 410 (fight)"
+    color: "#001a00"
+    names:
+      - "Vegetation: fight"
+      - "Vegetation: fight, One Direction"
+
+  skip:
+    names:
+      - "Vegetation: slow running, good v"    # 407 (tronqué)
+      - "Vegetation: walk, good visibilit"    # 409 (tronqué)
+      - "Magnetic north line black (Area)"
+      - "Sandy ground"
+      - "Stony ground, slow running"
+      - "Marsh"
+      - "Indistinct marsh"
+      - "Broken ground"
+      # Kuti — anthropique et hors-domaine (bâti, eau infranchissable, zone interdite)
+      - "Building"
+      - "Uncrossable body of water (Area "    # tronqué à 35 chars
+      - "Dominant uncrossable body of wat"    # tronqué
+      - "Uncrossable marsh (Area & Border"    # tronqué
+      - "Uncrossable marsh (Area)"
+      - "Area that shall not be entered ("    # tronqué (OOB)
+      - "Out-of-bounds area"
+      - "Paved area (Area)"
+      - "Cultivated land"                  # skip pour la QA ; piste : mapper → 401 comme farmland Grimbosq

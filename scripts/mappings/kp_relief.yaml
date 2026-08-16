@@ -1,0 +1,42 @@
+# Mapping calques DXF Karttapullautin -> codes ISOM 2017-2
+# Phase 7 -- relief Grimbosq, 6 dalles (X 448000-450001, Y 6887000-6890001)
+# Source : docs/etat_existant.md section 4 + assets/kp_crt.crt (Blaze)
+# Valide rapport Etape 0 (2026-08-07), etendu batch 6 dalles (2026-08-07)
+#
+# Calques dans skip : connus mais exclus intentionnellement.
+# Calques inconnus (absents de mapping ET de skip) -> echec explicite dans generate_relief.py.
+
+mapping:
+  # contours.dxf (batch) / out2.dxf (single) -- courbes de niveau
+  contour: 101           # Courbe de niveau
+  contour_index: 102     # Courbe maitresse
+  contour_intermed: 103  # Courbe de forme (appellation KP ; formline = idem)
+  depression: 101        # Depression = contour 101 ferme (tick de pente ajoute manuellement)
+                         # ISOM 106 = Ruined earth wall -- mauvaise correspondance initiale
+  depression_index: 102  # Courbe maitresse fermee (depression sur courbe principale)
+  depression_intermed: 103  # Idem, courbe de forme fermee
+
+  # cliff2/cliff3/cliff4 exclus -- voir skip ci-dessous
+
+  # dotknolls.dxf -- symboles ponctuels (POINT, pas POLYLINE)
+  dotknoll: 109          # Petite butte
+  udepression: 111       # Petite depression
+
+  # formlines.dxf
+  formline: 103          # Courbe de forme
+
+# skip : calques KP a exclure explicitement (connus, non cartographiques)
+# cliff2/cliff3/cliff4 : segments courts (~2,9 m) = artefacts grille LiDAR, pas des falaises
+# cont   : contours03.dxf, resolution ~0,3 m, ~3000 entites/km2 -- inutilisable
+# 1010   : detected.dxf, chemins/sentiers auto-detectes par KP (~21/km2, longueurs 1-176 m)
+#          Point ouvert : potentiellement complementaire a BD TOPO troncon_de_chemin pour
+#          sentiers non references IGN. A comparer avec fetch.py une fois ecrit.
+# ugly*  : calques auxiliaires de diagnostic KP, sans correspondance ISOM
+skip:
+  - cliff2
+  - cliff3
+  - cliff4
+  - cont
+  - "1010"
+  - uglydotknoll
+  - uglyudepression

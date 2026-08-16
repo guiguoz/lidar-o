@@ -1,0 +1,16 @@
+<georeferencing scale="10000" auxiliary_scale_factor="1.0" declination="-1.27">
+  <projected_crs id="EPSG">
+    <spec language="PROJ.4">+init=epsg:3301</spec>
+    <parameter>3301</parameter>
+    <ref_point x="413000" y="6483000"/>
+  </projected_crs>
+  <geographic_crs id="Geographic coordinates">
+    <spec language="PROJ.4">+proj=latlong +datum=WGS84</spec>
+    <ref_point_deg lat="58.47853252" lon="22.50857520"/>
+  </geographic_crs>
+</georeferencing>
+<!-- declination = convergence des méridiens (angle grille → géographique au point de référence),
+     PAS la déclinaison magnétique.
+     Formule : (λ - λ₀) × sin(φ) = (22.51 - 24) × sin(58.48°) = -1.27°
+     λ₀ = 24°E (méridien central L-EST97 EPSG:3301).
+     Déclinaison magnétique +8.3°E (IGRF/WMM 2025) : paramètre OOM distinct, pas dans ce XML. -->

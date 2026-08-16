@@ -1,0 +1,18 @@
+# Mapping OOM/OCAD noms français → codes ISOM 2017-2
+# Usage : python scripts/measure_corpus.py ffco carte.gpkg --mapping scripts/mappings/isom_fr.yaml
+# Ajouter les variantes rencontrées sur de nouveaux terrains
+
+# 406 — Végétation : course ralentie (vert clair)
+"Végétation : course lente": "406"
+"Terrain boisé,course ralentie": "406"
+"Terrain boisé, course ralentie": "406"
+"Végétation - course ralentie": "406"
+
+# 408 — Végétation : marche (vert moyen)
+"Végétation : marche": "408"
+"Forêt - course difficile": "408"
+"Végétation - course difficile": "408"
+
+# 410 — Végétation : combat (vert foncé)
+"Végétation : combat": "410"
+"Végétation impénétrable": "410"

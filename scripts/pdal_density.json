@@ -1,0 +1,21 @@
+{
+  "pipeline": [
+    {"type": "readers.copc", "filename": "LIDAR/LHD_FXX_0448_6887_PTS_LAMB93_IGN69.copc.laz"},
+    {"type": "readers.copc", "filename": "LIDAR/LHD_FXX_0448_6888_PTS_LAMB93_IGN69.copc.laz"},
+    {"type": "readers.copc", "filename": "LIDAR/LHD_FXX_0448_6889_PTS_LAMB93_IGN69.copc.laz"},
+    {"type": "readers.copc", "filename": "LIDAR/LHD_FXX_0449_6887_PTS_LAMB93_IGN69.copc.laz"},
+    {"type": "readers.copc", "filename": "LIDAR/LHD_FXX_0449_6888_PTS_LAMB93_IGN69.copc.laz"},
+    {"type": "readers.copc", "filename": "LIDAR/LHD_FXX_0449_6889_PTS_LAMB93_IGN69.copc.laz"},
+    {"type": "filters.merge"},
+    {"type": "filters.hag_nn", "count": 8},
+    {"type": "filters.range", "limits": "HeightAboveGround[0.3:3.0]"},
+    {
+      "type": "writers.gdal",
+      "filename": "output/density_hag.tif",
+      "resolution": 1.0,
+      "output_type": "count",
+      "data_type": "float32",
+      "nodata": -1
+    }
+  ]
+}

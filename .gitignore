@@ -1,0 +1,58 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.env
+
+# Données raster et vecteur lourdes
+output/
+output_airelles/
+output_*/
+LIDAR/
+Port en Bessin/
+debug/
+debug_*/
+temp/
+
+# Dalles LiDAR (volumineuses)
+*.copc.laz
+*.laz
+
+# Fichiers OCAD et images de sortie
+*.ocd
+*.jgw
+*.pgw
+*.jpg
+*.png
+comparatif.png
+!docs/images/*.png
+!docs/images/*.jpg
+
+# Données terrain (non versionnées — trop lourdes ou manuelles)
+data/bdtopo/
+data/*_bdtopo.gpkg
+data/osm_landuse_*.json
+*.gpkg
+airelles.json
+out_kp/
+out_kp*/
+autres cartes/
+rapports/
+
+# Karttapullautin (binaire non redistribuable + sorties)
+karttapullautin*/
+temp*/
+*.xyz.bin
+
+# Divers
+*.tar
+*.gz
+pullauta.ini
+pullautus.*
+fastighetskartan.txt
+osm.txt
+.claude/

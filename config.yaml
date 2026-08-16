@@ -1,0 +1,254 @@
+crs: EPSG:2154
+scale: 10000                  # 1:10000 par défaut ; accepté : 10000 | 15000
+max_area_km2: 9.0             # Emprise max v1 — rejet bloquant au-delà (une carte CO = 1-5 km²)
+
+vegetation:
+  source: "pdal"                # HAG 0.3–3 m — fixé au spike Phase 1 (2026-06-24)
+  resolution_m: 1.0             # Cap 1 m — sous-métrique inutile à 1:15000 et explose polygonize
+  majority_radius: 3            # Filtre majoritaire post-polygonize dans vegetation.py (pixels)
+
+  # ── Étape A (Phase 1) : résolution grille HAG ─────────────────────────────
+  # Changer uniquement cette valeur pour l'expérience A (1 → 2 → 3 m).
+  # Les rayons de lissage restent exprimés en mètres physiques ; process_hag.py
+  # les convertit automatiquement en pixels selon la résolution effective.
+  # Valeur identique à resolution_m au départ.
+  grid_resolution_m: 1.0        # Résolution de la grille HAG (m) — 1 | 2 | 3
+
+  # ── Étape B (Phase 1) : métrique de densité ───────────────────────────────
+  # PROTOCOLE FACTORIEL 2×2 résolution × métrique (PLAN §Phase1 avertissement) :
+  # Risque : le NRD à 1 m peut paraître mauvais faute de points (taux NoData élevé),
+  # pas parce que la formule est mauvaise — variable confondue à isoler.
+  #
+  # Mapping des 4 runs (RES = résolution retenue par l'Étape A) :
+  #
+  #   B0  grid_resolution_m: 1.0  mode: ratio   ← témoin absolu (déjà fait en Étape A)
+  #   B1  grid_resolution_m: 1.0  mode: nrd     ← NRD à 1 m  (risque NoData selon D2)
+  #   B2  grid_resolution_m: RES  mode: ratio   ← résolution retenue, témoin métrique
+  #   B3  grid_resolution_m: RES  mode: nrd     ← NRD à résolution retenue (run principal)
+  #
+  # ⚠ DIVERGENCE POSSIBLE résolution optimale ratio ≠ résolution viable NRD :
+  # D2 montre que ratio et NRD peuvent avoir des résolutions optimales différentes.
+  # Si le ratio est meilleur à 2 m (moins de perte de détail) mais que le NRD
+  # n'est fiable qu'à 4 m (34 % < n_min à 4 m sur Grimbosq), le protocole
+  # B0–B3 avec une seule RES désavantage structurellement le NRD.
+  #
+  # Deux options, à choisir AVANT de lancer B1–B3 :
+  #
+  # Option A — "Toutes choses égales par ailleurs" (question causale pure) :
+  #   Retenir RES_ratio (meilleur IoU_406 ratio, ex. 2 m) ET RES_nrd (résolution
+  #   où taux < n_min reste acceptable, ex. 4 m). Lire δ_R à chacune :
+  #     δ_R(ratio_opt) = IoU_406(NRD@2m) − IoU_406(ratio@2m)
+  #     δ_R(nrd_opt)   = IoU_406(NRD@4m) − IoU_406(ratio@4m)
+  #   Répond à : "la formule NRD aide-t-elle à résolution égale ?"
+  #
+  # Option B — "Meilleure combinaison en pratique" (question opérationnelle) :
+  #   Comparer directement le meilleur ratio (ratio@RES_ratio) contre le meilleur
+  #   NRD (nrd@RES_nrd), sans contrainte de résolution égale.
+  #   Répond à : "quelle combinaison métrique+résolution donne le meilleur 406 ?"
+  #   C'est la vraie question du projet si on cherche le meilleur pipeline, pas
+  #   à tester isolément la formule NRD.
+  #
+  # Les deux questions sont légitimes — les réponses peuvent diverger.
+  # Documenter explicitement laquelle on répond dans le rapport de l'Étape B.
+  #
+  # Règle de lecture commune (δ portent sur IoU_406 UNIQUEMENT) :
+  #   H1 validée si δ_R > 0 à RES_nrd.
+  #   Vérifier séparément IoU_408 et IoU_410 comme garde-fous (pas inclus dans δ).
+  #   NE PAS comparer B3 vs B1 : mélange effet résolution + effet métrique.
+  #
+  # Runs réellement nouveaux : seulement B1 et B3 (+ éventuellement B3 à RES_nrd
+  # si RES_nrd ≠ RES_ratio). B0 et B2 déjà produits par l'Étape A.
+  density_metric:
+    mode: ratio                 # "count" (baseline) | "ratio" HAG/total (T8) | "nrd" (Étape B)
+    n_min: 8                    # NRD : nb min impulsions pénétrantes par cellule (sous n_min → NoData)
+                                # IMPORTANT : n_min est un paramètre arbitraire, pas une constante physique.
+                                # D2 montre 73 % des cellules sous n_min=8 à 1 m (Grimbosq).
+                                # Le seuil s'applique aux impulsions pénétrantes (bande + sol),
+                                # pas au total — avec médiane_HAG=1, n_min=8 est élevé relativement
+                                # au signal disponible, pas "confortable".
+                                # Tester la sensibilité (n_min: 4, 8, 16) via --n-min dans
+                                # diag_point_density.py avant de fixer cette valeur.
+                                # Alternative plus propre (pour plus tard) : remplacer le seuil dur
+                                # par un lissage gaussien pondéré par confiance — les cellules à faible
+                                # comptage contribuent moins, sans binarisation NoData puis fill.
+                                # Voir compute_nrd docstring dans src/metrics.py.
+    nrd_fill_radius: 2          # NRD : rayon (cellules) pour combler les NoData par voisinage
+                                # Avec 73 % de NoData à 1 m, le fill domine le signal : l'échelle
+                                # réelle de NRD@1m est ~5 m (rayon fill), pas 1 m. δ₁ mesure alors
+                                # "fill NRD vs fill ratio" plutôt que "formule NRD vs formule ratio".
+    # ── Étape D (Phase 1) : séparation bandes low / mid ─────────────────────
+    band_split: false           # true = NRD séparé 406←nrd_low / 408-410←nrd_mid (après A+B+C)
+    low_height_m: 1.3           # Séparation basse/haute si band_split (m)
+
+  # ── Hauteurs HAG — paramètres PDAL (runes de flight-line) ─────────────────
+  heights:
+    min_m: 0.3                  # Borne basse bande principale (sous-sol écarté)
+    band_max_m: 3.0             # Borne haute bande principale (density_hag.tif)
+    mid_max_m: 4.0              # Borne haute bande mid si band_split (count_band_mid.tif)
+
+  # ── Étape C (Phase 1) : normalisation ─────────────────────────────────────
+  # Protocole T11/T12 : tester fixed_percentile puis none, comparer au témoin p95_local.
+  normalization:
+    mode: p95_local             # "p95_local" (défaut) | "fixed_percentile" | "none"
+    fixed_value: null           # Percentile fixe si mode=fixed_percentile
+                                # (mesurer une fois sur corpus de calibration, geler ici)
+
+  process_hag:
+    gaussian_sigma: 1.0   # 2026-08-04 : 3.0→1.0. σ=3 m sur grille 1 m comblait les creux
+                          # entre taches voisines → vallée de densité continue → nappe unique
+                          # de 75 ha (51% du 406) présente dans le raster AVANT toute fusion.
+                          # σ=1.0 : max%406 passe de 51.3% à 7.2% (cible FFCO 5.4%),
+                          # coverage 24.4%→16.6% (cible 15.0%). Ne pas remonter sans re-mesurer.
+    median_size: 9              # Médian avant seuillage — distance physique en mètres
+  sieve_threshold: 50           # en pixels ; = min_area_m2 / resolution_m² — recalculer si résolution change
+  opening_kernel: 3             # Ouverture morphologique (supprime bandes < largeur mini ISOM)
+  active_preset: grimbosq_v0      # seuils actifs — changer pour basculer de preset
+  presets:
+    grimbosq_v0:
+      thresholds: [0.20, 0.45, 0.85]  # T9 2026-07-05 : test 0.20->0.30 → fragmentation accrue, résultat défavorable — revenu à 0.20
+      thresholds_low: null             # null = seuillage simple ; [L406, L408, L410] = hysteresis (t_low < thresholds)
+    dense_summer:
+      thresholds: [0.15, 0.40, 0.75]
+    sparse_winter:
+      thresholds: [0.25, 0.55, 0.80]
+
+mask:
+  road_buffer_m: 5.0      # Buffer troncon_de_route, des deux côtés (m)
+  hab_buffer_m: 0.0       # zone_d_habitation sans buffer — enveloppe urbaine dense seulement
+  bat_buffer_m: 15.0      # Buffer batiment individuel — attrape jardins périphériques sans mordre en lisière
+                           # Indicateur de calibrage : retrait anneau bat → proportion hors-bois > 50 %
+  osm:
+    include:               # Tags landuse à soustraire (soustraction ciblée, jamais intersection)
+      - farmland
+      - orchard
+      - vineyard
+      - allotments
+      - farmyard
+      - residential
+    # meadow exclu : vérification en cours (polygone 86 ha → 9,74 ha dans bbox, 0,76 ha forêt BD TOPO)
+    large_poly_warn_ha: 30.0   # Avertissement si un polygone clippé à l'emprise dépasse N ha
+
+# CO Generalization Engine
+# Profil actif : "grimbosq_v0" — SEUILS_V0, un seul terrain (Grimbosq, forêt feuillue mature)
+# Changer active_profile pour basculer de profil sans modifier le moteur
+generalization:
+  active_profile: grimbosq_v0
+
+  profiles:
+    grimbosq_v0:
+      # Source mesures : measure_corpus.py sur density_hag_classified.tif, 2026-06-24
+      # Risque biais : résineux / jeunes plantations / coupes → variation possible 10–300 %
+      # À re-calibrer via measure_corpus.py compare <ffco.geojson> quand corpus disponible
+      min_area_m2:
+        406: 100   # T10 2026-07-05 : 50→100 — filtre généralisation petites taches diffuses sous-bois
+        408: 100   # 2026-08-06 : 50→100 — contrôle visuel : 37,7% poly < 1mm² à 1:10000 (confetti)
+        410: 75    # 2026-08-07 : 100→75 — sweep hull : med=1.38mm2 et %<1mm2=31.4% (cibles FFCO 1.39/32.0%)
+      min_hole_area_m2: 30              # pré-merge : conservateur
+      min_hole_area_m2_post_merge: 100  # post-merge : capture les lucarnes créées par l'agglomération
+      isthme_cut_radius_m: 0.0          # ouverture morphologique : 0 = désactivé.
+                                         # Testé r=1m : améliore isth_surf% (54.8→40.6%) mais dégrade %<0.3 (33.4→36.5%)
+                                         # et médiane (0.472→0.440). Les isthmes = 9% du problème, pas la cause principale.
+      fusion_distance_m:
+        406: 2     # 2026-08-06 : 8→2. Sweep fd∈{0.5,1,2,4,6} @ σ=1.0 — transition percolation
+                   # glissée à fd=4 (13,2% max) vs 4-8m doc. sous σ=3. Plateau 7,4-7,7% à fd≤2.
+                   # Plancher effectif ~7,4% (patches contigus dès polygonize grille 1m).
+                   # Ancienne valeur 8 → 72% max (percolation, nappe identique à σ=3).
+        408: 5     # 30% des voisins à < 5 m
+        410: 5     # corpus Airelles : 49% voisins <5m → 8m trop agressive (Test 3 2026-06-27)
+      remove_isolated:       # Test 7 2026-06-27 — valeurs conservatrices initiales
+        enabled: true
+        max_area_m2:
+          406: 60
+          408: 80
+          410: 40
+        search_distance_m:
+          406: 12
+          408: 10
+          410: 8
+      closing_kernel_size: 0    # Fermeture morphologique raster avant polygonize (0=off, 3=3x3 1m, 5=5x5 2m)
+      min_corridor_width_m: 5
+      douglas_peucker_tolerance_m: 2.0
+      chaikin_passes: 2          # ×1→×2 : +0.022 cpt_med, −1.6 pp %<0.3, 0 poly supplémentaire (sweep 2026-08-15)
+      qa_targets:           # cibles FFCO mesurées sur hull convexe 323.8 ha (Grimbosq)
+        hull_ha: 323.8      # surface du hull de référence
+        406:
+          cov_pct: 19.3
+          n: 463
+          med_mm2: 5.17
+          pct_small: 3.7
+          shape:            # métriques de forme FFCO 406 — Grimbosq hull 323.8 ha
+            compacity_med: 0.663          # 4πA/P² — cible forme (pipeline actuel: ~0.45)
+            pct_holed: 1.1               # % polygones avec trous (pipeline actuel: ~35%)
+            peri_over_sqrtarea_med: 4.33 # P/√A (pipeline actuel: ~5.30)
+        408: {cov_pct:  6.9, n: 432, med_mm2: 2.31, pct_small: 13.4}
+        410: {cov_pct:  8.0, n: 363, med_mm2: 1.39, pct_small: 32.0}
+
+karttapullautin:
+  binary: pullauta
+  version: "2.12.1"                 # Confirmé 2026-06-24 — à épingler dans Dockerfile (KP_VERSION)
+  expected_dxf_layers:              # Confirmés 2026-06-24 via inspect_kp_outputs() sur dalle IGN
+    # out2.dxf — relief principal (à utiliser pour le CRT)
+    - "contour"
+    - "contour_index"
+    - "contour_intermed"
+    - "depression"
+    - "depression_intermed"
+    # fichiers séparés
+    - "cliff2"          # c2g.dxf
+    - "cliff3"          # c3g.dxf
+    - "dotknoll"        # dotknolls.dxf
+    - "udepression"     # dotknolls.dxf
+    - "formline"        # formlines.dxf
+
+bd_topo:
+  # Répertoire contenant les GPKGs BD TOPO téléchargés par département.
+  # Convention IGN : un fichier par département, nommé *D0NN*.gpkg.
+  # Téléchargement : https://geoservices.ign.fr/bdtopo (onglet Téléchargement, par département)
+  gpkg_dir: data/bdtopo
+
+  # Calques clippés par fetch.py (noms dans le GPKG BD TOPO 3-5, sans préfixe BDTOPO_V3:)
+  # Note : zone_humide n'existe pas dans le GPKG 3-5 (couche WFS uniquement).
+  #        Les zones humides ne sont pas encodées en couche dédiée dans BD TOPO 3-5 GPKG.
+  layers:
+    priority:                       # Structurants — clip toujours demandé
+      - troncon_de_route
+      - batiment
+      - surface_hydrographique
+      - troncon_hydrographique
+      - cours_d_eau               # Cours d'eau linéaires (complément troncon_hydrographique)
+    masque:                         # Pour masquage végétation — clip demandé
+      - zone_de_vegetation        # Zones boisées IGN (Bois, Forêt, Lande, Peupleraie...)
+      - zone_d_habitation         # Enveloppe urbaine (hameaux, lotissements) — remplace buffer batiment
+      - plan_d_eau                # Plans d'eau (utile si terrain lacustre)
+    optionnel:                      # Utiles mais non structurants
+      - troncon_de_voie_ferree
+      - ligne_electrique
+      - haie
+
+terrains:
+  grimbosq:
+    bbox: [448000, 6886000, 450001, 6889001]  # EPSG:2154, Lambert 93
+    crs: EPSG:2154
+    departement: "14"
+    ffco_gpkg: "grimbosq.gpkg"               # carte de référence (recall QA — optionnel)
+
+  kilemaed:
+    bbox: [411888, 6481712, 414255, 6484028]  # EPSG:3301, L-EST97
+    crs: EPSG:3301
+    reader: readers.las                        # .laz Maa-amet, pas COPC
+    output_dir: output_kilemaed                # répertoire de sortie existant
+    ffco_gpkg: "autres cartes/Kilemäed.gpkg"  # carte de référence (noms tables latin-1, voir portabilite.md H8)
+    ffco_layer: "Kilemäed_areas"              # couche surfacique — ogr2ogr échoue sur encodage latin-1
+
+  kuti:
+    bbox: [598117, 6436581, 601925, 6440937]  # EPSG:3301, L-EST97 — lu depuis Kuti.gpkg areas extent
+    crs: EPSG:3301
+    reader: readers.las                        # .laz Maa-amet, pas COPC
+    output_dir: output_kuti
+    ffco_gpkg: "autres cartes/Kuti.gpkg"
+    ffco_layer: "Kuti_areas"                  # ASCII — ogr2ogr fonctionne (pas de latin-1 contrairement à Kilemäed)
+
+  port_en_bessin:
+    bbox: [424000, 6920000, 427000, 6922000]  # EPSG:2154, Lambert 93 — 3×2 km, 5 tuiles COPC (0424/0425/0426 × 6921/6922) — tuiles nommées par bord NORD
+    crs: EPSG:2154
+    departement: "14"

@@ -1,0 +1,18 @@
+<georeferencing scale="10000" auxiliary_scale_factor="1.0" declination="1.44">
+  <projected_crs id="EPSG">
+    <spec language="PROJ.4">+init=epsg:3301</spec>
+    <parameter>3301</parameter>
+    <ref_point x="600021" y="6438759"/>
+  </projected_crs>
+  <geographic_crs id="Geographic coordinates">
+    <spec language="PROJ.4">+proj=latlong +datum=WGS84</spec>
+    <ref_point_deg lat="58.07865300" lon="25.69539300"/>
+  </geographic_crs>
+</georeferencing>
+<!-- declination = convergence des méridiens (angle grille → géographique au point de référence),
+     PAS la déclinaison magnétique.
+     Formule : (λ - λ₀) × sin(φ) = (25.70 - 24) × sin(58.08°) = +1.44°
+     λ₀ = 24°E (méridien central L-EST97 EPSG:3301).
+     Kuti est à l'EST de λ₀ → convergence positive (signe opposé à Kilemäed -1.27°).
+     ref_point : centre de l'emprise GPKG [598117, 6436581, 601925, 6440937].
+     Déclinaison magnétique Estonie centrale ~+6°E (IGRF 2025) : paramètre OOM distinct. -->

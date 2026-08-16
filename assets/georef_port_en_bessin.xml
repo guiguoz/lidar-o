@@ -1,0 +1,11 @@
+<georeferencing scale="10000" auxiliary_scale_factor="0.999966" declination="-2.5">
+  <projected_crs id="EPSG">
+    <spec language="PROJ.4">+init=epsg:2154</spec>
+    <parameter>2154</parameter>
+    <ref_point x="425500" y="6921000"/>
+  </projected_crs>
+  <geographic_crs id="Geographic coordinates">
+    <spec language="PROJ.4">+proj=latlong +datum=WGS84</spec>
+    <ref_point_deg lat="49.32947976" lon="-0.77683185"/>
+  </geographic_crs>
+</georeferencing>
