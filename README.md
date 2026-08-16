@@ -247,7 +247,7 @@ The pipeline has been tested on 5 terrains. The HAG[0.3–3 m] signal separates 
 | Airelles (Pyrenees) | High-altitude heath | Out of domain | HAG signal identical across FFCO classes |
 | Kilemäed (Estonia) | Heath/mixed forest | Out of domain | Semantic mismatch open/covered |
 | Kuti (Estonia) | Spruce + Vaccinium | Out of domain | Uniformly dense signal |
-| Port-en-Bessin (Normandy) | Temperate forest | 408/410 detected | Confirms dense domain |
+| Port-en-Bessin (Normandy) | Bare beech forest | Correctly absent | No understory — HAG band empty (163 ground returns/cell) |
 
 **Class 406 is out of domain, including on Grimbosq.** Mann-Whitney AUC = 0.487: the HAG[0.3–3 m] density in missed 406 zones is statistically indistinguishable from runnable open terrain. Lowering the threshold creates as many false positives as it recovers true ones.
 

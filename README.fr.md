@@ -232,7 +232,7 @@ Le pipeline a été testé sur 5 terrains. Le signal HAG[0.3–3 m] sépare bien
 | Airelles (Pyrénées) | Lande résineux altitude | Hors domaine | Signal HAG identique entre classes FFCO |
 | Kilemäed (Estonie) | Lande/forêt mixte | Hors domaine | Désaccord sémantique ouvert/couvert |
 | Kuti (Estonie) | Épicéas + Vaccinium | Hors domaine | Signal uniforme dense |
-| Port-en-Bessin (Normandie) | Forêt tempérée | 408/410 détecté | Confirme le domaine dense |
+| Port-en-Bessin (Normandie) | Hêtraie à sol nu | Correctement absent | Pas de sous-bois — bande HAG vide (163 retours sol/cellule) |
 
 **Classe 406 hors domaine, y compris sur Grimbosq.** AUC Mann-Whitney = 0.487 : la densité HAG[0.3–3 m] dans les zones 406 manquées est statistiquement indiscernable du terrain courable. Baisser le seuil crée autant de faux positifs qu'il ne récupère de vrais positifs.
 
