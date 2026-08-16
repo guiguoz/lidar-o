@@ -72,7 +72,7 @@ Then create `assets/georef_my_forest.xml` — it tells OpenOrienteering Mapper w
 
 - `ref_point`: pick a round projected coordinate inside your bbox (e.g. 449000 / 6887000)
 - `ref_point_deg`: convert it to WGS84 at [epsg.io/transform](https://epsg.io/transform)
-- `declination`: magnetic declination for your area — look it up at [ngdc.noaa.gov/geomag/calculators/magcalc.shtml](https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml)
+- `declination`: grid convergence (°): `(longitude − central_meridian) × sin(latitude)`. For Lambert-93: central meridian = 3°E
 
 See `assets/` for working examples (grimbosq, kilemaed, kuti, port_en_bessin).
 
@@ -167,8 +167,8 @@ The `grimbosq` terrain is already declared. For your own terrain, add an entry f
 |-------|--------------|
 | `ref_point x/y` | Any round projected coordinate inside your bbox (e.g. 449000 / 6887000) |
 | `ref_point_deg lat/lon` | Convert that coordinate to WGS84 at [epsg.io/transform](https://epsg.io/transform) |
-| `declination` | Grid convergence (°): `(longitude − central_meridian) × sin(latitude)`. For Lambert-93: central meridian = 3°E. Example: (−0.42 − 3) × sin(49.04°) ≈ −2.6° → use −2.5 |
-| `auxiliary_scale_factor` | Scale factor of the projection at your point — leave at 0.999966 for Lambert-93 anywhere in France |
+| `declination` | Grid convergence (°): `(longitude − central_meridian) × sin(latitude)`. For Lambert-93: central meridian = 3°E. Example: (−0.42 − 3) × sin(49.04°) ≈ −2.58° → round to nearest 0.5°: use −2.5° |
+| `auxiliary_scale_factor` | Scale factor of the projection at your point — 0.999966 is correct for flat terrain in Lambert-93; recalculate at [epsg.io](https://epsg.io) for high-altitude areas |
 
 > **Watch the sign of `declination`**: it is negative west of the central meridian, positive east of it. Getting this wrong shifts every symbol by the convergence angle.
 
@@ -247,7 +247,7 @@ The pipeline has been tested on 5 terrains. The HAG[0.3–3 m] signal separates 
 | Airelles (Pyrenees) | High-altitude heath | Out of domain | HAG signal identical across FFCO classes |
 | Kilemäed (Estonia) | Heath/mixed forest | Out of domain | Semantic mismatch open/covered |
 | Kuti (Estonia) | Spruce + Vaccinium | Out of domain | Uniformly dense signal |
-| (5th terrain, test) | Temperate forest | 408/410 detected | Confirms dense domain |
+| Port-en-Bessin (Normandy) | Temperate forest | 408/410 detected | Confirms dense domain |
 
 **Class 406 is out of domain, including on Grimbosq.** Mann-Whitney AUC = 0.487: the HAG[0.3–3 m] density in missed 406 zones is statistically indistinguishable from runnable open terrain. Lowering the threshold creates as many false positives as it recovers true ones.
 

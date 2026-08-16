@@ -72,8 +72,8 @@ Puis créer `assets/georef_ma_foret.xml` — il indique à OpenOrienteering Mapp
 
 - `ref_point` : une coordonnée projetée ronde dans l'emprise (ex. 449000 / 6887000)
 - `ref_point_deg` : sa conversion WGS84 sur [epsg.io/transform](https://epsg.io/transform)
-- `declination` : convergence des méridiens — formule : `(longitude − méridien_central) × sin(latitude)`. Pour Lambert-93 : méridien central = 3°E. Exemple : (−0.42 − 3) × sin(49.04°) ≈ −2.6° → −2.5
-- `auxiliary_scale_factor` : facteur d'échelle de la projection — laisser 0.999966 pour Lambert-93 partout en France
+- `declination` : convergence des méridiens — formule : `(longitude − méridien_central) × sin(latitude)`. Pour Lambert-93 : méridien central = 3°E. Exemple : (−0.42 − 3) × sin(49.04°) ≈ −2.58° → arrondi à 0.5° près : −2.5°
+- `auxiliary_scale_factor` : facteur d'échelle de la projection — 0.999966 correct pour terrain plat en Lambert-93 ; recalculer sur [epsg.io](https://epsg.io) en zone de montagne
 
 Voir `assets/` pour quatre exemples fonctionnels (grimbosq, kilemaed, kuti, port_en_bessin).
 
@@ -154,8 +154,8 @@ Voir le fichier `assets/georef_grimbosq.xml` existant. Pour le remplir :
 |-------|-------------------|
 | `ref_point x/y` | Coordonnée projetée ronde dans l'emprise (ex. 449000 / 6887000) |
 | `ref_point_deg lat/lon` | Convertir sur [epsg.io/transform](https://epsg.io/transform) |
-| `declination` | Convergence des méridiens (°) : `(longitude − méridien_central) × sin(latitude)`. Lambert-93 : méridien = 3°E. Exemple : (−0.42 − 3) × sin(49.04°) ≈ −2.6° → −2.5 |
-| `auxiliary_scale_factor` | Facteur d'échelle de la projection — laisser 0.999966 pour Lambert-93 |
+| `declination` | Convergence des méridiens (°) : `(longitude − méridien_central) × sin(latitude)`. Lambert-93 : méridien = 3°E. Exemple : (−0.42 − 3) × sin(49.04°) ≈ −2.58° → arrondi à 0.5° près : −2.5° |
+| `auxiliary_scale_factor` | Facteur d'échelle de la projection — 0.999966 correct pour terrain plat en Lambert-93 ; recalculer sur [epsg.io](https://epsg.io) en zone de montagne |
 
 > **Attention au signe de `declination`** : négatif à l'ouest du méridien central, positif à l'est. Une erreur de signe décale tous les symboles de l'angle de convergence.
 
@@ -232,7 +232,7 @@ Le pipeline a été testé sur 5 terrains. Le signal HAG[0.3–3 m] sépare bien
 | Airelles (Pyrénées) | Lande résineux altitude | Hors domaine | Signal HAG identique entre classes FFCO |
 | Kilemäed (Estonie) | Lande/forêt mixte | Hors domaine | Désaccord sémantique ouvert/couvert |
 | Kuti (Estonie) | Épicéas + Vaccinium | Hors domaine | Signal uniforme dense |
-| (5e terrain, test) | Forêt tempérée | 408/410 détecté | Confirme le domaine dense |
+| Port-en-Bessin (Normandie) | Forêt tempérée | 408/410 détecté | Confirme le domaine dense |
 
 **Classe 406 hors domaine, y compris sur Grimbosq.** AUC Mann-Whitney = 0.487 : la densité HAG[0.3–3 m] dans les zones 406 manquées est statistiquement indiscernable du terrain courable. Baisser le seuil crée autant de faux positifs qu'il ne récupère de vrais positifs.
 
