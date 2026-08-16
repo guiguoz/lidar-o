@@ -1,185 +1,185 @@
 # Lidar'O
 
-Génération d'une carte de base ISOM à partir du LiDAR HD IGN (France), sortie en `.omap` ouvrable dans OpenOrienteering Mapper ou OCAD.
+Generate an ISOM base map from IGN HD LiDAR (France), output as a `.omap` file ready to open in OpenOrienteering Mapper or OCAD.
 
-<!-- Image représentative à l'échelle — copier un extrait de la carte générée dans docs/images/ -->
-<!-- ![Extrait Grimbosq](docs/images/extrait_grimbosq.png) -->
+<!-- Representative map extract at scale — copy a screenshot into docs/images/ -->
+<!-- ![Grimbosq extract](docs/images/extrait_grimbosq.png) -->
 
 ---
 
-## Comment l'essayer
+## Getting started
 
-### Prérequis
+### Requirements
 
-- **Python géospatial** — recommandé via [miniconda](https://docs.conda.io/en/latest/miniconda.html) :
+- **Geospatial Python** — recommended via [miniconda](https://docs.conda.io/en/latest/miniconda.html):
 
   ```bash
   conda install -c conda-forge geopandas shapely scipy numpy python-pdal pdal
   pip install pyyaml requests ezdxf
   ```
 
-  Ou depuis le dépôt :
+  Or from the repository:
 
   ```bash
   pip install -e .
-  # Note : gdal, python-pdal et pyogrio nécessitent conda ou un wheel précompilé
+  # Note: gdal, python-pdal and pyogrio require conda or a prebuilt wheel
   ```
 
-- **OpenOrienteering Mapper** — [openorienteering.org](https://www.openorienteering.org/) — pour ouvrir le `.omap` produit
+- **OpenOrienteering Mapper** — [openorienteering.org](https://www.openorienteering.org/) — to open the produced `.omap`
 
-- **Karttapullautin** (optionnel, pour le relief) — [github.com/karttapullautin](https://github.com/karttapullautin/karttapullautin) — lancer manuellement sur les dalles LiDAR, sortie dans `out_kp/`
+- **Karttapullautin** (optional, for contours) — [github.com/karttapullautin](https://github.com/karttapullautin/karttapullautin) — run manually on LiDAR tiles, output goes into `out_kp/`
 
-### Données d'entrée (France)
+### Input data (France)
 
-| Donnée | Source | Emplacement |
-|--------|--------|-------------|
-| LiDAR HD (dalles COPC, ~500 MB/dalle) | [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd) | `LIDAR/` ou `--tiles-dir DIR` |
-| BD TOPO (GPKG département) | [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo) | `data/bdtopo/` |
+| Data | Source | Location |
+|------|--------|----------|
+| LiDAR HD tiles (COPC, ~500 MB/tile) | [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd) | `LIDAR/` or `--tiles-dir DIR` |
+| BD TOPO (department GPKG) | [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo) | `data/bdtopo/` |
 
-**Spécifique France :** le LiDAR provient de la Géoplateforme IGN HD (COPC), la donnée anthropique de la BD TOPO v3. Hors France, voir [docs/portabilite.md](docs/portabilite.md).
+**France-specific:** LiDAR comes from the IGN Géoplateforme HD (COPC format), anthropic data from BD TOPO v3. For use outside France, see [docs/portabilite.md](docs/portabilite.md).
 
-Télécharger ~1–3 dalles LiDAR sur votre terrain. Compter 10–30 min de traitement selon la machine (PDAL + rasterisation + vectorisation). Un premier test sur 1 dalle (1×1 km) est suffisant.
+Download 1–3 LiDAR tiles covering your area. Expect 10–30 min processing time (PDAL + rasterisation + vectorisation). A single tile (1×1 km) is enough for a first test.
 
-### Lancer le pipeline
+### Run the pipeline
 
 ```bash
-# Déclarer le terrain dans config.yaml (bbox EPSG:2154, CRS, département)
+# Declare the terrain in config.yaml (EPSG:2154 bbox, CRS, department code)
 python main.py grimbosq --tiles-dir LIDAR/ --skip-pdal
 ```
 
-Options :
+Options:
 
-| Option | Usage |
-|--------|-------|
-| `--skip-pdal` | Saute PDAL si `density_hag_classified.tif` existe déjà |
-| `--tiles-dir DIR` | Répertoire des dalles `.copc.laz` |
-| `--from-step STEP` | Reprend à : `fetch`, `pdal`, `process_hag`, `vegetation`, `mask`, `assemble`, `qa` |
-| `--force` | Ignore les vérifications de fraîcheur |
+| Option | Description |
+|--------|-------------|
+| `--skip-pdal` | Skip PDAL if `density_hag_classified.tif` already exists |
+| `--tiles-dir DIR` | Directory containing `.copc.laz` tiles |
+| `--from-step STEP` | Resume from: `fetch`, `pdal`, `process_hag`, `vegetation`, `mask`, `assemble`, `qa` |
+| `--force` | Ignore freshness checks and rerun all steps |
 
-Sortie : `output/{terrain}.omap`
-
----
-
-## Ce que l'outil capture
-
-> Mesuré sur **un seul terrain** (forêt de Grimbosq, Calvados, France), contre une carte FFCO
-> de référence, sur emprise commune (hull 324 ha). Ces valeurs ne sont pas garanties ailleurs.
-
-| Classe | Détecté | Dans la bonne classe |
-|--------|---------|----------------------|
-| 406 sous-bois léger | 35 % | 28 % |
-| 408 marche | 61 % | 26 % |
-| 410 progression difficile | 82 % | 48 % |
-
-*"Détecté"* = fraction de la surface FFCO couverte par n'importe quelle classe du pipeline — ce que le cartographe n'a pas à dessiner.  
-*"Dans la bonne classe"* = fraction dans la bonne classe exacte — ce qu'il n'a pas à retoucher.  
-Le symbole se corrige en deux clics dans OCAD/OOM ; un polygone absent se dessine à la main.
-
-*Ces métriques ont été mesurées contre une carte de référence non redistribuable — les chiffres ne sont donc pas reproductibles en l'état depuis ce dépôt.*
+Output: `output/{terrain}.omap`
 
 ---
 
-## Domaine de validité
+## What the tool detects
 
-Le pipeline a été testé sur 5 terrains. Le signal HAG[0.3–3 m] sépare bien les végétations denses ; il est insuffisant pour le sous-bois léger praticable.
+> Measured on **one terrain only** (Grimbosq forest, Calvados, France), against an FFCO reference
+> map, over the common extent (convex hull, 324 ha). These figures are not guaranteed elsewhere.
 
-| Terrain | Type | Résultat 406 | Cause |
-|---------|------|-------------|-------|
-| Grimbosq (Normandie) | Hêtraie mature | Partiel (35 %) | Signal léger indiscernable du blanc |
-| Airelles (Pyrénées) | Lande résineux altitude | Hors domaine | Signal HAG identique entre classes |
-| Kilemäed (Estonie) | Lande/forêt mixte | Hors domaine | Désaccord sémantique ouvert/couvert |
-| Kuti (Estonie) | Épicéas + Vaccinium | Hors domaine | Signal uniforme dense |
-| (5e terrain, test) | Forêt tempérée | 408/410 détecté | Confirme le domaine dense |
+| Class | Detected | Correct class |
+|-------|---------|---------------|
+| 406 slow run | 35 % | 28 % |
+| 408 walk | 61 % | 26 % |
+| 410 fight | 82 % | 48 % |
 
-**406 léger hors domaine, y compris sur Grimbosq.** AUC Mann-Whitney = 0.487 : la densité HAG[0.3–3 m] dans les zones 406 manquées est statistiquement indiscernable du terrain courable. Baisser le seuil crée autant de faux positifs qu'il ne récupère de vrais positifs.
+*"Detected"* = fraction of the FFCO reference area covered by any pipeline class — what the mapper does not need to draw.  
+*"Correct class"* = fraction covered by the exact right class — what needs no retouching at all.  
+Fixing the symbol takes two clicks in OCAD/OOM; drawing a missing polygon from scratch takes much longer.
 
-**408/410 dans le domaine** sur les forêts à structuration verticale claire (forêt tempérée dense, 61 %/82 % de détection). Testé et hors domaine : landes d'altitude, landes-marais, forêts à sous-bois uniforme.
+*These metrics were measured against a non-redistributable reference map — the figures cannot be reproduced from this repository.*
 
 ---
 
-## QA et carte de référence
+## Validity domain
 
-Le pipeline tourne sans référence (métriques QA dégradées à la seule évaluation de la distribution de classes). Pour activer la comparaison quantitative :
+The pipeline has been tested on 5 terrains. The HAG[0.3–3 m] signal separates dense vegetation well; it is insufficient for light, runnable undergrowth.
 
-1. Fournir sa propre carte au format GPKG ou `.omap` avec les couches `veg_406`, `veg_408`, `veg_410`
-2. La déclarer dans `config.yaml` :
+| Terrain | Type | Result on 406 | Cause |
+|---------|------|--------------|-------|
+| Grimbosq (Normandy) | Mature beech forest | Partial (35 %) | Light signal indistinguishable from open ground |
+| Airelles (Pyrenees) | High-altitude heath | Out of domain | HAG signal identical across FFCO classes |
+| Kilemäed (Estonia) | Heath/mixed forest | Out of domain | Semantic mismatch open/covered |
+| Kuti (Estonia) | Spruce + Vaccinium | Out of domain | Uniformly dense signal |
+| (5th terrain, test) | Temperate forest | 408/410 detected | Confirms dense domain |
+
+**Class 406 is out of domain, including on Grimbosq.** Mann-Whitney AUC = 0.487: the HAG[0.3–3 m] density in missed 406 zones is statistically indistinguishable from runnable open terrain. Lowering the threshold creates as many false positives as it recovers true ones.
+
+**408/410 are in domain** on forests with clear vertical structure (dense temperate forest, 61 %/82 % detection). Tested and out of domain: high-altitude heath, bog-heath, forests with uniform understory.
+
+---
+
+## QA and reference map
+
+The pipeline runs without a reference map (QA metrics fall back to class distribution only). To enable quantitative comparison:
+
+1. Provide your own map as GPKG or `.omap` with layers `veg_406`, `veg_408`, `veg_410`
+2. Declare it in `config.yaml`:
 
    ```yaml
    terrains:
      grimbosq:
-       qa_reference: data/ma_carte_reference.gpkg
+       qa_reference: data/my_reference_map.gpkg
    ```
 
-3. Les métriques (recall par classe, couverture hull) s'affichent en fin de run et sont sauvées dans `output/run_metadata.json`
+3. Recall by class and hull coverage are printed at the end of the run and saved to `output/run_metadata.json`
 
 ---
 
-## Utilisation hors de France
+## Using outside France
 
-Le pipeline a tourné sur des données estoniennes (COPC LiDAR + OSM). Adaptations nécessaires :
+The pipeline has run on Estonian data (COPC LiDAR + OSM). Adaptations needed:
 
-- **CRS** : changer `crs` dans `config.yaml` (ex. `EPSG:3301` pour l'Estonie)
-- **Géoréférencement** : créer `assets/georef_{terrain}.xml` (voir les exemples dans `assets/`)
-- **Mappings** : adapter `scripts/mappings/bdtopo_isom.yaml` si la donnée anthropique ne vient pas de la BD TOPO
-- **BD TOPO** : aucun équivalent direct hors France — utiliser OSM via l'option `osm_landuse` dans `config.yaml`
+- **CRS**: change `crs` in `config.yaml` (e.g. `EPSG:3301` for Estonia)
+- **Georeferencing**: create `assets/georef_{terrain}.xml` (see examples in `assets/`)
+- **Mappings**: adapt `scripts/mappings/bdtopo_isom.yaml` if anthropic data does not come from BD TOPO
+- **BD TOPO**: no direct equivalent outside France — use OSM via the `osm_landuse` option in `config.yaml`
 
-Voir [docs/portabilite.md](docs/portabilite.md) pour un guide détaillé.
-
----
-
-## Ce que le projet a établi
-
-Onze pistes d'amélioration ont été testées et mesurées (bandes d'intensité, NDVI-like HAG, variation spatiale des seuils, apprentissage supervisé, segmentation objet…). La plupart ont été réfutées par la mesure sur corpus multi-terrain.
-
-Documentées dans [docs/bilan_v0.md](docs/bilan_v0.md) pour éviter à d'autres de refaire le chemin.
+See [docs/portabilite.md](docs/portabilite.md) for a detailed guide.
 
 ---
 
-## Statut du projet
+## What this project has established
 
-Publié en l'état comme travail posé — preuve de concept fonctionnelle sur forêt tempérée française.
+Eleven improvement directions were tested and measured (intensity bands, NDVI-like HAG, spatially varying thresholds, supervised learning, object-based segmentation…). Most were refuted by measurement on a multi-terrain corpus.
 
-Le pipeline fonctionne et produit des sorties utilisables, avec les limites documentées ci-dessus. Les issues GitHub seront lues mais les réponses ne sont pas garanties. Les pull requests documentant de nouveaux terrains testés ou améliorant la portabilité sont bienvenues.
+Documented in [docs/bilan_v0.md](docs/bilan_v0.md) to save others from repeating the same experiments.
+
+---
+
+## Project status
+
+Published as-is — a working proof of concept on French temperate forest.
+
+The pipeline produces usable output within the documented limits. GitHub issues will be read but responses are not guaranteed. Pull requests documenting new tested terrains or improving portability are welcome.
 
 ---
 
 ## Architecture
 
 ```
-main.py                      orchestrateur principal (7 étapes)
-config.yaml                  tous les paramètres — seuils, profils, endpoints
+main.py                      main orchestrator (7 steps)
+config.yaml                  all parameters — thresholds, profiles, endpoints
 
 src/
-  vegetation.py              CO Generalization Engine (9 étapes enchaînées)
-  omap_writer.py             génération fichiers .omap (XML OOM)
-  qa.py                      métriques QA + snapshot config
-  guards.py                  détection dérives de config entre runs
-  metrics.py                 densités HAG (ratio, NRD)
+  vegetation.py              CO Generalization Engine (9 chained steps)
+  omap_writer.py             .omap file generation (OOM XML)
+  qa.py                      QA metrics + config snapshot
+  guards.py                  config drift detection between runs
+  metrics.py                 HAG density computation (ratio, NRD)
 
 scripts/
-  fetch.py                   extraction BD TOPO depuis GPKG département
-  process_hag.py             normalisation + classification raster HAG
-  mask_vegetation.py         masque anthropique sur la végétation
-  generate_bdtopo.py         BD TOPO → couches .omap
-  generate_relief.py         DXF Karttapullautin → courbes de niveau .omap
-  run_terrain.py             pipeline PDAL standalone
-  measure_corpus.py          comparaison pipeline vs référence FFCO
-  mappings/                  tables de correspondance ISOM (BD TOPO, KP)
+  fetch.py                   BD TOPO extraction from department GPKG
+  process_hag.py             HAG raster normalisation + classification
+  mask_vegetation.py         anthropic mask on vegetation layers
+  generate_bdtopo.py         BD TOPO → .omap layers
+  generate_relief.py         Karttapullautin DXF → contour .omap
+  run_terrain.py             standalone PDAL pipeline
+  measure_corpus.py          pipeline vs FFCO reference comparison
+  mappings/                  ISOM symbol mapping tables (BD TOPO, KP)
 
-scripts/diag/                scripts de calibration (historique des expérimentations)
-assets/                      gabarit ISOM 2017-2, géoréférencements, CRT KP
-docs/                        portabilité, bilan v0, règles IOF
+scripts/diag/                calibration scripts (experiment history)
+assets/                      ISOM 2017-2 template, georef files, KP CRT
+docs/                        portability guide, v0 findings, IOF rules
 ```
 
 ---
 
-## Licence et crédits
+## License and credits
 
-**GNU Affero General Public License v3.0** — voir [LICENSE](LICENSE).
+**GNU Affero General Public License v3.0** — see [LICENSE](LICENSE).
 
-Utilisation libre, modification libre. Tout dérivé ou service réseau doit être publié sous AGPL v3 avec le code source.
+Free to use and modify. Any derivative or network service must be published under AGPL v3 with source code.
 
-Assets tiers :
-- Gabarit ISOM 2017-2 extrait d'[OpenOrienteering Mapper](https://www.openorienteering.org/) (GPL-3.0)
-- Table CRT extraite de [Blaze / Trailblaze Software](https://github.com/Trailblaze-Software/Blaze) (Apache-2.0)
-- [Karttapullautin](https://github.com/karttapullautin/karttapullautin) — non inclus, à télécharger séparément
+Third-party assets:
+- ISOM 2017-2 symbol template from [OpenOrienteering Mapper](https://www.openorienteering.org/) (GPL-3.0)
+- CRT table from [Blaze / Trailblaze Software](https://github.com/Trailblaze-Software/Blaze) (Apache-2.0)
+- [Karttapullautin](https://github.com/karttapullautin/karttapullautin) — not included, download separately
