@@ -182,7 +182,37 @@ Download the GPKG for department 14 from [geoservices.ign.fr/bdtopo](https://geo
 python main.py grimbosq --tiles-dir LIDAR/
 ```
 
-Expected runtime: ~40 min for 6 tiles on a modern laptop. Output: `output/grimbosq.omap`.
+Expected time per step (6 tiles, ~6 km², modern laptop):
+
+| Step | What it does | Time |
+|------|-------------|------|
+| `fetch` | Clips BD TOPO to bbox | < 1 min |
+| `pdal` | Rasterises HAG density from LiDAR | 20–35 min |
+| `process_hag` | Normalises and classifies raster (3 classes) | 1–2 min |
+| `vegetation` | Generalisation engine (dissolve → smooth → cut) | 3–5 min |
+| `mask` | Removes roads, buildings, farmland | 1–2 min |
+| `assemble` | Merges all layers into one .omap | < 1 min |
+| `qa` | Prints recall metrics (if reference map declared) | < 1 min |
+
+> If the pipeline appears stuck at `pdal`, it is working — LiDAR processing is CPU-bound and produces no intermediate output. Wait at least 5 min per tile before concluding it has hung.
+
+### 6 — Expected output
+
+A successful run ends with:
+```
+INFO  Assemblé : output/grimbosq.omap (18 couches)
+=== QA végétation — profil 'grimbosq_v0' ===
+INFO  406 : n=942  cov=35%  …
+INFO  408 : n=611  cov=61%  …
+INFO  410 : n=465  cov=82%  …
+```
+
+Open `output/grimbosq.omap` in OpenOrienteering Mapper. You should see:
+- Green vegetation polygons (slow run / walk / fight) covering the forested area
+- Roads, tracks, buildings and water from BD TOPO (black/blue/brown symbols)
+- Contour lines from Karttapullautin (brown) — only if `out_kp/` was present
+
+If the map appears blank or offset from the background, check that `declination` in the georef file has the correct sign.
 
 ---
 
