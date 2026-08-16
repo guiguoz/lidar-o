@@ -110,6 +110,82 @@ Output: `output/{terrain}.omap`
 
 ---
 
+## Complete example (Grimbosq, France)
+
+This walks through every step for a real 2 × 3 km area. Use it as a template for your own terrain.
+
+### 1 — Identify your LiDAR tiles (IGN France)
+
+IGN LiDAR HD tiles are named by their **north edge** (not their SW corner). The tile `LHD_FXX_XXXX_YYYY` covers:
+
+```
+x ∈ [XXXX × 1000, (XXXX + 1) × 1000]
+y ∈ [(YYYY − 1) × 1000,  YYYY × 1000]      ← YYYY is the NORTH edge
+```
+
+**Example** — bbox `[448000, 6886000, 450001, 6889001]` in Lambert-93:
+- x columns needed: 448, 449 → `0448`, `0449`
+- y rows needed: north edges 6887, 6888, 6889 → covers y from 6886000 to 6889000
+
+Tiles to download (6 files):
+```
+LHD_FXX_0448_6887_PTS_LAMB93_IGN69.copc.laz
+LHD_FXX_0448_6888_PTS_LAMB93_IGN69.copc.laz
+LHD_FXX_0448_6889_PTS_LAMB93_IGN69.copc.laz
+LHD_FXX_0449_6887_PTS_LAMB93_IGN69.copc.laz
+LHD_FXX_0449_6888_PTS_LAMB93_IGN69.copc.laz
+LHD_FXX_0449_6889_PTS_LAMB93_IGN69.copc.laz
+```
+
+Download from [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd), place in `LIDAR/`.
+
+### 2 — config.yaml
+
+The `grimbosq` terrain is already declared. For your own terrain, add an entry following the template at the top of the `terrains:` section.
+
+### 3 — Create assets/georef_grimbosq.xml
+
+```xml
+<georeferencing scale="10000" auxiliary_scale_factor="0.999966" declination="-2.5">
+  <projected_crs id="EPSG">
+    <spec language="PROJ.4">+init=epsg:2154</spec>
+    <parameter>2154</parameter>
+    <ref_point x="449000" y="6887000"/>
+  </projected_crs>
+  <geographic_crs id="Geographic coordinates">
+    <spec language="PROJ.4">+proj=latlong +datum=WGS84</spec>
+    <ref_point_deg lat="49.04313972" lon="-0.42052612"/>
+  </geographic_crs>
+</georeferencing>
+```
+
+**How to fill in each value:**
+
+| Field | How to get it |
+|-------|--------------|
+| `ref_point x/y` | Any round projected coordinate inside your bbox (e.g. 449000 / 6887000) |
+| `ref_point_deg lat/lon` | Convert that coordinate to WGS84 at [epsg.io/transform](https://epsg.io/transform) |
+| `declination` | Grid convergence (°): `(longitude − central_meridian) × sin(latitude)`. For Lambert-93: central meridian = 3°E. Example: (−0.42 − 3) × sin(49.04°) ≈ −2.6° → use −2.5 |
+| `auxiliary_scale_factor` | Scale factor of the projection at your point — leave at 0.999966 for Lambert-93 anywhere in France |
+
+> **Watch the sign of `declination`**: it is negative west of the central meridian, positive east of it. Getting this wrong shifts every symbol by the convergence angle.
+
+The `assets/` directory contains four working georef files you can copy and adapt.
+
+### 4 — Download BD TOPO (France only)
+
+Download the GPKG for department 14 from [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo) → "Téléchargement par département" → place in `data/bdtopo/`.
+
+### 5 — Run
+
+```bash
+python main.py grimbosq --tiles-dir LIDAR/
+```
+
+Expected runtime: ~40 min for 6 tiles on a modern laptop. Output: `output/grimbosq.omap`.
+
+---
+
 ## What the tool detects
 
 > Measured on **one terrain only** (Grimbosq forest, Calvados, France), against an FFCO reference
@@ -179,7 +255,7 @@ See [docs/portabilite.md](docs/portabilite.md) for a detailed guide.
 
 ## What this project has established
 
-Eleven improvement directions were tested and measured (intensity bands, NDVI-like HAG, spatially varying thresholds, supervised learning, object-based segmentation…). Most were refuted by measurement on a multi-terrain corpus.
+Eleven improvement directions were tested and measured: detection threshold tuning, minimum area filtering, Gaussian sigma, grid resolution (1 m vs 2 m), normalization strategy (fixed vs p95_local), LiDAR intensity as a secondary signal, canopy mask, hole removal (two approaches), isthmus surgery, and inter-class threshold sweep. Most were refuted by measurement on a multi-terrain corpus.
 
 Documented in [docs/bilan_v0.md](docs/bilan_v0.md) to save others from repeating the same experiments.
 
