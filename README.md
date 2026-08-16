@@ -1,5 +1,7 @@
 # Lidar'O
 
+*[Version française](README.fr.md)*
+
 Generate an ISOM base map from IGN HD LiDAR (France), output as a `.omap` file ready to open in OpenOrienteering Mapper or OCAD.
 
 <!-- Representative map extract at scale — copy a screenshot into docs/images/ -->
