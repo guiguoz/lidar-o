@@ -1,0 +1,43 @@
+.git
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Données LiDAR (plusieurs Go par dalle)
+LIDAR/
+Port en Bessin/
+*.copc.laz
+*.laz
+
+# Données terrain (téléchargeables)
+data/bdtopo/
+data/*_bdtopo.gpkg
+data/osm_landuse_*.json
+
+# Sorties pipeline (reproductibles)
+output*/
+out_kp*/
+temp*/
+debug*/
+
+# Cartes de référence (non redistribuables)
+*.gpkg
+*.ocd
+airelles.json
+
+# Karttapullautin (téléchargé au build, pas à copier)
+karttapullautin*/
+pullauta.ini
+pullautus.*
+
+# Divers
+*.tar
+*.gz
+rapports/
+docs/archive/
+.env
+.claude/

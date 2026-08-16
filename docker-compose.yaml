@@ -2,12 +2,14 @@ services:
   lidar-o:
     build: .
     volumes:
-      - ./data:/app/data        # Dalles LIDAR, BD TOPO en entrée
-      - ./output:/app/output    # Résultats en sortie
-      - ./assets:/app/assets    # CRT + jeu ISOM
+      - ./LIDAR:/app/LIDAR          # Dalles LiDAR en entrée
+      - ./data:/app/data            # BD TOPO en entrée
+      - ./out_kp:/app/out_kp        # DXF Karttapullautin (optionnel, pour le relief)
+      - ./output:/app/output        # Résultats en sortie
+      - ./config.yaml:/app/config.yaml  # Config terrain (écrite par init)
+      - ./assets:/app/assets        # CRT + jeu ISOM (lu par le pipeline)
     environment:
       - PYTHONUNBUFFERED=1
-    command: python3 -m src.main
 
   test:
     build: .

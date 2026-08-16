@@ -5,15 +5,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     pdal \
     lastools \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# ── Karttapullautin (binaire Rust, version épinglée) ────────────────────────
-# Télécharger la release depuis https://github.com/karttapullautin/karttapullautin/releases
-# et la placer dans build/karttapullautin AVANT de builder l'image.
-# Version épinglée : mettre à jour KP_VERSION ET expected_dxf_layers dans config.yaml simultanément.
+# ── Karttapullautin (GPL-3.0) — téléchargé depuis les releases officielles ──
+# Version épinglée : si KP_VERSION change, vérifier que les noms de calques DXF
+# correspondent toujours au mapping scripts/mappings/kp_relief.yaml.
 ARG KP_VERSION=2.12.1
-COPY build/pullauta/pullauta /usr/local/bin/pullauta
-RUN chmod +x /usr/local/bin/pullauta
+# URL vérifiée sur https://github.com/karttapullautin/karttapullautin/releases/tag/v2.12.1
+RUN mkdir /tmp/kp \
+ && curl -fL "https://github.com/karttapullautin/karttapullautin/releases/download/v${KP_VERSION}/karttapullautin-x86_64-linux.tar.gz" \
+    | tar xz -C /tmp/kp \
+ && find /tmp/kp -name pullauta -type f -exec install -m 755 {} /usr/local/bin/pullauta \; \
+ && rm -rf /tmp/kp
+ENV KP_BINARY=/usr/local/bin/pullauta
 
 # ── Python : Shapely depuis wheel binaire (embarque GEOS 3.13) ──────────────
 # On désinstalle d'abord le shapely système pour éviter d'hériter du GEOS système (potentiellement 3.11)
@@ -31,4 +36,7 @@ RUN pip3 install --no-cache-dir -e ".[dev]"
 # ── Code source ──────────────────────────────────────────────────────────────
 COPY . .
 
-CMD ["python3", "-m", "src.main"]
+# ── Vérification des imports ──────────────────────────────────────────────────
+RUN python3 -c "import src.vegetation, src.omap_writer, src.qa, src.guards, src.metrics; print('imports OK')"
+
+ENTRYPOINT ["python3", "main.py"]
