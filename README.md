@@ -44,41 +44,68 @@ Download 1–3 LiDAR tiles covering your area. Expect 10–30 min processing tim
 
 ### Declare your terrain
 
-Add an entry in `config.yaml` under `terrains:`:
+```bash
+# From a point on a map (CRS auto-detected from location)
+python main.py init my_forest --center 49.043 -0.421
+
+# With explicit bbox and CRS (if you already have projected coordinates)
+python main.py init my_forest --bbox 448000 6886000 451000 6889000 --crs EPSG:2154
+```
+
+`init` writes the entry in `config.yaml` and generates `assets/georef_my_forest.xml` (grid
+convergence, reference point, CRS). Supported CRS: France (2154), Estonia (3301), Great Britain
+(27700), Finland (3067), Switzerland (2056), Norway (25832/25833) — UTM fallback for others.
+
+Then list the LiDAR tiles needed to cover your area:
+
+```bash
+python main.py tiles my_forest
+# → LHD_FXX_0448_6887_PTS_LAMB93_IGN69.copc.laz
+#   LHD_FXX_0448_6888_PTS_LAMB93_IGN69.copc.laz  …  (France / EPSG:2154 only)
+# Source: https://geoservices.ign.fr/lidarhd
+```
+
+<details>
+<summary>Manual setup (if you prefer to edit config.yaml directly)</summary>
+
+Add an entry under `terrains:` in `config.yaml`:
 
 ```yaml
 terrains:
   my_forest:
-    bbox: [448000, 6886000, 451000, 6889000]  # projected bounding box (same CRS as below)
+    bbox: [448000, 6886000, 451000, 6889000]  # projected bounding box
     crs: EPSG:2154          # Lambert-93 for France; EPSG:3301 for Estonia, etc.
-    departement: "14"       # French department code — omit entirely if outside France
+    departement: "14"       # French department code — omit if outside France
 ```
 
-Then create `assets/georef_my_forest.xml` — it tells OpenOrienteering Mapper where to place the map:
+Create `assets/georef_my_forest.xml`:
 
 ```xml
 <georeferencing scale="10000" auxiliary_scale_factor="0.999966" declination="-2.5">
   <projected_crs id="EPSG">
     <spec language="PROJ.4">+init=epsg:2154</spec>
     <parameter>2154</parameter>
-    <ref_point x="449000" y="6887000"/>  <!-- any round coordinate inside the bbox -->
+    <ref_point x="449000" y="6887000"/>
   </projected_crs>
   <geographic_crs id="Geographic coordinates">
     <spec language="PROJ.4">+proj=latlong +datum=WGS84</spec>
-    <ref_point_deg lat="49.043" lon="-0.421"/>  <!-- WGS84 equivalent — use epsg.io/transform -->
+    <ref_point_deg lat="49.043" lon="-0.421"/>
   </geographic_crs>
 </georeferencing>
 ```
 
-- `ref_point`: pick a round projected coordinate inside your bbox (e.g. 449000 / 6887000)
-- `ref_point_deg`: convert it to WGS84 at [epsg.io/transform](https://epsg.io/transform)
-- `declination`: grid convergence (°): `(longitude − central_meridian) × sin(latitude)`. For Lambert-93: central meridian = 3°E
+`declination` is grid convergence: `(longitude − central_meridian) × sin(latitude)`.
+For Lambert-93, central meridian = 3°E.
+**Not** magnetic declination — they only coincide approximately in France.
 
-See `assets/` for working examples (grimbosq, kilemaed, kuti, port_en_bessin).
+</details>
 
 ### Run the pipeline
 
 ```bash
+# Verify tiles, CRS, georef XML before starting (auto-called by run)
+python main.py check my_forest
+
 # First run — processes LiDAR through all steps (30–60 min depending on area size)
 python main.py my_forest --tiles-dir LIDAR/
 

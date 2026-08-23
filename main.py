@@ -1,11 +1,20 @@
 """Orchestrateur du pipeline CO — produit un seul output/{terrain}.omap.
 
 Usage :
+    python main.py init mon_terrain --center 49.043 -0.421
+    python main.py tiles mon_terrain
+    python main.py check mon_terrain
     python main.py grimbosq --skip-pdal
     python main.py grimbosq --tiles-dir LIDAR/ [--reader readers.copc]
-    python main.py grimbosq --from-step mask --force
+    python main.py run grimbosq --from-step mask --force
 
-Étapes canoniques :
+Sous-commandes :
+  init   — crée config.yaml + georef XML depuis coordonnées géographiques
+  tiles  — liste les dalles LiDAR nécessaires (connecteur IGN pour EPSG:2154)
+  check  — vérifie dalles, recouvrement, CRS, georef XML avant traitement
+  run    — lance le pipeline (alias : positional terrain, backward-compatible)
+
+Étapes du pipeline :
   0  check_config  — détecte les diffs de config depuis le dernier run (non bloquant)
   1  fetch         — BD TOPO → data/{terrain}_bdtopo.gpkg
   2  pdal          — LiDAR → output/density_hag.tif + total_count.tif
@@ -14,11 +23,6 @@ Usage :
   5  mask          — masque anthropique → output/vegetation_masked.gpkg
   6  assemble      — assemblage final → output/{terrain}.omap
   7  qa            — métriques hull → console + output/run_metadata.json
-
-Prérequis non orchestrés :
-  - data/bdtopo/*D0{dept}*.gpkg    (téléchargé IGN)
-  - LIDAR/*.copc.laz               (dalles LiDAR IGN HD)
-  - out_kp/*.dxf                   (sortie Karttapullautin, optionnel — relief)
 """
 from __future__ import annotations
 
@@ -406,9 +410,91 @@ def step_qa(terrain: str, cfg: dict) -> None:
     write_config_snapshot(cfg, OUTPUT)
 
 
-# ── CLI ───────────────────────────────────────────────────────────────────────
+# ── Sous-commande : init ──────────────────────────────────────────────────────
 
-def main() -> None:
+def _cmd_init() -> None:
+    from src.init_terrain import cmd_init
+
+    parser = argparse.ArgumentParser(
+        prog="main.py init",
+        description="Initialise un terrain : config.yaml + georef XML depuis coordonnées géo.",
+    )
+    parser.add_argument("terrain", help="Nom du terrain (ex: my_forest)")
+    grp = parser.add_mutually_exclusive_group(required=True)
+    grp.add_argument(
+        "--center", nargs=2, type=float, metavar=("LAT", "LON"),
+        help="Centre géographique WGS84 (ex: 49.043 -0.421)",
+    )
+    grp.add_argument(
+        "--bbox", nargs=4, type=float, metavar=("XMIN", "YMIN", "XMAX", "YMAX"),
+        help="Bbox projetée (requiert --crs)",
+    )
+    parser.add_argument("--size", type=float, metavar="M", help="Côté du carré en mètres (défaut 2000)")
+    parser.add_argument("--crs", metavar="EPSG:XXXX", help="CRS projeté (déduit si --center)")
+    parser.add_argument("--force", action="store_true", help="Écrase le terrain s'il existe déjà")
+    cmd_init(parser.parse_args())
+
+
+# ── Sous-commande : tiles ─────────────────────────────────────────────────────
+
+def _cmd_tiles() -> None:
+    from src.providers.france import TILE_SOURCE, list_tiles
+
+    parser = argparse.ArgumentParser(
+        prog="main.py tiles",
+        description="Liste les dalles LiDAR nécessaires pour couvrir la bbox du terrain.",
+    )
+    parser.add_argument("terrain", help="Nom du terrain")
+    args = parser.parse_args()
+
+    cfg = _load_config()
+    terrain_cfg = (cfg.get("terrains") or {}).get(args.terrain)
+    if terrain_cfg is None:
+        sys.exit(f"ERREUR : terrain '{args.terrain}' introuvable dans config.yaml — lancer init d'abord")
+
+    bbox = terrain_cfg.get("bbox")
+    crs = terrain_cfg.get("crs", "")
+    if bbox is None:
+        sys.exit("ERREUR : bbox manquante dans config.yaml pour ce terrain")
+
+    tiles = list_tiles(tuple(bbox), crs)
+    if not tiles:
+        print(f"Pas de connecteur IGN pour CRS {crs}.")
+        print(f"Placez vos dalles LiDAR (LAZ/COPC) couvrant la bbox dans LIDAR/")
+        print(f"  bbox : {bbox}")
+        return
+
+    print(f"Tuiles LiDAR HD à télécharger ({len(tiles)}) :")
+    for t in tiles:
+        print(f"  {t}")
+    print(f"Source : {TILE_SOURCE}")
+    print(f"À placer dans : LIDAR/")
+
+
+# ── Sous-commande : check ─────────────────────────────────────────────────────
+
+def _cmd_check() -> None:
+    from src.check_terrain import cmd_check
+
+    parser = argparse.ArgumentParser(
+        prog="main.py check",
+        description="Vérifie dalles, recouvrement, georef XML avant le pipeline.",
+    )
+    parser.add_argument("terrain", help="Nom du terrain")
+    args = parser.parse_args()
+
+    cfg = _load_config()
+    ok = cmd_check(args.terrain, cfg, ROOT)
+    if not ok:
+        sys.exit(1)
+    print("check : tous les contrôles OK")
+
+
+# ── Sous-commande : run (pipeline principal) ───────────────────────────────────
+
+def _cmd_run() -> None:
+    from src.check_terrain import cmd_check
+
     parser = argparse.ArgumentParser(description="Pipeline CO — orchestre les 7 étapes")
     parser.add_argument("terrain", help="Nom du terrain (ex: grimbosq)")
     tiles_grp = parser.add_mutually_exclusive_group()
@@ -421,11 +507,18 @@ def main() -> None:
     )
     parser.add_argument("--force", action="store_true", help="Ignore les vérifications de fraîcheur")
     parser.add_argument("--reader", default="readers.copc", help="Lecteur PDAL (default: readers.copc)")
+    parser.add_argument("--skip-check", action="store_true", help="Ignore les vérifications pré-run (check)")
     args = parser.parse_args()
 
     global OUTPUT
 
     cfg = _load_config()
+
+    if not args.skip_check:
+        tiles_path = pathlib.Path(args.tiles_dir) if args.tiles_dir else None
+        if not cmd_check(args.terrain, cfg, ROOT, lidar_dir=tiles_path):
+            sys.exit("ERREUR pré-run — corriger les problèmes ci-dessus ou relancer avec --skip-check")
+
     terrain_cfg = cfg.get("terrains", {}).get(args.terrain, {})
     output_dir = terrain_cfg.get("output_dir") or (
         f"output_{args.terrain}" if args.terrain != "grimbosq" else "output"
@@ -456,17 +549,17 @@ def main() -> None:
             )
     else:
         if should_run("pdal"):
-            tiles: list[str] = []
+            run_tiles: list[str] = []
             if args.tiles_dir:
                 td = pathlib.Path(args.tiles_dir)
-                tiles = [str(p) for p in sorted(td.glob("*.copc.laz"))]
-                if not tiles:
-                    tiles = [str(p) for p in sorted(td.glob("*.laz"))]
+                run_tiles = [str(p) for p in sorted(td.glob("*.copc.laz"))]
+                if not run_tiles:
+                    run_tiles = [str(p) for p in sorted(td.glob("*.laz"))]
             elif args.tiles:
-                tiles = args.tiles
-            if not tiles:
+                run_tiles = args.tiles
+            if not run_tiles:
                 sys.exit("--tiles-dir ou --tiles requis pour l'étape pdal (ou utiliser --skip-pdal)")
-            step_pdal(args.terrain, cfg, tiles, args.reader, args.force)
+            step_pdal(args.terrain, cfg, run_tiles, args.reader, args.force)
 
         if should_run("process_hag"):
             step_process_hag(cfg, args.force)
@@ -482,6 +575,19 @@ def main() -> None:
 
     if should_run("qa"):
         step_qa(args.terrain, cfg)
+
+
+# ── CLI ───────────────────────────────────────────────────────────────────────
+
+_SUBCOMMANDS = {"init", "tiles", "check", "run"}
+
+
+def main() -> None:
+    if len(sys.argv) >= 2 and sys.argv[1] in _SUBCOMMANDS:
+        subcmd = sys.argv.pop(1)
+        {"init": _cmd_init, "tiles": _cmd_tiles, "check": _cmd_check, "run": _cmd_run}[subcmd]()
+    else:
+        _cmd_run()
 
 
 if __name__ == "__main__":

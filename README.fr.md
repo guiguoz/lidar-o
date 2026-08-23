@@ -44,42 +44,52 @@ Télécharger 1–3 dalles LiDAR sur votre zone. Compter 30–60 min de traiteme
 
 ### Déclarer votre terrain
 
-Ajouter une entrée dans `config.yaml` sous `terrains:` :
+```bash
+# Depuis un point sur une carte (CRS déduit automatiquement)
+python main.py init ma_foret --center 49.043 -0.421
+
+# Avec bbox projetée explicite
+python main.py init ma_foret --bbox 448000 6886000 451000 6889000 --crs EPSG:2154
+```
+
+`init` écrit l'entrée dans `config.yaml` et génère `assets/georef_ma_foret.xml` (convergence des
+méridiens, point de référence, CRS). CRS supportés : France (2154), Estonie (3301), Grande-Bretagne
+(27700), Finlande (3067), Suisse (2056), Norvège (25832/25833) — repli UTM pour les autres.
+
+Puis lister les dalles LiDAR nécessaires :
+
+```bash
+python main.py tiles ma_foret
+# → LHD_FXX_0448_6887_PTS_LAMB93_IGN69.copc.laz
+#   LHD_FXX_0448_6888_PTS_LAMB93_IGN69.copc.laz  …  (France / EPSG:2154 uniquement)
+# Source : https://geoservices.ign.fr/lidarhd
+```
+
+<details>
+<summary>Déclaration manuelle (si vous préférez éditer config.yaml directement)</summary>
+
+Ajouter une entrée sous `terrains:` dans `config.yaml` :
 
 ```yaml
 terrains:
   ma_foret:
-    bbox: [448000, 6886000, 451000, 6889000]  # emprise projetée (même CRS que ci-dessous)
-    crs: EPSG:2154          # Lambert-93 pour la France ; EPSG:3301 pour l'Estonie, etc.
-    departement: "14"       # code de département BD TOPO — à omettre hors France
+    bbox: [448000, 6886000, 451000, 6889000]
+    crs: EPSG:2154
+    departement: "14"       # code département BD TOPO — omettre hors France
 ```
 
-Puis créer `assets/georef_ma_foret.xml` — il indique à OpenOrienteering Mapper où positionner la carte :
+Créer `assets/georef_ma_foret.xml` — voir `assets/` pour quatre exemples fonctionnels.
+`declination` = convergence des méridiens (≠ déclinaison magnétique) :
+`(longitude − méridien_central) × sin(latitude)`. Lambert-93 : méridien central = 3°E.
 
-```xml
-<georeferencing scale="10000" auxiliary_scale_factor="0.999966" declination="-2.5">
-  <projected_crs id="EPSG">
-    <spec language="PROJ.4">+init=epsg:2154</spec>
-    <parameter>2154</parameter>
-    <ref_point x="449000" y="6887000"/>  <!-- coordonnée ronde dans l'emprise -->
-  </projected_crs>
-  <geographic_crs id="Geographic coordinates">
-    <spec language="PROJ.4">+proj=latlong +datum=WGS84</spec>
-    <ref_point_deg lat="49.043" lon="-0.421"/>  <!-- équivalent WGS84 — via epsg.io/transform -->
-  </geographic_crs>
-</georeferencing>
-```
-
-- `ref_point` : une coordonnée projetée ronde dans l'emprise (ex. 449000 / 6887000)
-- `ref_point_deg` : sa conversion WGS84 sur [epsg.io/transform](https://epsg.io/transform)
-- `declination` : convergence des méridiens — formule : `(longitude − méridien_central) × sin(latitude)`. Pour Lambert-93 : méridien central = 3°E. Exemple : (−0.42 − 3) × sin(49.04°) ≈ −2.58° → arrondi à 0.5° près : −2.5°
-- `auxiliary_scale_factor` : facteur d'échelle de la projection — 0.999966 correct pour terrain plat en Lambert-93 ; recalculer sur [epsg.io](https://epsg.io) en zone de montagne
-
-Voir `assets/` pour quatre exemples fonctionnels (grimbosq, kilemaed, kuti, port_en_bessin).
+</details>
 
 ### Lancer le pipeline
 
 ```bash
+# Vérifier dalles, CRS, georef avant traitement (appelé automatiquement par run)
+python main.py check ma_foret
+
 # Premier run — traite le LiDAR de bout en bout (30–60 min selon la taille de la zone)
 python main.py ma_foret --tiles-dir LIDAR/
 
