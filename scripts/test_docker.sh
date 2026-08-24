@@ -22,8 +22,9 @@ docker run --rm --entrypoint bash "${IMAGE}" -c "
 
 echo ""
 echo "=== §3 init réel avec volume ==="
-# PowerShell : -v \${PWD}:/app  /  bash : -v "$(pwd):/app"
-docker run --rm -v "$(pwd):/app" "${IMAGE}" init "${TERRAIN}" --center 49.043 -0.421 --crs EPSG:2154
+# MSYS_NO_PATHCONV=1 empêche Git Bash de convertir le chemin avant Docker.
+# Sans ça, /e/Vikazim/Ovector devient E:\Vikazim\Ovector que Docker ne monte pas.
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd):/app" "${IMAGE}" init "${TERRAIN}" --center 49.043 -0.421 --crs EPSG:2154
 
 echo ""
 echo "=== §4 Vérification fichiers survivent à l'arrêt ==="
@@ -44,7 +45,7 @@ fi
 
 echo ""
 echo "=== §5 tiles depuis le conteneur ==="
-docker run --rm -v "$(pwd):/app" "${IMAGE}" tiles "${TERRAIN}"
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd):/app" "${IMAGE}" tiles "${TERRAIN}"
 
 echo ""
 echo "=== §6 Nettoyage ==="
