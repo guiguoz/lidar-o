@@ -53,6 +53,6 @@ WORKDIR /app
 COPY . .
 
 # ── Vérification des imports ──────────────────────────────────────────────────
-RUN python -c "import src.vegetation, src.omap_writer, src.qa, src.guards, src.metrics; print('imports OK')"
+RUN python -c "import src.vegetation, src.omap_writer, src.qa, src.guards, src.metrics, src.init_terrain, src.check_terrain, src.providers.france; print('imports OK')"
 
 ENTRYPOINT ["python", "main.py"]
