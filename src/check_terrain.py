@@ -1,12 +1,56 @@
 """check — pre-run validation of tiles, CRS, georef and optional data."""
 from __future__ import annotations
 
+import importlib.util
 import logging
+import os
 import pathlib
 import re
+import shutil
 import xml.etree.ElementTree as ET
 
 log = logging.getLogger(__name__)
+
+# (module_name, install_hint)
+_REQUIRED_MODULES: list[tuple[str, str]] = [
+    ("pyproj",    "conda install -c conda-forge pyproj"),
+    ("geopandas", "conda install -c conda-forge geopandas"),
+    ("shapely",   "conda install -c conda-forge shapely"),
+    ("pdal",      "conda install -c conda-forge python-pdal pdal"),
+    ("rasterio",  "conda install -c conda-forge rasterio"),
+    ("ezdxf",     "pip install ezdxf"),
+    ("yaml",      "pip install pyyaml"),
+    ("requests",  "pip install requests"),
+]
+
+
+def check_deps() -> bool:
+    """Verify required Python modules are importable (no import — find_spec only).
+
+    Returns True if all critical modules are present.
+    """
+    missing = [
+        (mod, hint)
+        for mod, hint in _REQUIRED_MODULES
+        if importlib.util.find_spec(mod) is None
+    ]
+
+    if missing:
+        log.error("ERREUR : modules Python manquants :")
+        for mod, hint in missing:
+            log.error("  %-12s  →  %s", mod, hint)
+        log.error(
+            "Note : geopandas, shapely, pdal, rasterio nécessitent conda — "
+            "pas pip seul. Voir README § Requirements."
+        )
+        return False
+
+    # KP binary — optional, info only
+    kp = os.environ.get("KP_BINARY") or shutil.which("pullauta")
+    if not kp:
+        log.info("Info : binaire Karttapullautin (pullauta) absent — relief non disponible")
+
+    return True
 
 # IGN LiDAR HD filename pattern: LHD_FXX_XXXX_YYYY_PTS_LAMB93_IGN69.copc.laz
 _IGN_RE = re.compile(r"LHD_FXX_(\d{4})_(\d{4})_PTS_LAMB93_IGN69\.(?:copc\.)?laz$")
@@ -88,6 +132,9 @@ def cmd_check(
     """
     if skip_check:
         return True
+
+    if not check_deps():
+        return False
 
     terrain_cfg = (cfg.get("terrains") or {}).get(terrain, {})
     bbox = terrain_cfg.get("bbox")
