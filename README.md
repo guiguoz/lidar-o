@@ -13,6 +13,18 @@ Generate an ISOM base map from IGN HD LiDAR (France), output as a `.omap` file r
 
 ### Requirements
 
+**Option A — Docker (recommended)**
+
+No local dependencies. PDAL, GDAL and Karttapullautin are bundled in the image.
+
+```bash
+docker build -t lidar-o .
+docker run --rm -v $(pwd):/app lidar-o init my_forest --center 49.043 -0.421
+docker run --rm -v $(pwd):/app lidar-o my_forest --tiles-dir LIDAR/
+```
+
+**Option B — Local Python (for development)**
+
 - **Geospatial Python** — recommended via [miniconda](https://docs.conda.io/en/latest/miniconda.html):
 
   ```bash
@@ -29,7 +41,7 @@ Generate an ISOM base map from IGN HD LiDAR (France), output as a `.omap` file r
 
 - **OpenOrienteering Mapper** — [openorienteering.org](https://www.openorienteering.org/) — to open the produced `.omap`
 
-- **Karttapullautin** (optional, for contours) — [github.com/karttapullautin](https://github.com/karttapullautin/karttapullautin) — run manually on LiDAR tiles, output goes into `out_kp/`
+- **Karttapullautin** (optional, for contours) — [github.com/karttapullautin](https://github.com/karttapullautin/karttapullautin) — install separately and set `KP_BINARY=/path/to/pullauta` or add to `PATH`; the pipeline calls it automatically if available. Included in the Docker image.
 
 ### Input data (France)
 
@@ -120,7 +132,7 @@ lidar-o/
 ├── LIDAR/                        ← put your .copc.laz tiles here
 │   └── LHD_FXX_0448_6887_...laz
 ├── data/bdtopo/                  ← put the BD TOPO department GPKG here (France only)
-├── out_kp/                       ← Karttapullautin DXF output (optional, for contours)
+├── out_kp_{terrain}/             ← Karttapullautin DXF (auto-generated if KP available)
 ├── output/                       ← created automatically
 │   └── my_forest.omap            ← the result
 └── config.yaml                   ← declare your terrain here
@@ -132,7 +144,7 @@ Options:
 |--------|-------------|
 | `--tiles-dir DIR` | Directory containing `.copc.laz` tiles |
 | `--skip-pdal` | Skip PDAL (only if `density_hag_classified.tif` already exists from a previous run) |
-| `--from-step STEP` | Resume from: `fetch`, `pdal`, `process_hag`, `vegetation`, `mask`, `assemble`, `qa` |
+| `--from-step STEP` | Resume from: `fetch`, `pdal`, `process_hag`, `relief`, `vegetation`, `mask`, `assemble`, `qa` |
 | `--force` | Ignore freshness checks and rerun all steps |
 
 Output: `output/{terrain}.omap`

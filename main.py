@@ -19,6 +19,7 @@ Sous-commandes :
   1  fetch         — BD TOPO → data/{terrain}_bdtopo.gpkg
   2  pdal          — LiDAR → output/density_hag.tif + total_count.tif
   3  process_hag   — classify → output/density_hag_classified.tif
+  3b relief        — Karttapullautin batch → out_kp_{terrain}/*.dxf (optionnel, KP absent = ignoré)
   4  vegetation    — run_pipeline → output/vegetation.gpkg
   5  mask          — masque anthropique → output/vegetation_masked.gpkg
   6  assemble      — assemblage final → output/{terrain}.omap
@@ -44,7 +45,7 @@ OUTPUT = ROOT / "output"  # remplacé dans main() selon output_dir du terrain
 SCRIPTS = ROOT / "scripts"
 PYTHON = sys.executable
 
-STEPS = ["fetch", "pdal", "process_hag", "vegetation", "mask", "assemble", "qa"]
+STEPS = ["fetch", "pdal", "process_hag", "relief", "vegetation", "mask", "assemble", "qa"]
 _STEP_IDX = {s: i for i, s in enumerate(STEPS)}
 
 
@@ -142,6 +143,48 @@ def step_process_hag(cfg: dict, force: bool) -> None:
         [PYTHON, str(SCRIPTS / "process_hag.py"), "--src", str(hag_tif), "--dst", str(OUTPUT)],
         check=True,
     )
+
+
+# ── Étape 3b : relief (optionnel — KP absent = avertissement + continue) ──────
+
+def step_relief(
+    terrain: str,
+    cfg: dict,
+    tiles_dir: pathlib.Path | None,
+    force: bool,
+) -> str:
+    """Retourne un statut court décrivant ce qui s'est passé (affiché en fin de run)."""
+    try:
+        from src.run_engine import locate_binary
+        locate_binary()
+    except FileNotFoundError:
+        log.warning("relief : KP (pullauta) introuvable — étape ignorée")
+        return "ignoré : KP absent (définir KP_BINARY ou ajouter pullauta au PATH)"
+
+    if tiles_dir is None:
+        log.warning("relief : --tiles-dir requis pour lancer KP — étape ignorée")
+        return "ignoré : --tiles-dir manquant"
+
+    from src.run_engine import run_engine
+
+    out_kp = ROOT / f"out_kp_{terrain}"
+    dxf_files = sorted(out_kp.glob("*.dxf")) if out_kp.exists() else []
+
+    if not force and dxf_files:
+        laz_files = list(tiles_dir.glob("*.copc.laz")) + list(tiles_dir.glob("*.laz"))
+        ref_mtime = _newest_mtime(*laz_files)
+        if ref_mtime and all(f.stat().st_mtime >= ref_mtime for f in dxf_files):
+            log.info("SKIP relief — DXF à jour")
+            return f"skip : DXF à jour ({len(dxf_files)} fichiers dans {out_kp.name}/)"
+        log.warning("relief : DXF périmés — relance KP")
+
+    try:
+        run_engine(terrain, cfg, tiles_dir, ROOT)
+        dxf_count = len(sorted(out_kp.glob("*.dxf")))
+        return f"ok : {dxf_count} DXF dans {out_kp.name}/"
+    except Exception as exc:
+        log.warning("relief : KP échoué — étape ignorée (%s)", exc)
+        return f"ignoré : KP échoué ({exc})"
 
 
 # ── Étape 4 : vegetation ──────────────────────────────────────────────────────
@@ -564,6 +607,11 @@ def _cmd_run() -> None:
         if should_run("process_hag"):
             step_process_hag(cfg, args.force)
 
+    relief_status = "non lancé"
+    if should_run("relief"):
+        relief_tiles_dir = pathlib.Path(args.tiles_dir) if args.tiles_dir else None
+        relief_status = step_relief(args.terrain, cfg, relief_tiles_dir, args.force)
+
     if should_run("vegetation"):
         step_vegetation(args.terrain, cfg, args.force)
 
@@ -575,6 +623,13 @@ def _cmd_run() -> None:
 
     if should_run("qa"):
         step_qa(args.terrain, cfg)
+
+    log.info("──────────────────────────────────────────")
+    log.info("Pipeline terminé — terrain : %s", args.terrain)
+    log.info("  relief  : %s", relief_status)
+    out_omap = OUTPUT / f"{args.terrain}.omap"
+    if out_omap.exists():
+        log.info("  sortie  : %s", out_omap)
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
