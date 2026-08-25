@@ -54,220 +54,7 @@ Open `output/ma_foret.omap` in OpenOrienteering Mapper.
 
 ---
 
-## Getting started
-
-### Requirements
-
-**Option A — Docker (recommended)**
-
-No local dependencies. PDAL, GDAL and Karttapullautin are bundled in the image.
-
-```bash
-docker build -t lidar-o .
-docker run --rm -v $(pwd):/app lidar-o init my_forest --center 49.043 -0.421
-docker run --rm -v $(pwd):/app lidar-o my_forest --tiles-dir LIDAR/my_forest/
-```
-
-**Option B — Local Python (for development)**
-
-- **Geospatial Python** — recommended via [miniconda](https://docs.conda.io/en/latest/miniconda.html):
-
-  ```bash
-  conda install -c conda-forge geopandas shapely scipy numpy python-pdal pdal
-  pip install pyyaml requests ezdxf
-  ```
-
-  Or from the repository:
-
-  ```bash
-  pip install -e .
-  # Note: gdal, python-pdal and pyogrio require conda or a prebuilt wheel
-  ```
-
-- **OpenOrienteering Mapper** — [openorienteering.org](https://www.openorienteering.org/) — to open the produced `.omap`
-
-- **Karttapullautin** (optional, for contours) — [github.com/karttapullautin](https://github.com/karttapullautin/karttapullautin) — install separately and set `KP_BINARY=/path/to/pullauta` or add to `PATH`; the pipeline calls it automatically if available. Included in the Docker image.
-
-### Input data (France)
-
-| Data | Source | Location |
-|------|--------|----------|
-| LiDAR HD tiles (COPC, ~500 MB/tile) | [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd) | `LIDAR/` or `--tiles-dir DIR` |
-| BD TOPO (department GPKG) | [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo) | `data/bdtopo/` |
-
-**France-specific:** LiDAR comes from the IGN Géoplateforme HD (COPC format), anthropic data from BD TOPO v3. For use outside France, see [docs/portabilite.md](docs/portabilite.md).
-
-Download 1–3 LiDAR tiles covering your area. Expect 10–30 min processing time (PDAL + rasterisation + vectorisation). A single tile (1×1 km) is enough for a first test.
-
-### Declare your terrain
-
-```bash
-# From a point on a map (CRS auto-detected from location)
-python main.py init my_forest --center 49.043 -0.421
-
-# With explicit bbox and CRS (if you already have projected coordinates)
-python main.py init my_forest --bbox 448000 6886000 451000 6889000 --crs EPSG:2154
-```
-
-`init` writes the entry in `config.yaml` and generates `assets/georef_my_forest.xml` (grid
-convergence, reference point, CRS). Supported CRS: France (2154), Estonia (3301), Great Britain
-(27700), Finland (3067), Switzerland (2056), Norway (25832/25833) — UTM fallback for others.
-
-Then list the LiDAR tiles needed to cover your area:
-
-```bash
-python main.py tiles my_forest
-# → LHD_FXX_0448_6887_PTS_LAMB93_IGN69.copc.laz
-#   LHD_FXX_0448_6888_PTS_LAMB93_IGN69.copc.laz  …  (France / EPSG:2154 only)
-# Source: https://geoservices.ign.fr/lidarhd
-```
-
-<details>
-<summary>Manual setup (if you prefer to edit config.yaml directly)</summary>
-
-Add an entry under `terrains:` in `config.yaml`:
-
-```yaml
-terrains:
-  my_forest:
-    bbox: [448000, 6886000, 451000, 6889000]  # projected bounding box
-    crs: EPSG:2154          # Lambert-93 for France; EPSG:3301 for Estonia, etc.
-    departement: "14"       # French department code — omit if outside France
-```
-
-Create `assets/georef_my_forest.xml`:
-
-```xml
-<georeferencing scale="10000" auxiliary_scale_factor="0.999966" declination="-2.5">
-  <projected_crs id="EPSG">
-    <spec language="PROJ.4">+init=epsg:2154</spec>
-    <parameter>2154</parameter>
-    <ref_point x="449000" y="6887000"/>
-  </projected_crs>
-  <geographic_crs id="Geographic coordinates">
-    <spec language="PROJ.4">+proj=latlong +datum=WGS84</spec>
-    <ref_point_deg lat="49.043" lon="-0.421"/>
-  </geographic_crs>
-</georeferencing>
-```
-
-`declination` is grid convergence: `(longitude − central_meridian) × sin(latitude)`.
-For Lambert-93, central meridian = 3°E.
-**Not** magnetic declination — they only coincide approximately in France.
-
-</details>
-
-### Run the pipeline
-
-```bash
-# Verify tiles, CRS, georef XML before starting (auto-called by run)
-python main.py check my_forest
-
-# First run — processes LiDAR through all steps (30–60 min depending on area size)
-python main.py my_forest --tiles-dir LIDAR/my_forest/
-
-# Subsequent runs — skip PDAL if density_hag_classified.tif already exists (5 min)
-python main.py my_forest --skip-pdal
-```
-
-Expected directory layout:
-
-```
-lidar-o/
-├── LIDAR/
-│   └── my_forest/                ← put your .copc.laz tiles here
-│       └── LHD_FXX_0448_6887_...laz
-├── data/bdtopo/                  ← put the BD TOPO department GPKG here (France only)
-├── out_kp_{terrain}/             ← Karttapullautin DXF (auto-generated if KP available)
-├── output/                       ← created automatically
-│   └── my_forest.omap            ← the result
-└── config.yaml                   ← declare your terrain here
-```
-
-Options:
-
-| Option | Description |
-|--------|-------------|
-| `--tiles-dir DIR` | Directory containing `.copc.laz` tiles |
-| `--skip-pdal` | Skip PDAL (only if `density_hag_classified.tif` already exists from a previous run) |
-| `--from-step STEP` | Resume from: `fetch`, `pdal`, `process_hag`, `relief`, `vegetation`, `mask`, `assemble`, `qa` |
-| `--force` | Ignore freshness checks and rerun all steps |
-
-Output: `output/{terrain}.omap`
-
----
-
-## Complete example (Grimbosq, France)
-
-This walks through every step for a real 2 × 3 km area. Use it as a template for your own terrain.
-
-### 1 — Identify your LiDAR tiles (IGN France)
-
-IGN LiDAR HD tiles are named by their **north edge** (not their SW corner). The tile `LHD_FXX_XXXX_YYYY` covers:
-
-```
-x ∈ [XXXX × 1000, (XXXX + 1) × 1000]
-y ∈ [(YYYY − 1) × 1000,  YYYY × 1000]      ← YYYY is the NORTH edge
-```
-
-**Example** — bbox `[448000, 6886000, 450001, 6889001]` in Lambert-93:
-- x columns needed: 448, 449 → `0448`, `0449`
-- y rows needed: north edges 6887, 6888, 6889 → covers y from 6886000 to 6889000
-
-Tiles to download (6 files):
-```
-LHD_FXX_0448_6887_PTS_LAMB93_IGN69.copc.laz
-LHD_FXX_0448_6888_PTS_LAMB93_IGN69.copc.laz
-LHD_FXX_0448_6889_PTS_LAMB93_IGN69.copc.laz
-LHD_FXX_0449_6887_PTS_LAMB93_IGN69.copc.laz
-LHD_FXX_0449_6888_PTS_LAMB93_IGN69.copc.laz
-LHD_FXX_0449_6889_PTS_LAMB93_IGN69.copc.laz
-```
-
-Download from [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd), place in `LIDAR/`.
-
-### 2 — config.yaml
-
-The `grimbosq` terrain is already declared. For your own terrain, add an entry following the template at the top of the `terrains:` section.
-
-### 3 — Create assets/georef_grimbosq.xml
-
-```xml
-<georeferencing scale="10000" auxiliary_scale_factor="0.999966" declination="-2.5">
-  <projected_crs id="EPSG">
-    <spec language="PROJ.4">+init=epsg:2154</spec>
-    <parameter>2154</parameter>
-    <ref_point x="449000" y="6887000"/>
-  </projected_crs>
-  <geographic_crs id="Geographic coordinates">
-    <spec language="PROJ.4">+proj=latlong +datum=WGS84</spec>
-    <ref_point_deg lat="49.04313972" lon="-0.42052612"/>
-  </geographic_crs>
-</georeferencing>
-```
-
-**How to fill in each value:**
-
-| Field | How to get it |
-|-------|--------------|
-| `ref_point x/y` | Any round projected coordinate inside your bbox (e.g. 449000 / 6887000) |
-| `ref_point_deg lat/lon` | Convert that coordinate to WGS84 at [epsg.io/transform](https://epsg.io/transform) |
-| `declination` | Grid convergence (°): `(longitude − central_meridian) × sin(latitude)`. For Lambert-93: central meridian = 3°E. Example: (−0.42 − 3) × sin(49.04°) ≈ −2.58° → round to nearest 0.5°: use −2.5° |
-| `auxiliary_scale_factor` | Scale factor of the projection at your point — 0.999966 is correct for flat terrain in Lambert-93; recalculate at [epsg.io](https://epsg.io) for high-altitude areas |
-
-> **Watch the sign of `declination`**: it is negative west of the central meridian, positive east of it. Getting this wrong shifts every symbol by the convergence angle.
-
-The `assets/` directory contains four working georef files you can copy and adapt.
-
-### 4 — Download BD TOPO (France only)
-
-Download the GPKG for department 14 from [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo) → "Téléchargement par département" → place in `data/bdtopo/`.
-
-### 5 — Run
-
-```bash
-python main.py grimbosq --tiles-dir LIDAR/
-```
+## First run — what to expect
 
 Expected time per step (6 tiles, ~6 km², modern laptop):
 
@@ -283,23 +70,122 @@ Expected time per step (6 tiles, ~6 km², modern laptop):
 
 > If the pipeline appears stuck at `pdal`, it is working — LiDAR processing is CPU-bound and produces no intermediate output. Wait at least 5 min per tile before concluding it has hung.
 
-### 6 — Expected output
-
 A successful run ends with:
+
 ```
-INFO  Assemblé : output/grimbosq.omap (18 couches)
-=== QA végétation — profil 'grimbosq_v0' ===
-INFO  406 : n=942  cov=35%  …
-INFO  408 : n=611  cov=61%  …
-INFO  410 : n=465  cov=82%  …
+INFO  Assemblé : output/ma_foret.omap (18 couches)
 ```
 
-Open `output/grimbosq.omap` in OpenOrienteering Mapper. You should see:
+Open `output/ma_foret.omap` in OpenOrienteering Mapper. You should see:
 - Green vegetation polygons (slow run / walk / fight) covering the forested area
 - Roads, tracks, buildings and water from BD TOPO (black/blue/brown symbols)
-- Contour lines from Karttapullautin (brown) — only if `out_kp/` was present
+- Contour lines from Karttapullautin (brown) — only if KP is installed
 
-If the map appears blank or offset from the background, check that `declination` in the georef file has the correct sign.
+If the map appears blank or offset from the background, check that `declination` in the georef file has the correct sign (negative west of the CRS central meridian, positive east).
+
+---
+
+## Getting started
+
+### Local Python (for development)
+
+Geospatial dependencies require pre-built wheels — recommended via [miniconda](https://docs.conda.io/en/latest/miniconda.html):
+
+```bash
+conda install -c conda-forge geopandas shapely scipy numpy python-pdal pdal
+pip install pyyaml requests ezdxf
+```
+
+Or from the repository (GDAL, python-pdal and pyogrio still need conda):
+
+```bash
+pip install -e .
+```
+
+[Karttapullautin](https://github.com/karttapullautin/karttapullautin) (optional, for contours) — install separately and set `KP_BINARY=/path/to/pullauta` or add to `PATH`. Included in the Docker image.
+
+### Declaring a terrain with explicit coordinates
+
+If you already have projected coordinates, skip the interactive CRS confirmation:
+
+```bash
+python main.py init my_forest --bbox 448000 6886000 451000 6889000 --crs EPSG:2154
+```
+
+Supported CRS: France (2154), Estonia (3301), Great Britain (27700), Finland (3067), Switzerland (2056), Norway (25832/25833) — UTM fallback for others.
+
+### Pre-flight check
+
+```bash
+python main.py check my_forest
+```
+
+Verifies tiles, CRS, and `assets/georef_{terrain}.xml`. Called automatically at the start of each run — run it manually to diagnose problems before committing to a 30-min run.
+
+### Directory layout
+
+```
+lidar-o/
+├── LIDAR/
+│   └── my_forest/                ← put your .copc.laz tiles here
+├── data/bdtopo/                  ← put the BD TOPO department GPKG here (France only)
+├── out_kp_{terrain}/             ← Karttapullautin DXF (auto-generated if KP available)
+├── output/                       ← created automatically
+│   └── my_forest.omap
+└── config.yaml
+```
+
+### Pipeline options
+
+| Option | Description |
+|--------|-------------|
+| `--tiles-dir DIR` | Directory containing `.copc.laz` tiles |
+| `--skip-pdal` | Skip PDAL (only if `density_hag_classified.tif` already exists from a previous run) |
+| `--from-step STEP` | Resume from: `fetch`, `pdal`, `process_hag`, `relief`, `vegetation`, `mask`, `assemble`, `qa` |
+| `--force` | Ignore freshness checks and rerun all steps |
+
+---
+
+## Reference
+
+### IGN LiDAR tile naming (France)
+
+`init --center` prints the tile list automatically. This section documents the naming convention for manual verification.
+
+IGN LiDAR HD tiles are named by their **north edge** (not their SW corner). The tile `LHD_FXX_XXXX_YYYY` covers:
+
+```
+x ∈ [XXXX × 1000, (XXXX + 1) × 1000]
+y ∈ [(YYYY − 1) × 1000,  YYYY × 1000]      ← YYYY is the NORTH edge
+```
+
+**Example** — bbox `[448000, 6886000, 450001, 6889001]` in Lambert-93:
+- x columns needed: 448, 449 → `0448`, `0449`
+- y rows needed: north edges 6887, 6888, 6889 → covers y from 6886000 to 6889000
+
+Tiles (6 files):
+
+```
+LHD_FXX_0448_6887_PTS_LAMB93_IGN69.copc.laz
+LHD_FXX_0448_6888_PTS_LAMB93_IGN69.copc.laz
+LHD_FXX_0448_6889_PTS_LAMB93_IGN69.copc.laz
+LHD_FXX_0449_6887_PTS_LAMB93_IGN69.copc.laz
+LHD_FXX_0449_6888_PTS_LAMB93_IGN69.copc.laz
+LHD_FXX_0449_6889_PTS_LAMB93_IGN69.copc.laz
+```
+
+### Georef XML
+
+`init` generates `assets/georef_{terrain}.xml` automatically. To understand or adjust the values:
+
+| Field | How to compute |
+|-------|---------------|
+| `ref_point x/y` | Any round projected coordinate inside your bbox |
+| `ref_point_deg lat/lon` | Convert to WGS84 at [epsg.io/transform](https://epsg.io/transform) |
+| `declination` | Grid convergence: `(longitude − central_meridian) × sin(latitude)`. For Lambert-93: central meridian = 3°E. **Not** magnetic declination. |
+| `auxiliary_scale_factor` | Projection scale factor — 0.999966 for flat terrain in Lambert-93 |
+
+> `declination` is negative west of the central meridian, positive east. Getting the sign wrong shifts every symbol by the convergence angle.
 
 ---
 
@@ -391,7 +277,7 @@ The pipeline produces usable output within the documented limits. GitHub issues 
 ## Architecture
 
 ```
-main.py                      main orchestrator (7 steps)
+main.py                      subcommands: init / tiles / check / run (8 steps)
 config.yaml                  all parameters — thresholds, profiles, endpoints
 
 src/
@@ -400,13 +286,18 @@ src/
   qa.py                      QA metrics + config snapshot
   guards.py                  config drift detection between runs
   metrics.py                 HAG density computation (ratio, NRD)
+  run_engine.py              Karttapullautin: locate binary, build ini, run, verify DXF
+  init_terrain.py            init: CRS detection, bbox, georef XML, config.yaml
+  check_terrain.py           pre-flight validation (tiles, CRS, georef)
+  providers/                 tile auto-discovery by country — add a country: one new file here
+    france.py                IGN LiDAR HD tile names from bbox (EPSG:2154)
 
 scripts/
   fetch.py                   BD TOPO extraction from department GPKG
   process_hag.py             HAG raster normalisation + classification
   mask_vegetation.py         anthropic mask on vegetation layers
   generate_bdtopo.py         BD TOPO → .omap layers
-  generate_relief.py         Karttapullautin DXF → contour .omap
+  generate_relief.py         KP DXF output → contour .omap layer (runs after run_engine)
   run_terrain.py             standalone PDAL pipeline
   measure_corpus.py          pipeline vs FFCO reference comparison
   mappings/                  ISOM symbol mapping tables (BD TOPO, KP)
