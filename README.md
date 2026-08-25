@@ -4,8 +4,7 @@
 
 Generate an ISOM base map from IGN HD LiDAR (France), output as a `.omap` file ready to open in OpenOrienteering Mapper or OCAD.
 
-<!-- Representative map extract at scale — copy a screenshot into docs/images/ -->
-<!-- ![Grimbosq extract](docs/images/extrait_grimbosq.png) -->
+![Grimbosq extract](docs/images/extrait_grimbosq.jpg)
 
 ---
 
