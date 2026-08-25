@@ -8,6 +8,73 @@ Generate an ISOM base map from IGN HD LiDAR (France), output as a `.omap` file r
 
 ---
 
+## Quick start
+
+From nothing to a `.omap` file, step by step.
+
+**1. Install prerequisites**
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) — runs the pipeline without any local Python setup
+- [OpenOrienteering Mapper](https://www.openorienteering.org/) — opens the produced `.omap`
+
+**2. Clone the repository**
+
+```bash
+git clone https://github.com/guiguoz/lidar-o.git
+cd lidar-o
+```
+
+**3. Build the Docker image** *(once — takes 3–5 min on first build)*
+
+```bash
+docker build -t lidar-o .
+```
+
+> **Windows (Git Bash):** prefix every `docker run` command below with `MSYS_NO_PATHCONV=1` and quote `$(pwd)` as `"$(pwd)"`.
+
+**4. Declare your terrain**
+
+Find the centre of your area on [Géoportail](https://www.geoportail.gouv.fr/) (right-click → *Adresse/coordonnées du lieu*) or [OpenStreetMap](https://www.openstreetmap.org/) (right-click → *Show address*). You need latitude and longitude in decimal degrees.
+
+```bash
+docker run --rm -v $(pwd):/app lidar-o init ma_foret --center 49.043 -0.421
+```
+
+**5. Find which LiDAR tiles to download**
+
+```bash
+docker run --rm -v $(pwd):/app lidar-o tiles ma_foret
+```
+
+This prints the exact file names needed, for example:
+```
+LHD_FXX_0448_6887_PTS_LAMB93_IGN69.copc.laz
+LHD_FXX_0448_6888_PTS_LAMB93_IGN69.copc.laz
+…
+```
+
+Download these files from [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd) and place them in `LIDAR/`.
+
+**6. Download BD TOPO** *(France only)*
+
+Go to [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo) → *Téléchargement par département*. To find your department number: right-click your area on [Géoportail](https://www.geoportail.gouv.fr/) → the address shows the department. Download the GPKG archive and place the `.gpkg` file in `data/bdtopo/`.
+
+**7. Run the pipeline**
+
+```bash
+docker run --rm -v $(pwd):/app lidar-o ma_foret --tiles-dir LIDAR/
+```
+
+Expected time: **30–60 min** on first run (LiDAR processing is CPU-bound and produces no output while running — this is normal). Subsequent runs with `--skip-pdal`: **5 min**.
+
+**8. Open the result**
+
+Open `output/ma_foret.omap` in OpenOrienteering Mapper. You should see vegetation polygons, roads, buildings and water from BD TOPO, and contour lines if Karttapullautin ran.
+
+If the map appears blank or shifted from a background image, check that the `init` step completed without errors.
+
+---
+
 ## Getting started
 
 ### Requirements
