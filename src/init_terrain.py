@@ -307,7 +307,7 @@ def cmd_init(args) -> None:
         print(f"   → Placer dans : {tiles_dir}/")
         step += 1
     else:
-        print(f"\n{step}. Placer vos dalles LiDAR (.copc.laz) dans : {tiles_dir}/")
+        print(f"\n{step}. Placez vos dalles LiDAR (.laz ou .copc.laz) dans : {tiles_dir}/")
         step += 1
 
     if epsg == 2154:
@@ -316,6 +316,12 @@ def cmd_init(args) -> None:
         print( "     « Téléchargement par département » — choisir le département")
         print( "     (sur Géoportail : clic droit sur votre zone → adresse affichée)")
         print( "   → Placer le fichier .gpkg dans : data/bdtopo/")
+        step += 1
+    else:
+        print(f"\n{step}. Données anthropiques :")
+        print( "   Pas de connecteur BD TOPO pour ce pays.")
+        print( "   Le pipeline utilisera OSM automatiquement (routes, bâtiments, eau).")
+        print( "   Aucun fichier à télécharger pour cette étape.")
         step += 1
 
     print(f"\n{step}. Lancer le pipeline :")
