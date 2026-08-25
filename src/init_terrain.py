@@ -261,8 +261,9 @@ def cmd_init(args) -> None:
 
     # ── Create directories ─────────────────────────────────────────────────────
 
-    for d in ["LIDAR", "data", "output"]:
+    for d in ["data", "output"]:
         (root / d).mkdir(exist_ok=True)
+    (root / "LIDAR" / terrain).mkdir(parents=True, exist_ok=True)
 
     # ── Write georef XML ───────────────────────────────────────────────────────
 
@@ -278,13 +279,51 @@ def cmd_init(args) -> None:
     lat_ref, lon_ref = projected_to_wgs84(rx, ry, epsg)
     conv = compute_convergence(lat_ref, lon_ref, epsg)
 
+    try:
+        from src.providers.france import TILE_SOURCE, list_tiles
+        tiles_list = list_tiles(tuple(bbox), f"EPSG:{epsg}")
+    except Exception:
+        tiles_list = []
+
+    tiles_dir = f"LIDAR/{terrain}"
+
     print(f"\nTerrain '{terrain}' initialisé :")
     print(f"  bbox        : {[int(v) for v in bbox]}")
     print(f"  CRS         : EPSG:{epsg}")
     print(f"  georef      : {georef_path}")
     print(f"  convergence : {conv:.2f}° (méridiens, ≠ déclinaison magnétique)")
     print()
-    print("Étapes suivantes :")
-    print(f"  1. python main.py tiles {terrain}      # liste les dalles LiDAR")
-    print(f"  2. Télécharger et placer dans LIDAR/")
-    print(f"  3. python main.py {terrain} --tiles-dir LIDAR/")
+    print("─" * 60)
+    print("Étapes suivantes")
+    print("─" * 60)
+
+    step = 1
+
+    if tiles_list:
+        print(f"\n{step}. Dalles LiDAR à télécharger ({len(tiles_list)} fichier(s)) :")
+        for t in tiles_list:
+            print(f"     {t}")
+        print(f"   Source : {TILE_SOURCE}")
+        print(f"   → Placer dans : {tiles_dir}/")
+        step += 1
+    else:
+        print(f"\n{step}. Placer vos dalles LiDAR (.copc.laz) dans : {tiles_dir}/")
+        step += 1
+
+    if epsg == 2154:
+        print(f"\n{step}. BD TOPO (France) :")
+        print( "   → https://geoservices.ign.fr/bdtopo")
+        print( "     « Téléchargement par département » — choisir le département")
+        print( "     (sur Géoportail : clic droit sur votre zone → adresse affichée)")
+        print( "   → Placer le fichier .gpkg dans : data/bdtopo/")
+        step += 1
+
+    print(f"\n{step}. Lancer le pipeline :")
+    print(f"   python main.py {terrain} --tiles-dir {tiles_dir}/")
+    print()
+    print(f"   Via Docker :")
+    print(f"   docker run --rm -v $(pwd):/app lidar-o {terrain} --tiles-dir {tiles_dir}/")
+    print()
+    print( "   Windows (Git Bash) :")
+    print(f"   MSYS_NO_PATHCONV=1 docker run --rm -v \"$(pwd):/app\" lidar-o {terrain} --tiles-dir {tiles_dir}/")
+    print()

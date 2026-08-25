@@ -500,10 +500,11 @@ def _cmd_tiles() -> None:
     if bbox is None:
         sys.exit("ERREUR : bbox manquante dans config.yaml pour ce terrain")
 
+    terrain = args.terrain
     tiles = list_tiles(tuple(bbox), crs)
     if not tiles:
         print(f"Pas de connecteur IGN pour CRS {crs}.")
-        print(f"Placez vos dalles LiDAR (LAZ/COPC) couvrant la bbox dans LIDAR/")
+        print(f"Placez vos dalles LiDAR (LAZ/COPC) couvrant la bbox dans LIDAR/{terrain}/")
         print(f"  bbox : {bbox}")
         return
 
@@ -511,7 +512,7 @@ def _cmd_tiles() -> None:
     for t in tiles:
         print(f"  {t}")
     print(f"Source : {TILE_SOURCE}")
-    print(f"À placer dans : LIDAR/")
+    print(f"À placer dans : LIDAR/{terrain}/")
 
 
 # ── Sous-commande : check ─────────────────────────────────────────────────────

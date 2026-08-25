@@ -14,64 +14,43 @@ From nothing to a `.omap` file, step by step.
 
 **1. Install prerequisites**
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) — runs the pipeline without any local Python setup
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) — runs the pipeline, no local Python setup needed
 - [OpenOrienteering Mapper](https://www.openorienteering.org/) — opens the produced `.omap`
 
-**2. Clone the repository**
+**2. Clone and build** *(once — build takes 3–5 min)*
 
 ```bash
 git clone https://github.com/guiguoz/lidar-o.git
 cd lidar-o
-```
-
-**3. Build the Docker image** *(once — takes 3–5 min on first build)*
-
-```bash
 docker build -t lidar-o .
 ```
 
-> **Windows (Git Bash):** prefix every `docker run` command below with `MSYS_NO_PATHCONV=1` and quote `$(pwd)` as `"$(pwd)"`.
+> **Windows (Git Bash):** prefix every `docker run` command with `MSYS_NO_PATHCONV=1` and quote `$(pwd)` as `"$(pwd)"`.
 
-**4. Declare your terrain**
+**3. Declare your terrain**
 
-Find the centre of your area on [Géoportail](https://www.geoportail.gouv.fr/) (right-click → *Adresse/coordonnées du lieu*) or [OpenStreetMap](https://www.openstreetmap.org/) (right-click → *Show address*). You need latitude and longitude in decimal degrees.
+Find your area's centre on [Géoportail](https://www.geoportail.gouv.fr/) (right-click → *Adresse/coordonnées du lieu*) or [OpenStreetMap](https://www.openstreetmap.org/) (right-click → *Show address*). Latitude and longitude in decimal degrees.
 
 ```bash
 docker run --rm -v $(pwd):/app lidar-o init ma_foret --center 49.043 -0.421
 ```
 
-**5. Find which LiDAR tiles to download**
+`init` prints the exact LiDAR tile names to download, your department number for BD TOPO, and the final command — ready to copy.
+
+**4. Download the data**
+
+- **LiDAR tiles** — from [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd), place in `LIDAR/ma_foret/`
+- **BD TOPO** *(France only)* — from [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo) → *Téléchargement par département*, place the `.gpkg` file in `data/bdtopo/`
+
+**5. Run the pipeline**
 
 ```bash
-docker run --rm -v $(pwd):/app lidar-o tiles ma_foret
+docker run --rm -v $(pwd):/app lidar-o ma_foret --tiles-dir LIDAR/ma_foret/
 ```
 
-This prints the exact file names needed, for example:
-```
-LHD_FXX_0448_6887_PTS_LAMB93_IGN69.copc.laz
-LHD_FXX_0448_6888_PTS_LAMB93_IGN69.copc.laz
-…
-```
+Expected time: **30–60 min** on first run (LiDAR processing produces no output while running — this is normal). Subsequent runs with `--skip-pdal`: **5 min**.
 
-Download these files from [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd) and place them in `LIDAR/`.
-
-**6. Download BD TOPO** *(France only)*
-
-Go to [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo) → *Téléchargement par département*. To find your department number: right-click your area on [Géoportail](https://www.geoportail.gouv.fr/) → the address shows the department. Download the GPKG archive and place the `.gpkg` file in `data/bdtopo/`.
-
-**7. Run the pipeline**
-
-```bash
-docker run --rm -v $(pwd):/app lidar-o ma_foret --tiles-dir LIDAR/
-```
-
-Expected time: **30–60 min** on first run (LiDAR processing is CPU-bound and produces no output while running — this is normal). Subsequent runs with `--skip-pdal`: **5 min**.
-
-**8. Open the result**
-
-Open `output/ma_foret.omap` in OpenOrienteering Mapper. You should see vegetation polygons, roads, buildings and water from BD TOPO, and contour lines if Karttapullautin ran.
-
-If the map appears blank or shifted from a background image, check that the `init` step completed without errors.
+Open `output/ma_foret.omap` in OpenOrienteering Mapper.
 
 ---
 
@@ -86,7 +65,7 @@ No local dependencies. PDAL, GDAL and Karttapullautin are bundled in the image.
 ```bash
 docker build -t lidar-o .
 docker run --rm -v $(pwd):/app lidar-o init my_forest --center 49.043 -0.421
-docker run --rm -v $(pwd):/app lidar-o my_forest --tiles-dir LIDAR/
+docker run --rm -v $(pwd):/app lidar-o my_forest --tiles-dir LIDAR/my_forest/
 ```
 
 **Option B — Local Python (for development)**
@@ -185,7 +164,7 @@ For Lambert-93, central meridian = 3°E.
 python main.py check my_forest
 
 # First run — processes LiDAR through all steps (30–60 min depending on area size)
-python main.py my_forest --tiles-dir LIDAR/
+python main.py my_forest --tiles-dir LIDAR/my_forest/
 
 # Subsequent runs — skip PDAL if density_hag_classified.tif already exists (5 min)
 python main.py my_forest --skip-pdal
@@ -195,8 +174,9 @@ Expected directory layout:
 
 ```
 lidar-o/
-├── LIDAR/                        ← put your .copc.laz tiles here
-│   └── LHD_FXX_0448_6887_...laz
+├── LIDAR/
+│   └── my_forest/                ← put your .copc.laz tiles here
+│       └── LHD_FXX_0448_6887_...laz
 ├── data/bdtopo/                  ← put the BD TOPO department GPKG here (France only)
 ├── out_kp_{terrain}/             ← Karttapullautin DXF (auto-generated if KP available)
 ├── output/                       ← created automatically
