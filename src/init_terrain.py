@@ -280,10 +280,10 @@ def cmd_init(args) -> None:
     conv = compute_convergence(lat_ref, lon_ref, epsg)
 
     try:
-        from src.providers.france import TILE_SOURCE, list_tiles
-        tiles_list = list_tiles(tuple(bbox), f"EPSG:{epsg}")
+        from src.providers import find_tiles
+        tiles_list, tile_source = find_tiles(tuple(bbox), f"EPSG:{epsg}")
     except Exception:
-        tiles_list = []
+        tiles_list, tile_source = [], ""
 
     tiles_dir = f"LIDAR/{terrain}"
 
@@ -303,7 +303,7 @@ def cmd_init(args) -> None:
         print(f"\n{step}. Dalles LiDAR à télécharger ({len(tiles_list)} fichier(s)) :")
         for t in tiles_list:
             print(f"     {t}")
-        print(f"   Source : {TILE_SOURCE}")
+        print(f"   Source : {tile_source}")
         print(f"   → Placer dans : {tiles_dir}/")
         step += 1
     else:

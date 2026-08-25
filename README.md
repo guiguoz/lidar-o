@@ -368,6 +368,8 @@ The pipeline has run on Estonian data (COPC LiDAR + OSM). Adaptations needed:
 
 See [docs/portabilite.md](docs/portabilite.md) for a detailed guide.
 
+To add tile auto-discovery for a new country, create `src/providers/<country>.py` implementing `list_tiles(bbox, crs)` — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ---
 
 ## What this project has established

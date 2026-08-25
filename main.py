@@ -481,7 +481,7 @@ def _cmd_init() -> None:
 # ── Sous-commande : tiles ─────────────────────────────────────────────────────
 
 def _cmd_tiles() -> None:
-    from src.providers.france import TILE_SOURCE, list_tiles
+    from src.providers import find_tiles
 
     parser = argparse.ArgumentParser(
         prog="main.py tiles",
@@ -501,9 +501,9 @@ def _cmd_tiles() -> None:
         sys.exit("ERREUR : bbox manquante dans config.yaml pour ce terrain")
 
     terrain = args.terrain
-    tiles = list_tiles(tuple(bbox), crs)
+    tiles, source = find_tiles(tuple(bbox), crs)
     if not tiles:
-        print(f"Pas de connecteur IGN pour CRS {crs}.")
+        print(f"Pas de connecteur pour CRS {crs}.")
         print(f"Placez vos dalles LiDAR (LAZ/COPC) couvrant la bbox dans LIDAR/{terrain}/")
         print(f"  bbox : {bbox}")
         return
@@ -511,7 +511,7 @@ def _cmd_tiles() -> None:
     print(f"Tuiles LiDAR HD à télécharger ({len(tiles)}) :")
     for t in tiles:
         print(f"  {t}")
-    print(f"Source : {TILE_SOURCE}")
+    print(f"Source : {source}")
     print(f"À placer dans : LIDAR/{terrain}/")
 
 
