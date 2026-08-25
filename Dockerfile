@@ -31,6 +31,8 @@ RUN micromamba install -y -n base -c conda-forge \
   && micromamba clean -afy
 
 ENV PATH="/opt/conda/bin:${PATH}"
+ENV PROJ_DATA="/opt/conda/share/proj"
+ENV PROJ_LIB="/opt/conda/share/proj"
 
 # Vérification GEOS ≥ 3.12 — fail fast si insuffisant pour coverage_simplify
 RUN python -c "from shapely.geos import geos_version; assert geos_version >= (3, 12, 0), f'GEOS {geos_version} < 3.12'"
