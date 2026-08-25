@@ -22,18 +22,18 @@ from src.check_terrain import _coverage_pct, _ign_tile_extent, _tiles_union, cmd
 
 class TestConvergence:
     def test_grimbosq(self):
-        # Grimbosq — ref_point (450000, 6888000) en EPSG:2154
+        # Grimbosq — ref_point (450000, 6888000) en EPSG:2154 (Lambert-93, conique)
+        # Convergence exacte via get_factors() ≈ -2.48° (formule approchée sin(lat) donnait -2.58°)
         lat, lon = projected_to_wgs84(450000, 6888000, 2154)
         conv = compute_convergence(lat, lon, 2154)
-        # λ₀ = 3°, point à l'ouest → convergence négative ≈ -2.6°
-        assert abs(conv - (-2.58)) < 0.15, f"Grimbosq : {conv:.2f}° attendu ≈ -2.58°"
+        assert abs(conv - (-2.48)) < 0.05, f"Grimbosq : {conv:.3f}° attendu ≈ -2.48°"
 
     def test_kilemaed(self):
-        # Kilemäed — ref_point (413000, 6483000) en EPSG:3301
+        # Kilemäed — ref_point (413000, 6483000) en EPSG:3301 (L-EST97, conique)
+        # Convergence exacte via get_factors() ≈ -1.27°
         lat, lon = projected_to_wgs84(413000, 6483000, 3301)
         conv = compute_convergence(lat, lon, 3301)
-        # λ₀ = 24°, point à l'ouest (lon ≈ 22.5°) → convergence négative ≈ -1.27°
-        assert abs(conv - (-1.27)) < 0.10, f"Kilemäed : {conv:.2f}° attendu ≈ -1.27°"
+        assert abs(conv - (-1.27)) < 0.05, f"Kilemäed : {conv:.3f}° attendu ≈ -1.27°"
 
     def test_east_of_central_meridian_is_positive(self):
         # Un point à l'est du méridien central doit avoir une convergence positive

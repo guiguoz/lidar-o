@@ -11,6 +11,4 @@
 </georeferencing>
 <!-- declination = convergence des méridiens (angle grille → géographique au point de référence),
      PAS la déclinaison magnétique.
-     Formule : (λ - λ₀) × sin(φ) = (22.51 - 24) × sin(58.48°) = -1.27°
-     λ₀ = 24°E (méridien central L-EST97 EPSG:3301).
-     Déclinaison magnétique +8.3°E (IGRF/WMM 2025) : paramètre OOM distinct, pas dans ce XML. -->
+     Calculée via pyproj.Proj.get_factors() — exacte pour tout CRS (Lambert, UTM…). -->

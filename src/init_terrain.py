@@ -1,12 +1,11 @@
 """init — creates terrain entry in config.yaml + georef XML from geographic coordinates."""
 from __future__ import annotations
 
-import math
 import pathlib
 import sys
 
 import yaml
-from pyproj import CRS, Transformer
+from pyproj import CRS, Proj, Transformer
 
 
 # Country → (lat_min, lat_max, lon_min, lon_max, epsg, crs_name)
@@ -36,28 +35,15 @@ def deduce_crs(lat: float, lon: float) -> tuple[int, str]:
     return 32700 + zone, f"WGS 84 / UTM zone {zone}S"
 
 
-def _central_meridian(epsg: int) -> float:
-    """Central meridian of CRS in degrees, read from pyproj — never hardcoded."""
-    crs = CRS.from_epsg(epsg)
-    d = crs.to_dict()
-    if "lon_0" in d:
-        return float(d["lon_0"])
-    if crs.coordinate_operation:
-        for p in crs.coordinate_operation.params:
-            if "central" in p.name.lower() and "meridian" in p.name.lower():
-                return float(p.value)
-    return 0.0
-
 
 def compute_convergence(lat: float, lon: float, epsg: int) -> float:
     """Meridian convergence at (lat, lon) for the given CRS, in degrees.
 
     This is the 'declination' field in .omap georeferencing blocks.
-    Formula: (λ - λ₀) × sin(φ)
-    NOT magnetic declination — they only coincide approximately in France.
+    Uses pyproj.Proj.get_factors() — exact for any projection (Lambert, UTM…).
+    NOT magnetic declination.
     """
-    lambda_0 = _central_meridian(epsg)
-    return (lon - lambda_0) * math.sin(math.radians(lat))
+    return Proj(f"EPSG:{epsg}").get_factors(lon, lat).meridian_convergence
 
 
 def projected_to_wgs84(x: float, y: float, epsg: int) -> tuple[float, float]:
@@ -106,7 +92,6 @@ def write_georef_xml(
     lat, lon = projected_to_wgs84(rx, ry, epsg)
     conv = compute_convergence(lat, lon, epsg)
     asf = _auxiliary_scale_factor(epsg)
-    lambda_0 = _central_meridian(epsg)
 
     xml = (
         f'<georeferencing scale="10000" auxiliary_scale_factor="{asf}" declination="{conv:.2f}">\n'
@@ -122,8 +107,7 @@ def write_georef_xml(
         f'</georeferencing>\n'
         f'<!-- declination = convergence des méridiens (angle grille → géographique au point de référence),\n'
         f'     PAS la déclinaison magnétique.\n'
-        f'     Formule : (λ - λ₀) × sin(φ) = ({lon:.2f} - {lambda_0:.1f}) × sin({lat:.2f}°) = {conv:.2f}°\n'
-        f'     λ₀ = méridien central du CRS EPSG:{epsg} (lu via pyproj). -->\n'
+        f'     Calculée via pyproj.Proj.get_factors() — exacte pour tout CRS (Lambert, UTM…). -->\n'
     )
 
     path = assets_dir / f"georef_{terrain}.xml"
