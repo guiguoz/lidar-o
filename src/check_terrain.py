@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import logging
 import os
 import pathlib
 import re
 import shutil
+import subprocess
 import xml.etree.ElementTree as ET
 
 log = logging.getLogger(__name__)
@@ -64,6 +66,55 @@ def _ign_tile_extent(filename: str) -> tuple[float, float, float, float] | None:
     xx, yy = int(m.group(1)), int(m.group(2))
     # Tile covers x ∈ [xx*1000, (xx+1)*1000) and y ∈ [(yy-1)*1000, yy*1000)
     return (xx * 1000, (yy - 1) * 1000, (xx + 1) * 1000, yy * 1000)
+
+
+def _laz_metadata(path: pathlib.Path) -> dict | None:
+    """Read LAS/LAZ header via pdal info --metadata. Returns metadata dict or None."""
+    try:
+        r = subprocess.run(
+            ["pdal", "info", "--metadata", str(path)],
+            capture_output=True, text=True, timeout=30,
+        )
+        if r.returncode != 0:
+            return None
+        return json.loads(r.stdout).get("metadata", {})
+    except Exception:
+        return None
+
+
+def _bbox_from_metadata(meta: dict) -> tuple[float, float, float, float] | None:
+    try:
+        return (float(meta["minx"]), float(meta["miny"]),
+                float(meta["maxx"]), float(meta["maxy"]))
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _epsg_from_metadata(meta: dict) -> int | None:
+    """Extract EPSG code from LAS/LAZ SRS metadata, or None."""
+    try:
+        from pyproj import CRS
+        srs = meta.get("srs", {})
+        wkt = srs.get("compoundwkt") or srs.get("wkt", "")
+        if not wkt:
+            return None
+        return CRS.from_wkt(wkt).to_epsg()
+    except Exception:
+        return None
+
+
+def _tile_extent(path: pathlib.Path) -> tuple[float, float, float, float] | None:
+    """Return (xmin, ymin, xmax, ymax) for a LiDAR tile.
+
+    Reads LAZ/LAS header metadata via pdal info (universal — any naming convention).
+    Falls back to IGN filename parsing only if metadata read fails.
+    """
+    meta = _laz_metadata(path)
+    if meta:
+        bbox = _bbox_from_metadata(meta)
+        if bbox is not None:
+            return bbox
+    return _ign_tile_extent(path.name)
 
 
 def _tiles_union(extents: list[tuple[float, float, float, float]]) -> tuple[float, float, float, float]:
@@ -161,13 +212,25 @@ def cmd_check(
 
     # ── 2. Tile coverage vs declared bbox ─────────────────────────────────────
 
-    ign_extents: list[tuple[float, float, float, float]] = [
-        e for f in unique_tiles if (e := _ign_tile_extent(f.name)) is not None
-    ]
+    tile_metadatas: dict[pathlib.Path, dict | None] = {
+        f: _laz_metadata(f) for f in unique_tiles
+    }
+    tile_extents: dict[pathlib.Path, tuple[float, float, float, float] | None] = {
+        f: (_bbox_from_metadata(m) if m else None) or _ign_tile_extent(f.name)
+        for f, m in tile_metadatas.items()
+    }
+    extents = [e for e in tile_extents.values() if e is not None]
+    unresolved = [f for f, e in tile_extents.items() if e is None]
+
+    if unresolved:
+        log.warning(
+            "check : %d dalle(s) sans emprise lisible (pdal info a échoué) : %s",
+            len(unresolved), ", ".join(f.name for f in unresolved),
+        )
 
     if bbox is not None:
-        if ign_extents:
-            tiles_ext = _tiles_union(ign_extents)
+        if extents:
+            tiles_ext = _tiles_union(extents)
             cov = _coverage_pct(tuple(bbox), tiles_ext)
 
             if cov < 90.0:
@@ -177,20 +240,32 @@ def cmd_check(
                 log.error("  bbox config   : X %d–%d  Y %d–%d", bx1, bx2, by1, by2)
                 log.error("  dalles LIDAR/ : X %d–%d  Y %d–%d", tx1, tx2, ty1, ty2)
                 log.error("  recouvrement  : %.0f %%", cov)
-                log.error("  → Convention IGN : les tuiles sont nommées par leur bord NORD.")
                 log.error("    Vérifiez avec : python main.py tiles %s", terrain)
                 all_ok = False
             else:
                 log.info("check : recouvrement bbox %.0f %% (OK)", cov)
-
         else:
-            log.warning(
-                "check : nommage non-IGN — recouvrement non vérifié "
-                "(utiliser des fichiers LHD_FXX_... pour la vérification automatique)"
-            )
+            log.warning("check : recouvrement non vérifié — aucune emprise disponible")
 
     # ── 3. CRS consistency ────────────────────────────────────────────────────
 
+    if crs_declared:
+        declared_epsg = int(crs_declared.split(":")[-1]) if ":" in crs_declared else None
+        if declared_epsg:
+            mismatched = [
+                (f.name, epsg)
+                for f, m in tile_metadatas.items()
+                if m and (epsg := _epsg_from_metadata(m)) and epsg != declared_epsg
+            ]
+            if mismatched:
+                for fname, tile_epsg in mismatched:
+                    log.warning(
+                        "check : CRS dalle %s → EPSG:%d ≠ config EPSG:%d",
+                        fname, tile_epsg, declared_epsg,
+                    )
+
+    ign_extents = [e for f, e in tile_extents.items()
+                   if e is not None and _ign_tile_extent(f.name) is not None]
     if crs_declared and ign_extents:
         if "2154" not in crs_declared:
             log.warning(
