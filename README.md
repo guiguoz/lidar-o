@@ -182,7 +182,7 @@ LHD_FXX_0449_6889_PTS_LAMB93_IGN69.copc.laz
 |-------|---------------|
 | `ref_point x/y` | Any round projected coordinate inside your bbox |
 | `ref_point_deg lat/lon` | Convert to WGS84 at [epsg.io/transform](https://epsg.io/transform) |
-| `declination` | Meridian convergence at the ref point — computed automatically by `init`. To recompute: `python -c "from pyproj import Proj; print(Proj('EPSG:2154').get_factors(lon, lat).meridian_convergence)"`. **Not** magnetic declination. |
+| `declination` | Meridian convergence at the ref point — computed automatically by `init`. To recompute: `python -c "from pyproj import Proj; print(Proj('EPSG:2154').get_factors(lon, lat).meridian_convergence)"`. The approximation `(λ−λ₀)×sin(φ)` is wrong for Lambert conformal conic — use `get_factors()`. **Not** magnetic declination. |
 | `auxiliary_scale_factor` | Projection scale factor — 0.999966 for flat terrain in Lambert-93 |
 
 > `declination` is negative west of the central meridian, positive east. Getting the sign wrong shifts every symbol by the convergence angle.
