@@ -2,6 +2,8 @@
 
 *[Version française](README.fr.md)*
 
+> **Early proof of concept — not production-ready.** Class 406 (slow run / light undergrowth) is out of domain: AUC 0.487, no better than chance. Classes 408 (walk) and 410 (fight) work on dense temperate forest (61 % / 82 % detection, tested on one terrain). Expect significant manual editing.
+
 Generate an ISOM base map from IGN HD LiDAR (France), output as a `.omap` file ready to open in OpenOrienteering Mapper or OCAD.
 
 ![Grimbosq extract](docs/images/extrait_grimbosq.jpg)

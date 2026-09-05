@@ -2,6 +2,8 @@
 
 *[English version](README.md)*
 
+> **Preuve de concept précoce — pas utilisable en production.** La classe 406 (course lente / sous-bois léger) est hors domaine : AUC 0,487, pas mieux que le hasard. Les classes 408 (marche) et 410 (progression difficile) fonctionnent en forêt tempérée dense (61 % / 82 % de détection, testé sur un seul terrain). Une retouche manuelle importante est à prévoir.
+
 Génération d'une carte de base ISOM à partir du LiDAR HD IGN (France), sortie en `.omap` ouvrable dans OpenOrienteering Mapper ou OCAD.
 
 <!-- Extrait de carte représentatif à l'échelle — copier une capture dans docs/images/ -->
