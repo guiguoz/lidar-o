@@ -326,13 +326,153 @@ def _clip_layers_to_bbox(layers: list, bbox_geom, family_name: str) -> list:
     return clipped
 
 
+# ── Helpers template KP ──────────────────────────────────────────────────────
+
+def _read_pgw(pgw_path: pathlib.Path) -> tuple[float, float, float]:
+    """Retourne (res_m, top_left_x, top_left_y) depuis un world file PGW."""
+    lines = pgw_path.read_text(encoding="utf-8").strip().splitlines()
+    return abs(float(lines[0])), float(lines[4]), float(lines[5])
+
+
+def _png_wh(png_path: pathlib.Path) -> tuple[int, int]:
+    """Lit width/height depuis le header PNG sans décompresser l'image."""
+    import struct
+    with open(png_path, "rb") as f:
+        f.read(8)   # signature PNG
+        f.read(4)   # longueur chunk IHDR
+        f.read(4)   # type 'IHDR'
+        w = struct.unpack(">I", f.read(4))[0]
+        h = struct.unpack(">I", f.read(4))[0]
+    return w, h
+
+
+def _merge_vege_tiles(
+    out_kp: pathlib.Path,
+    lightgreentone: int = 200,
+) -> pathlib.Path | None:
+    """Mosaïque les tuiles *_vege.png en un seul vegetation.png + vegetation.pgw.
+
+    lightgreentone : ton du vert clair dans le PNG (0–255, défaut KP : 200).
+    160 = fond lisible à 50 % d'opacité (validé 2026-09).
+    Si != 200, un étirement de canal R/B est appliqué sur les pixels verts
+    pour simuler le rendu qu'un vrai `makevegenew` produirait avec ce paramètre.
+    Les tuiles sources (*_vege.png) ne sont jamais modifiées.
+
+    Retourne le chemin du fichier produit, ou None si aucune tuile ou PIL absent.
+    """
+    try:
+        from PIL import Image
+        import numpy as np
+    except ImportError:
+        log.warning("PIL/numpy absent — vegetation.png non mosaïqué (pip install Pillow numpy)")
+        return None
+
+    tiles = sorted(out_kp.glob("*_vege.png"))
+    if not tiles:
+        return None
+
+    info = []
+    for tile in tiles:
+        pgw = tile.with_suffix(".pgw")
+        if not pgw.exists():
+            continue
+        res, tlx, tly = _read_pgw(pgw)
+        w, h = _png_wh(tile)
+        info.append((tile, res, tlx, tly, w, h))
+
+    if not info:
+        return None
+
+    res_m = info[0][1]
+    xmin = min(tlx for _, _, tlx, _, _, _ in info)
+    ymax = max(tly for _, _, _, tly, _, _ in info)
+    xmax = max(tlx + (w - 1) * res_m for _, _, tlx, _, w, _ in info)
+    ymin = min(tly - (h - 1) * res_m for _, _, _, tly, _, h in info)
+
+    canvas_w = round((xmax - xmin) / res_m) + 1
+    canvas_h = round((ymax - ymin) / res_m) + 1
+    canvas = Image.new("RGB", (canvas_w, canvas_h), (255, 255, 255))
+
+    for tile_path, _, tlx, tly, _, _ in info:
+        col = round((tlx - xmin) / res_m)
+        row = round((ymax - tly) / res_m)
+        with Image.open(tile_path) as img:
+            canvas.paste(img.convert("RGB"), (col, row))
+
+    # Remapping tone si différent du défaut KP (200)
+    if lightgreentone != 200:
+        arr = np.array(canvas, dtype=np.float32)
+        # Pixels verts : G est le canal dominant, non-blanc
+        is_green = (arr[:,:,1] > arr[:,:,0]) & (arr[:,:,1] > arr[:,:,2]) & (arr[:,:,0] < 248)
+        factor = (255 - lightgreentone) / (255 - 200)
+        for ch in (0, 2):  # R et B seulement — G reste 255
+            arr[:,:,ch] = np.where(
+                is_green,
+                (255 + (arr[:,:,ch] - 255) * factor).clip(0, 255),
+                arr[:,:,ch],
+            )
+        canvas = Image.fromarray(arr.astype(np.uint8))
+        log.info("vegetation.png : tone remapping %d→%d appliqué", 200, lightgreentone)
+
+    veg_png = out_kp / "vegetation.png"
+    canvas.save(str(veg_png), "PNG")
+    (out_kp / "vegetation.pgw").write_text(
+        f"{res_m}\n0.0\n0.0\n-{res_m}\n{xmin}\n{ymax}\n",
+        encoding="utf-8",
+    )
+    log.info(
+        "vegetation.png mosaïqué : %d×%d px  (%.0f×%.0f m)",
+        canvas_w, canvas_h, canvas_w * res_m, canvas_h * res_m,
+    )
+    return veg_png
+
+
+def _png_to_template(
+    png_path: pathlib.Path,
+    omap_path: pathlib.Path,
+    opacity_pct: int = 100,
+):
+    """Lit PNG + PGW et retourne un TemplateImage positionné en Lambert 93.
+
+    Le chemin du fichier est exprimé relatif au .omap pour la portabilité.
+    """
+    from src.omap_writer import TemplateImage
+
+    pgw_path = png_path.with_suffix(".pgw")
+    if not pgw_path.exists():
+        log.warning("PGW absent pour %s — template ignoré", png_path.name)
+        return None
+
+    res_m, top_left_x, top_left_y = _read_pgw(pgw_path)
+    width_px, height_px = _png_wh(png_path)
+
+    # Copie le PNG (+ PGW) dans le répertoire du .omap pour un chemin sans ../
+    import shutil
+    dest_png = omap_path.parent / png_path.name
+    dest_pgw = dest_png.with_suffix(".pgw")
+    if dest_png.resolve() != png_path.resolve():
+        shutil.copy2(png_path, dest_png)
+        shutil.copy2(pgw_path, dest_pgw)
+
+    return TemplateImage(
+        file=png_path.name,  # chemin relatif = juste le nom, même répertoire que le .omap
+        top_left_x=top_left_x,
+        top_left_y=top_left_y,
+        width_px=width_px,
+        height_px=height_px,
+        res_m=res_m,
+        name="vegetation.png",
+        opacity_pct=opacity_pct,
+    )
+
+
 # ── Étape 6 : assemble ────────────────────────────────────────────────────────
 
 def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
     import shapely.geometry as sg
     from scripts.generate_bdtopo import build_bdtopo_layers, load_mapping as load_bd_mapping
     from scripts.generate_relief import build_relief_layers, load_relief_mapping
-    from scripts.mask_vegetation import build_fill_layers, build_veg_layers
+    from scripts.mask_vegetation import build_fill_layers
     from src.omap_writer import load_georef, load_template, write_omap
 
     out = OUTPUT / f"{terrain}.omap"
@@ -367,7 +507,8 @@ def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
         return _clip_layers_to_bbox(layers, bbox_geom, family) if bbox_geom is not None else layers
 
     all_layers: list = []
-    all_layers += _clip(build_veg_layers(masked_gpkg), "végétation")
+    # Végétation : fournie par le fond KP (vegetation.png en template).
+    # Les couches 406/408/410 ne sont plus injectées dans le .omap.
 
     fill: list = []
     if bdtopo_gpkg is not None:
@@ -388,24 +529,35 @@ def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
     else:
         log.info("out_kp/ absent ou vide — relief non inclus dans %s", out.name)
 
-    # Vérification : végétation sous 520 doit être nulle (sinon vert visible sous olive)
-    from src.omap_writer import Layer as _Layer
-    import shapely.ops as _sops
-    zone_520_layers = [l for l in fill if isinstance(l, _Layer) and l.isom_code == 520]
-    veg_layers_check = [l for l in all_layers if isinstance(l, _Layer) and l.isom_code in (406, 408, 410)]
-    if zone_520_layers and veg_layers_check:
-        geom_520 = _sops.unary_union([g for l in zone_520_layers for g in l.geometries])
-        geom_veg = _sops.unary_union([g for l in veg_layers_check for g in l.geometries])
-        veg_under_520_ha = geom_veg.intersection(geom_520).area / 10000
-        if veg_under_520_ha > 0.01:
-            log.warning("ATTENTION : %.4f ha de végétation sous 520 — revoir l'ordre de masquage", veg_under_520_ha)
-        else:
-            log.info("Contrôle 520 : %.4f ha végétation sous 520 (OK)", veg_under_520_ha)
 
     template = load_template(ASSETS / "ISOM 2017-2_10000.omap")
     georef = load_georef(ASSETS / f"georef_{terrain}.xml")
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    write_omap(out, template, all_layers, georef)
+
+    # Template KP végétation
+    kp_rendering = cfg.get("karttapullautin", {}).get("rendering", {}) or {}
+    lightgreentone: int = kp_rendering.get("lightgreentone", 200) or 200
+    template_opacity_pct: int = kp_rendering.get("template_opacity_pct", 100) or 100
+
+    veg_png = out_kp / "vegetation.png"
+    if out_kp.exists() and list(out_kp.glob("*_vege.png")):
+        # Re-mosaïque toujours : applique le tone mapping courant
+        merged = _merge_vege_tiles(out_kp, lightgreentone=lightgreentone)
+        if merged is not None:
+            veg_png = merged
+    img_templates = []
+    if veg_png.exists():
+        tmpl = _png_to_template(veg_png, out, opacity_pct=template_opacity_pct)
+        if tmpl is not None:
+            img_templates.append(tmpl)
+            log.info(
+                "Template KP végétation : %s (%d×%d px, tone=%d, opacité=%d%%)",
+                veg_png.name, tmpl.width_px, tmpl.height_px, lightgreentone, template_opacity_pct,
+            )
+    else:
+        log.info("vegetation.png absent dans %s — template omis", out_kp.name)
+
+    write_omap(out, template, all_layers, georef, image_templates=img_templates or None)
     log.info("Assemblé : %s (%d couches)", out, len(all_layers))
 
 
@@ -435,6 +587,17 @@ def step_qa(terrain: str, cfg: dict) -> None:
         return
     gdf = pd.concat(parts, ignore_index=True)
     gdf = gpd.GeoDataFrame(gdf, geometry="geometry", crs=parts[0].crs)
+
+    # Compte livrable total (sans clip hull) — valeur reproductible pour les releases
+    total_by_class = gdf.groupby("class").size().to_dict()
+    log.info(
+        "Polygones livrables (vegetation_masked.gpkg, sans clip hull) : %s",
+        "  ".join(f"{cls}={total_by_class.get(cls, 0)}" for cls in [406, 408, 410]),
+    )
+    print()
+    print("=== Livrable — polygones vegetation_masked.gpkg (emprise totale) ===")
+    for cls in [406, 408, 410]:
+        print(f"    {cls} : {total_by_class.get(cls, 0):,} polygones")
 
     terrain_cfg = cfg.get("terrains", {}).get(terrain, {})
     ffco_gpkg_path = terrain_cfg.get("ffco_gpkg")

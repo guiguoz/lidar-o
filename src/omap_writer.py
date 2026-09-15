@@ -82,6 +82,25 @@ class PointLayer(NamedTuple):
     points: Sequence[tuple[float, float]]
 
 
+class TemplateImage(NamedTuple):
+    """Raster à inclure comme calque de fond (template) dans le .omap.
+
+    Le coin haut-gauche et la résolution sont en Lambert 93 (EPSG:2154).
+    OOM v9 positionne les templates géoréférencés depuis le .pgw (georef=true) ;
+    top_left_*/width_px/height_px/res_m sont conservés pour les besoins internes
+    (calcul d'emprise, QA) mais ne sont pas écrits dans le XML.
+    """
+    file: str           # chemin relatif au .omap (= basename, copié dans output/)
+    top_left_x: float  # X du coin haut-gauche en Lambert 93 (m)
+    top_left_y: float  # Y du coin haut-gauche en Lambert 93 (m)
+    width_px: int       # largeur de l'image en pixels
+    height_px: int      # hauteur de l'image en pixels
+    res_m: float        # taille d'un pixel en m (carré)
+    name: str = ""      # nom affiché dans OOM (défaut : basename du fichier)
+    opacity_pct: int = 100  # opacité 0–100 (100 = opaque)
+    crs_spec: str = "+init=epsg:2154"  # CRS PROJ du raster (pour georef OOM)
+
+
 # ── Chargement ────────────────────────────────────────────────────────────────
 
 def load_template(path: str | Path) -> Template:
@@ -301,6 +320,60 @@ def _replace_objects(xml: str, inner: str, count: int) -> str:
     return result
 
 
+def _template_image_to_xml(t: TemplateImage, georef: GeoRef) -> str:
+    """Sérialise un TemplateImage en élément XML OOM Map v2 — format georef.
+
+    OOM v9 attend georef="true" + <crs_spec> pour les images avec .pgw :
+    il lit le .pgw au chargement et en déduit position et échelle.
+    Le bloc <transformations> avec coordonnées explicites est le format
+    des templates positionnés manuellement sans .pgw — non utilisé ici.
+    """
+    name = t.name or Path(t.file).name
+    opacity_01 = round(t.opacity_pct / 100, 6)
+    return (
+        f'<template type="TemplateImage" open="true" name="{name}"'
+        f' relpath="{t.file}" opacity="{opacity_01}" georef="true">'
+        f'<crs_spec>{t.crs_spec}</crs_spec>'
+        f'</template>'
+    )
+
+
+def _inject_templates(xml: str, block: str) -> str:
+    """Remplace le bloc <templates> existant ou l'insère avant </map>."""
+    if re.search(r"<templates\b", xml):
+        return _replace_block(xml, "templates", block)
+    result, n = re.subn(r"</map>", block + "\n</map>", xml, count=1)
+    if n == 0:
+        raise ValueError("Balise </map> introuvable — impossible d'injecter <templates>")
+    return result
+
+
+def _inject_view_templates(xml: str, image_templates: list[TemplateImage]) -> str:
+    """Insère les refs de visibilité dans <view>/<map_view>.
+
+    Format OOM attendu (d'après diff après activation manuelle) :
+    <map_view zoom="1" position_x="0" position_y="0">
+      <map opacity="1" visible="true"/>
+      <ref template="N" visible="true" opacity="X"/>
+    </map_view>
+    Les <ref> sont enfants directs de <map_view> — pas de <templates count=...>.
+    """
+    refs = "".join(
+        f'<ref template="{i}" visible="true" opacity="{round(t.opacity_pct / 100, 6)}"/>'
+        for i, t in enumerate(image_templates)
+    )
+    map_view = (
+        f'<map_view zoom="1" position_x="0" position_y="0">'
+        f'<map opacity="1" visible="true"/>'
+        f'{refs}'
+        f'</map_view>'
+    )
+    result, count = re.subn(r'</view>', map_view + '</view>', xml, count=1)
+    if count == 0:
+        raise ValueError("Balise </view> introuvable — impossible d'injecter map_view")
+    return result
+
+
 # ── API publique ──────────────────────────────────────────────────────────────
 
 def write_omap(
@@ -308,13 +381,17 @@ def write_omap(
     template: Template,
     layers: list[Layer | LineLayer | PointLayer],
     georef: GeoRef,
+    image_templates: list[TemplateImage] | None = None,
 ) -> None:
     """Génère un fichier .omap en injectant les couches dans le gabarit ISOM.
 
-    Accepte les trois familles :
+    Accepte les trois familles de couches :
     - Layer      → surfaces (polygones Shapely)
     - LineLayer  → lignes (polylignes, ouvertes ou fermées)
     - PointLayer → symboles ponctuels
+
+    image_templates : rasters à intégrer comme calques de fond OOM (TemplateImage).
+    Injectés dans le bloc <templates> ; le gabarit peut déjà en avoir un ou non.
 
     Gates bloquants (lèvent une exception avant toute écriture) :
     - code ISOM absent du gabarit → KeyError
@@ -348,7 +425,19 @@ def write_omap(
                 for poly in _iter_polygons(geom):
                     obj_parts.append(_polygon_to_xml(poly, sym_id, georef))
 
-    # 3. Injection dans le gabarit
+    # 3. Injection des objets dans le gabarit
     xml = _replace_objects(xml, "\n".join(obj_parts), len(obj_parts))
+
+    # 4. Calques de fond (optionnel)
+    if image_templates:
+        n = len(image_templates)
+        inner = "\n".join(_template_image_to_xml(t, georef) for t in image_templates)
+        # first_front_template=n → tous les templates sont derrière le dessin (fond de décalque)
+        block = f'<templates count="{n}" first_front_template="{n}">{inner}</templates>'
+        xml = _inject_templates(xml, block)
+
+    # 5. Visibilité des templates dans la vue
+    if image_templates:
+        xml = _inject_view_templates(xml, image_templates)
 
     Path(out_path).write_text(xml, encoding="utf-8")

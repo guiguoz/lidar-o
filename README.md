@@ -79,9 +79,13 @@ INFO  Assemblé : output/ma_foret.omap (18 couches)
 ```
 
 Open `output/ma_foret.omap` in OpenOrienteering Mapper. You should see:
-- Green vegetation polygons (slow run / walk / fight) covering the forested area
+- A KP vegetation raster (green shading, 50 % opacity) as a tracing background
 - Roads, tracks, buildings and water from BD TOPO (black/blue/brown symbols)
 - Contour lines from Karttapullautin (brown) — only if KP is installed
+
+The classified vegetation layers (406/408/410) are also produced but are not the recommended
+deliverable — use the KP background as a tracing aid and draw vegetation boundaries manually.
+See [docs/bilan_v0.md](docs/bilan_v0.md) for the evaluation results.
 
 If the map appears blank or offset from the background, check that `declination` in the georef file has the correct sign (negative west of the CRS central meridian, positive east).
 
@@ -193,6 +197,10 @@ LHD_FXX_0449_6889_PTS_LAMB93_IGN69.copc.laz
 
 ## What the tool detects
 
+> These figures describe the **HAG classification layer** (automatic 406/408/410 classes).
+> The recommended workflow now uses the KP vegetation background as a tracing aid; these
+> classes remain available but are not the primary deliverable.
+>
 > Measured on **one terrain only** (Grimbosq forest, Calvados, France), against an FFCO reference
 > map, over the common extent (convex hull, 324 ha). These figures are not guaranteed elsewhere.
 
@@ -211,6 +219,9 @@ Fixing the symbol takes two clicks in OCAD/OOM; drawing a missing polygon from s
 ---
 
 ## Validity domain
+
+> This section documents the domain of the **HAG classification model** (density_hag → 406/408/410).
+> The KP vegetation background domain has not been separately evaluated across terrains.
 
 The pipeline has been tested on 5 terrains. The HAG[0.3–3 m] signal separates dense vegetation well; it is insufficient for light, runnable undergrowth.
 

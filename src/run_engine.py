@@ -52,16 +52,33 @@ def _build_ini(
     lazfolder: pathlib.Path,
     batchoutfolder: pathlib.Path,
     base_ini: pathlib.Path | None,
+    cliffheight: float | None = None,
+    cliffangle: float | None = None,
+    lightgreentone: int | None = None,
+    medianboxsize2: int | None = None,
 ) -> str:
     """Construit le contenu de pullauta.ini.
 
     Si base_ini existe, l'utilise comme template et remplace uniquement les
-    champs de chemin (batch, lazfolder, batchoutfolder). Sinon génère un
-    ini minimal avec les valeurs par défaut.
+    champs de chemin (batch, lazfolder, batchoutfolder) et les paramètres
+    cliff/rendering explicitement configurés. Sinon génère un ini minimal.
+
+    lightgreentone : ton du vert clair (0–255). Défaut KP : 200 (quasi-blanc).
+    160 = fond lisible comme support de décalque à 50 % d'opacité (validé 2026-09).
+    medianboxsize2 : 2e passe filtre médian végétation. 1=désactivé (défaut KP).
+    16 = zones nettes et suivables à 1:10 000 (validé TEST A 2026-09).
     """
     laz_str = str(lazfolder).replace("\\", "/")
     out_str = str(batchoutfolder).replace("\\", "/")
-    overrides = {"batch": "1", "lazfolder": laz_str, "batchoutfolder": out_str}
+    overrides: dict[str, str] = {"batch": "1", "lazfolder": laz_str, "batchoutfolder": out_str}
+    if cliffheight is not None:
+        overrides["cliffheight"] = str(cliffheight)
+    if cliffangle is not None:
+        overrides["cliffangle"] = str(cliffangle)
+    if lightgreentone is not None:
+        overrides["lightgreentone"] = str(lightgreentone)
+    if medianboxsize2 is not None:
+        overrides["medianboxsize2"] = str(medianboxsize2)
 
     if base_ini is not None and base_ini.exists():
         result: list[str] = []
@@ -111,6 +128,8 @@ def _build_ini(
         f"cliffsteepfactor=0.38\n"
         f"cliffflatplace=3.5\n"
         f"cliffnosmallciffs=5.5\n"
+        + (f"cliffheight={cliffheight}\n" if cliffheight is not None else "")
+        + (f"cliffangle={cliffangle}\n" if cliffangle is not None else "")
         f"# végétation\n"
         f"undergrowth=0.35\n"
         f"undergrowth2=0.56\n"
@@ -132,13 +151,22 @@ def generate_ini(
     output_dir: pathlib.Path,
     work_dir: pathlib.Path,
     root: pathlib.Path,
+    cliffheight: float | None = None,
+    cliffangle: float | None = None,
+    lightgreentone: int | None = None,
+    medianboxsize2: int | None = None,
 ) -> pathlib.Path:
     """Génère pullauta.ini dans work_dir avec chemins absolus.
 
     Utilise root/pullauta.ini comme template s'il existe.
+    cliffheight/cliffangle/lightgreentone/medianboxsize2 : injectés si renseignés.
     """
     base_ini = root / "pullauta.ini"
-    content = _build_ini(tiles_dir.resolve(), output_dir.resolve(), base_ini)
+    content = _build_ini(
+        tiles_dir.resolve(), output_dir.resolve(), base_ini,
+        cliffheight=cliffheight, cliffangle=cliffangle,
+        lightgreentone=lightgreentone, medianboxsize2=medianboxsize2,
+    )
     ini_path = work_dir / "pullauta.ini"
     ini_path.write_text(content, encoding="utf-8")
     log.info("pullauta.ini → %s", ini_path)
@@ -153,6 +181,32 @@ def run_kp(binary: pathlib.Path, work_dir: pathlib.Path) -> None:
     result = subprocess.run([str(binary.resolve())], cwd=str(work_dir))
     if result.returncode != 0:
         raise RuntimeError(f"KP a échoué (code retour {result.returncode})")
+
+
+def run_kp_makevegenew(binary: pathlib.Path, work_dir: pathlib.Path) -> None:
+    """Régénère uniquement la végétation (pullauta makevegenew) sans relancer KP complet.
+
+    Lit pullauta.ini dans work_dir. Produit vegetation.png et les DXF vég.
+    """
+    log.info("KP makevegenew : %s  (cwd=%s)", binary.resolve(), work_dir)
+    result = subprocess.run(
+        [str(binary.resolve()), "makevegenew"], cwd=str(work_dir)
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"KP makevegenew a échoué (code retour {result.returncode})")
+
+
+def run_kp_pngmergevege(binary: pathlib.Path, work_dir: pathlib.Path) -> None:
+    """Fusionne les tuiles PNG de végétation (pullauta pngmergevege) en un seul PNG.
+
+    Lit pullauta.ini dans work_dir. Produit le PNG fusionné final.
+    """
+    log.info("KP pngmergevege : %s  (cwd=%s)", binary.resolve(), work_dir)
+    result = subprocess.run(
+        [str(binary.resolve()), "pngmergevege"], cwd=str(work_dir)
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"KP pngmergevege a échoué (code retour {result.returncode})")
 
 
 # ── Vérification des sorties ──────────────────────────────────────────────────
@@ -280,7 +334,18 @@ def run_engine(
     out_kp = root / f"out_kp_{terrain}"
     out_kp.mkdir(parents=True, exist_ok=True)
 
-    generate_ini(tiles_dir, out_kp, work_dir=out_kp, root=root)
+    kp_cliff = cfg.get("karttapullautin", {}).get("cliff", {}) or {}
+    cliffheight = kp_cliff.get("cliffheight")
+    cliffangle = kp_cliff.get("cliffangle")
+    kp_rendering = cfg.get("karttapullautin", {}).get("rendering", {}) or {}
+    lightgreentone = kp_rendering.get("lightgreentone")
+    medianboxsize2 = kp_rendering.get("medianboxsize2")
+
+    generate_ini(
+        tiles_dir, out_kp, work_dir=out_kp, root=root,
+        cliffheight=cliffheight, cliffangle=cliffangle,
+        lightgreentone=lightgreentone, medianboxsize2=medianboxsize2,
+    )
 
     launch_time = time.time()
     run_kp(binary, work_dir=out_kp)

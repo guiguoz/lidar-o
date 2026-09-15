@@ -186,6 +186,13 @@ generalization:
 karttapullautin:
   binary: pullauta
   version: "2.12.1"                 # Confirmé 2026-06-24 — à épingler dans Dockerfile (KP_VERSION)
+  rendering:
+    lightgreentone: 160             # ton du vert clair dans vegetation.png (défaut KP : 200 ≈ quasi-blanc)
+    template_opacity_pct: 50        # opacité du template OOM 0–100 (100 = opaque, défaut)
+    medianboxsize2: 16              # 2e passe filtre médian végétation — validé TEST A 2026-09 (1=désactivé, 16=zones nettes)
+  cliff:
+    cliffheight: null               # m — hauteur minimale de falaise (défaut KP si null)
+    cliffangle: null                # ° — angle minimal de falaise (défaut KP si null)
   expected_dxf_layers:              # Confirmés 2026-06-24 via inspect_kp_outputs() sur dalle IGN
     # out2.dxf — relief principal (à utiliser pour le CRT)
     - "contour"
@@ -263,3 +270,22 @@ terrains:
     crs: EPSG:2154
     departement: "14"
 
+  monthureux:
+    bbox: [920000, 6771000, 922000, 6773000]
+    crs: EPSG:2154
+    departement: "88"
+
+  luxeuil:
+    bbox: [952000, 6753000, 955000, 6755000]
+    crs: EPSG:2154
+    departement: "70"
+
+  bouhard:
+    bbox: [946000, 6671000, 949000, 6673000]
+    crs: EPSG:2154
+    departement: "25"
+
+  bas_des_conches:
+    bbox: [952000, 6669000, 954000, 6671000]
+    crs: EPSG:2154
+    departement: "25"

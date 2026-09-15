@@ -207,9 +207,13 @@ INFO  410 : n=465  cov=82%  …
 ```
 
 Ouvrir `output/grimbosq.omap` dans OpenOrienteering Mapper. Les couches attendues :
-- Polygones de végétation verts (course lente / marche / progression difficile) sur la zone forestière
+- Fond végétation KP (aplats verts, 50 % d'opacité) — à utiliser comme décalque
 - Routes, chemins, bâtiments et cours d'eau depuis la BD TOPO (symboles noirs/bleus/marron)
 - Courbes de niveau de Karttapullautin (marron) — uniquement si `out_kp/` était présent
+
+Les couches de végétation classifiées (406/408/410) sont également produites mais ne constituent
+pas le livrable recommandé — utiliser le fond KP comme décalque et tracer les limites manuellement.
+Voir [docs/bilan_v0.md](docs/bilan_v0.md) pour les résultats d'évaluation.
 
 Si la carte apparaît vide ou décalée par rapport au fond de carte, vérifier que le signe de `declination` dans le fichier georef est correct.
 
@@ -217,6 +221,10 @@ Si la carte apparaît vide ou décalée par rapport au fond de carte, vérifier 
 
 ## Ce que l'outil détecte
 
+> Ces chiffres décrivent la **couche de classification HAG** (classes automatiques 406/408/410).
+> Le workflow recommandé utilise désormais le fond végétation KP comme décalque ; ces classes
+> restent disponibles mais ne constituent pas le livrable principal.
+>
 > Mesuré sur **un seul terrain** (forêt de Grimbosq, Calvados, France), contre une carte FFCO
 > de référence, sur emprise commune (hull 324 ha). Ces valeurs ne sont pas garanties ailleurs.
 
@@ -235,6 +243,9 @@ Corriger le symbole prend deux clics dans OCAD/OOM ; dessiner un polygone absent
 ---
 
 ## Domaine de validité
+
+> Cette section documente le domaine du **modèle de classification HAG** (density_hag → 406/408/410).
+> Le domaine du fond végétation KP n'a pas été évalué séparément sur corpus multi-terrain.
 
 Le pipeline a été testé sur 5 terrains. Le signal HAG[0.3–3 m] sépare bien les végétations denses ; il est insuffisant pour le sous-bois léger praticable.
 
