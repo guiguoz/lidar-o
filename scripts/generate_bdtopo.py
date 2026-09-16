@@ -1,7 +1,7 @@
 """Phase 7 — Génère grimbosq_bdtopo.omap depuis le GPKG BD TOPO clippé.
 
 Lit data/{terrain}_bdtopo.gpkg, applique le mapping scripts/mappings/bdtopo_isom.yaml,
-et produit output/{terrain}_bdtopo.omap.
+et produit work/{terrain}_bdtopo.omap (hors répertoire de sortie).
 
 Usage :
     python scripts/generate_bdtopo.py grimbosq
@@ -33,6 +33,7 @@ log = logging.getLogger(__name__)
 ROOT = pathlib.Path(".")
 ASSETS = ROOT / "assets"
 DATA = ROOT / "data"
+WORK = ROOT / "work"
 MAPPING_PATH = ROOT / "scripts" / "mappings" / "bdtopo_isom.yaml"
 TEMPLATE_PATH = ASSETS / "ISOM 2017-2_10000.omap"
 
@@ -199,8 +200,8 @@ def main() -> None:
     total_lines = sum(len(l.segments) for l in omap_layers if isinstance(l, LineLayer))
     log.info("Total : %d polygones + %d lignes = %d objets", total_polys, total_lines, total_polys + total_lines)
 
-    output.mkdir(parents=True, exist_ok=True)
-    out_path = output / f"{args.terrain}_bdtopo.omap"
+    WORK.mkdir(parents=True, exist_ok=True)
+    out_path = WORK / f"{args.terrain}_bdtopo.omap"
     write_omap(out_path, template, omap_layers, georef)
     log.info("Ecrit : %s", out_path)
 

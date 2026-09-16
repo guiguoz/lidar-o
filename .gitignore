@@ -17,6 +17,7 @@ Port en Bessin/
 debug/
 debug_*/
 temp/
+work/
 
 # Dalles LiDAR (volumineuses)
 *.copc.laz

@@ -2,7 +2,7 @@
 
 Lit les DXF dans out_kp/ (mode batch, 6 dalles Grimbosq),
 applique le mapping scripts/mappings/kp_relief.yaml,
-et produit output/grimbosq_relief.omap.
+et produit work/{terrain}_relief.omap (hors répertoire de sortie).
 
 Usage :
     python scripts/generate_relief.py
@@ -33,10 +33,10 @@ ROOT = pathlib.Path(".")
 OUT_KP = ROOT / "out_kp"
 ASSETS = ROOT / "assets"
 OUTPUT = ROOT / "output"
+WORK = ROOT / "work"
 MAPPING_PATH = ROOT / "scripts" / "mappings" / "kp_relief.yaml"
 TEMPLATE_PATH = ASSETS / "ISOM 2017-2_10000.omap"
 GEOREF_PATH = ASSETS / "georef_grimbosq.xml"
-OUTPUT_PATH = OUTPUT / "grimbosq_relief.omap"
 
 
 def load_relief_mapping(path: pathlib.Path) -> tuple[dict[str, int], set[str]]:
@@ -267,8 +267,8 @@ def main() -> None:
     total_pts = sum(len(l.points) for l in layers if isinstance(l, PointLayer))
     log.info("Total : %d lignes + %d points = %d objets", total_lines, total_pts, total_lines + total_pts)
 
-    output.mkdir(parents=True, exist_ok=True)
-    out_path = output / f"{args.terrain}_relief.omap"
+    WORK.mkdir(parents=True, exist_ok=True)
+    out_path = WORK / f"{args.terrain}_relief.omap"
     write_omap(out_path, template, layers, georef)
     log.info("Ecrit : %s", out_path)
 

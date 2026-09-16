@@ -38,6 +38,7 @@ ROOT = pathlib.Path(".")
 ASSETS = ROOT / "assets"
 DATA = ROOT / "data"
 OUTPUT = ROOT / "output"
+WORK = ROOT / "work"
 TEMPLATE_PATH = ASSETS / "ISOM 2017-2_10000.omap"
 
 _full_cfg = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
@@ -453,7 +454,7 @@ def main() -> None:
 
     veg_gpkg = terrain_out / "vegetation.gpkg"
     masked_gpkg = terrain_out / "vegetation_masked.gpkg"
-    out_omap = terrain_out / f"{args.terrain}_veg.omap"
+    out_omap = WORK / f"{args.terrain}_veg.omap"
     osm_cache = DATA / f"osm_landuse_{args.terrain}.json"
 
     georef_path = ASSETS / f"georef_{args.terrain}.xml"
@@ -492,6 +493,7 @@ def main() -> None:
     log.info("Production couches de remplissage (520/401) …")
     fill_layers = build_fill_layers(bdtopo_gpkg, osm_cache=osm_cache, bbox_geom=bbox_geom)
 
+    WORK.mkdir(parents=True, exist_ok=True)
     log.info("Régénération %s …", out_omap.name)
     total = regenerate_omap(masked_gpkg, out_omap, fill_layers=fill_layers, georef_xml=georef_path)
     log.info("Ecrit : %s (%d objets)", out_omap, total)
