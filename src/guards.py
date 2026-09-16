@@ -168,4 +168,17 @@ def check_config_snapshot(cfg: dict, metadata_path: pathlib.Path) -> list[str]:
         if sv != cv:
             diffs.append(f"fusion_distance_m[{cls}]: snapshot={sv} config={cv}")
 
+    # Paramètres KP — livrable actuel vegetation.png
+    kp = cfg.get("karttapullautin", {})
+    kp_rendering = kp.get("rendering", {}) or {}
+    for key, cfg_val in (
+        ("kp_version",              kp.get("version")),
+        ("kp_lightgreentone",       kp_rendering.get("lightgreentone")),
+        ("kp_medianboxsize2",       kp_rendering.get("medianboxsize2")),
+        ("kp_template_opacity_pct", kp_rendering.get("template_opacity_pct")),
+    ):
+        snap_val = snap.get(key)
+        if snap_val is not None and snap_val != cfg_val:
+            diffs.append(f"{key}: snapshot={snap_val} config={cfg_val}")
+
     return diffs

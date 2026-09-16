@@ -557,11 +557,24 @@ def report_recall_by_class(
 
 # ── Snapshot config dans run_metadata ────────────────────────────────────────
 
+def _git_hash() -> str | None:
+    """Hash court du commit courant, None si git indisponible."""
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip() or None
+    except Exception:
+        return None
+
+
 def write_config_snapshot(cfg: dict, output_dir: str | pathlib.Path) -> None:
     """Ajoute un snapshot de la config de généralisation dans run_metadata.json.
 
     Complète (sans écraser) les métadonnées existantes avec les paramètres
     nécessaires pour reconstituer la config qui a produit le run courant.
+    Capture la configuration RÉSOLUE (objet en mémoire), pas le fichier source.
     """
     meta_path = pathlib.Path(output_dir) / "run_metadata.json"
     meta: dict = {}
@@ -577,10 +590,15 @@ def write_config_snapshot(cfg: dict, output_dir: str | pathlib.Path) -> None:
     veg = cfg.get("vegetation", {})
     preset_name = veg.get("active_preset", "")
     preset = veg.get("presets", {}).get(preset_name, {})
-
     dm = veg.get("density_metric", {})
+
+    kp = cfg.get("karttapullautin", {})
+    kp_rendering = kp.get("rendering", {}) or {}
+
     meta["config_snapshot"] = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "git_hash": _git_hash(),
+        # Paramètres HAG / classification
         "generalization_profile": profile_name,
         "min_area_m2": profile.get("min_area_m2", {}),
         "fusion_distance_m": profile.get("fusion_distance_m", {}),
@@ -590,6 +608,11 @@ def write_config_snapshot(cfg: dict, output_dir: str | pathlib.Path) -> None:
         "density_mode": dm.get("mode"),
         "grid_resolution_m": veg.get("grid_resolution_m"),
         "normalization_mode": veg.get("normalization", {}).get("mode"),
+        # Paramètres KP — déterminants du rendu vegetation.png (livrable actuel)
+        "kp_version": kp.get("version"),
+        "kp_lightgreentone": kp_rendering.get("lightgreentone"),
+        "kp_medianboxsize2": kp_rendering.get("medianboxsize2"),
+        "kp_template_opacity_pct": kp_rendering.get("template_opacity_pct"),
     }
 
     meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
