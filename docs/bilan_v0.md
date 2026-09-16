@@ -622,7 +622,31 @@ du fond KP — il reflète l'état de la validation disponible.
    `ratio_utile`, la structure spatiale (nombre et taille des composantes), et la visualisation
    superposée à la référence avant toute décision sur l'utilité du fond.
 
-### 15.2 Conclusions trop larges corrigées
+9. **Avant de traiter une dette héritée, vérifier qu'elle décrit encore l'état actuel du code.**
+   La valeur 1511/767/497 décrivait un état du pipeline antérieur au pivot KP. Elle a continué
+   d'être citée — qualifiée de « dette la plus urgente » — alors qu'elle ne correspondait plus
+   à rien dans le dépôt. C'est la deuxième occurrence du même mécanisme dans ce projet, après
+   le « 370 polygones » : une valeur portée d'une session à l'autre sans revalidation. La première
+   a coûté une référence non reconstructible ; celle-ci a failli coûter un chantier de correction
+   sur un problème inexistant.
+
+### 15.2 Clôture de la fausse dette QA
+
+**ÉTABLI** (2026-09, vérification dans le code) :
+
+La dette « la QA mesure un artefact intermédiaire (942/611/465), pas le livrable (1511/767/497) »
+a été héritée d'une session antérieure. Elle décrivait un état du pipeline **antérieur au pivot
+vers KP**, où les couches 406/408/410 étaient encore injectées dans le `.omap`. Depuis le pivot
+(`main.py:510-511`) :
+
+- le `.omap` ne contient plus de couches vectorielles 406/408/410 ;
+- les valeurs 1511/767/497 sont introuvables dans l'intégralité du dépôt ;
+- 942/611/465 sont les comptes corrects **après clip au hull FFCO** (323,8 ha), produits par
+  `report_hull_metrics()` — c'est la bonne métrique de comparaison avec le référentiel FFCO.
+
+**La QA mesure ce qu'elle doit mesurer. La dette n'existait pas dans l'état actuel du code.**
+
+### 15.3 Conclusions trop larges corrigées
 
 | Formulation ancienne | Formulation corrigée |
 |---|---|
@@ -630,6 +654,7 @@ du fond KP — il reflète l'état de la validation disponible.
 | Exp2.3 : KP couvre 0,4 % du contour | Exp2.3 mesurait un fichier quasi-vide ; `_vege` couvre 86 % à ≤ 10 m selon la métrique frontière pixel |
 | Le pipeline couvre 100 % du terrain | Tautologie : mesure sur le hull propre du pipeline ; le recall FFCO est 35–82 % selon la classe |
 | Gain de X pp sur la classe 406 | Sans pondération par surface FFCO, une comparaison en pp entre classes est trompeuse |
+| QA mesure 942/611/465 sur artefact, livrable = 1511/767/497 | 942/611/465 est le compte hull-clippé correct ; 1511/767/497 décrivait un état antérieur au pivot KP |
 
 ---
 

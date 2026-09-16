@@ -206,6 +206,9 @@ INFO  408 : n=611  cov=61%  …
 INFO  410 : n=465  cov=82%  …
 ```
 
+> `n` et `cov` sont calculés **après clip au hull FFCO** (323,8 ha) — pas sur l'emprise totale.
+> Ces valeurs varient si le profil ou les seuils changent.
+
 Ouvrir `output/grimbosq.omap` dans OpenOrienteering Mapper. Les couches attendues :
 - Fond végétation KP (aplats verts, 50 % d'opacité) — à utiliser comme décalque
 - Routes, chemins, bâtiments et cours d'eau depuis la BD TOPO (symboles noirs/bleus/marron)
