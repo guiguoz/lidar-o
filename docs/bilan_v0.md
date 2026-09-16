@@ -15,7 +15,7 @@
 | CLASSIFICATION 406/408/410 | ABANDONNÉE DANS LE LIVRABLE ACTUEL |
 | WORKFLOW KP + FOND OCAD | RETENU |
 | TEMPLATE OMAP | FONCTIONNEL |
-| VECTORISATION VÉGÉTATION | SUSPENDUE / PISTE KP OUVERTE |
+| VECTORISATION VÉGÉTATION | SUSPENDUE — _vege mbs2=16 mesuré, critère non atteint |
 | DOMAINE | FORÊTS NORMANDES CIBLÉES |
 
 ---
@@ -351,6 +351,65 @@ ni avec d'autres types de végétation.
 
 `greenshades` n'est pas étalonné sur la franchissabilité CO.
 
+### Effet mesuré de medianboxsize2=16 sur la fidélité spatiale
+
+**ÉTABLI** (Grimbosq, protocole exp2_3, référence = contour FFCO 131 056 m) :
+
+| Métrique | `_vege` mbs2=1 | `_vege` mbs2=16 |
+|---|---|---|
+| Distance médiane → réf | 9,4 m | 11,1 m |
+| Couverture ≤ 5 m | 66,4 % | 36,6 % |
+| Couverture ≤ 10 m | **86,0 %** | **57,9 %** |
+| Couverture ≤ 20 m | 95,0 % | 78,3 % |
+| ratio_utile | 0,517 | 0,476 |
+| Composantes | 3 662 | 1 137 |
+| Longueur médiane composante | 16 m | 19 m |
+| Longueur maximale composante | 24 370 m | 15 216 m |
+| is_blob | non | non |
+
+`medianboxsize2=16` a été retenu pour améliorer la lisibilité visuelle du fond KP, mais les
+mesures montrent qu'il supprime une part importante de la proximité avec les limites de
+référence : la couverture ≤ 10 m chute de 86,0 % à 57,9 % (−28 pp), et le kilométrage
+frontière total passe de 450 km à 230 km (−49 %). Le réglage actuel **privilégie le confort
+de lecture au détriment d'une partie de la fidélité spatiale.**
+
+**Question ouverte :** Ce compromis est-il souhaitable pour un fond destiné au tracé manuel ?
+Une lisière ou une clairière supprimée par le filtrage peut constituer une information que le
+cartographe doit pouvoir voir. Cette question ne peut pas être tranchée sans nouvelle
+validation d'usage.
+
+### Comparaison visuelle avec contour FFCO à 1:10 000
+
+**ÉTABLI** (Grimbosq, comparaison `_vege` mbs2=1 vs mbs2=16 avec contour FFCO superposé,
+lightgreentone=160, opacité 50 %, fenêtres 500 × 500 m) :
+
+- **fen1_406** : La non-détection de la grande zone centrale est identique dans les deux
+  réglages — antérieure au choix de mbs2, non aggravée par le filtrage. Les petits fragments
+  verts présents en mbs2=1 sont légèrement fusionnés en mbs2=16 ; la couverture de cette zone
+  reste comparable car elle est structurellement sous-couverte.
+
+- **fen2_408** : Gain net de lisibilité en mbs2=16. Le mouchetage dense de mbs2=1 rend les
+  transitions et les grandes masses difficiles à lire. En mbs2=16, les grandes masses sont
+  plus franches. Contrepartie visible : plusieurs trouées blanches apparaissent à l'intérieur
+  de polygones FFCO qui étaient couverts en mbs2=1.
+
+- **fen3_410** : mbs2=16 produit des masses vertes plus cohérentes et moins mouchetées. En
+  mbs2=1, le contour FFCO est davantage noyé dans les petites structures. Les structures
+  supprimées par mbs2=16 sont en partie des fragments internes ou périphériques qui ne
+  contribuent pas aux grandes limites lisibles à 1:10 000.
+
+**Décision de production — ÉTABLIE :** `medianboxsize2=16` est conservé dans la configuration
+de production. Le réglage est retenu comme compromis de lisibilité du fond de décalque à
+1:10 000, et non comme optimum géométrique démontré.
+
+La perte de couverture (86,0 % → 57,9 % à ≤ 10 m) ne doit pas être interprétée seule comme
+une dégradation : la métrique de couverture favorise mécaniquement les rendus très remplis.
+mbs2=1 conserve davantage de petites structures au prix d'un mouchetage qui gêne la lecture
+des grandes masses. Le choix de mbs2=16 **privilégie la lisibilité du support** plutôt que
+le maintien maximal de toutes les petites structures détectées par KP.
+
+Aucun nouveau test de valeur intermédiaire n'est lancé.
+
 ---
 
 ## 11. Architecture actuelle et livrable
@@ -406,9 +465,31 @@ simplification
 lissage éventuel
 ```
 
-**NON TESTÉ.** La proximité de `_vege.png` avec les contours FFCO (couverture ≤ 10 m = 86 %)
-justifie d'explorer cette piste. La mesure porte sur des frontières pixel — la qualité
-cartographique des polygones résultants n'a pas été évaluée.
+**ÉTABLI (mesure) / SUSPENDUE (vectorisation).**
+
+La proximité de `_vege.png` avec les contours FFCO a été mesurée selon le protocole exp2_3
+pour deux variantes de paramétrage (voir §10) :
+
+- **mbs2=1** : couverture ≤ 10 m = 86,0 %, longueur médiane composante = 16 m
+- **mbs2=16** : couverture ≤ 10 m = 57,9 %, longueur médiane composante = 19 m
+
+Le critère de vectorisation posé (longueur médiane ≥ 32 m **et** couverture ≤ 10 m ≥ 64,5 %)
+n'est atteint dans aucune des deux variantes. La mesure porte sur des frontières pixel — la
+qualité cartographique des polygones résultants n'a pas été évaluée.
+
+**Critère de vectorisation — ÉCHEC sur les deux conditions :**
+
+| Condition | Valeur mesurée | Seuil fixé | Verdict |
+|---|---|---|---|
+| Longueur médiane composante | 19 m | ≥ 32 m | ÉCHEC |
+| Couverture ≤ 10 m | 57,9 % | ≥ 64,5 % | ÉCHEC |
+
+La variante `_vege` + `medianboxsize2=16` ne fournit pas une matière première suffisamment
+favorable pour lancer une expérience de vectorisation.
+
+La piste « vectoriser un rendu KP » reste ouverte mais n'est pas relancée. Elle pourra être
+réévaluée avec une autre représentation ou une autre méthode de segmentation. Aucune nouvelle
+campagne de réglage n'est engagée à ce stade.
 
 ### 12.2 Piste lissage géométrique des contours
 
@@ -425,6 +506,19 @@ Ce lissage est distinct de deux choses déjà en place ou déjà réfutées :
   après polygonisation.
 
 Ce lissage ne doit pas servir à masquer une mauvaise segmentation.
+
+### 12.3 Piste non instruite — plusieurs niveaux de lissage
+
+**NON TESTÉ.** Plutôt qu'un réglage unique de `medianboxsize2`, permettre de choisir entre
+plusieurs niveaux de lissage du fond selon la tâche :
+
+```
+vue générale (grandes masses)   → fond lissé  (mbs2=16)
+travail de détail (lisières)    → fond moins lissé  (mbs2 faible)
+```
+
+Cette piste concilierait lisibilité générale et conservation des structures fines. Elle n'est
+pas développée dans la présente étape.
 
 ---
 
@@ -520,6 +614,13 @@ du fond KP — il reflète l'état de la validation disponible.
    La qualité du raster `density_hag.tif` ne dit pas si le rendu `vegetation.png` dans
    l'OMAP est lisible à l'échelle d'usage. Les contrôles finaux se font sur le fichier `.omap`
    dans OOM, pas sur les sorties pipeline intermédiaires.
+
+8. **Ne jamais lire la couverture référence → produit seule.**
+   La métrique favorise mécaniquement les rendus très remplis : un fond couvrant une grande
+   surface est plus souvent situé à ≤ 10 m des limites de référence, même lorsque ce vert est
+   peu pertinent pour la lecture cartographique. La couverture doit être combinée avec le
+   `ratio_utile`, la structure spatiale (nombre et taille des composantes), et la visualisation
+   superposée à la référence avant toute décision sur l'utilité du fond.
 
 ### 15.2 Conclusions trop larges corrigées
 
