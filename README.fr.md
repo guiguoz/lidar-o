@@ -36,9 +36,10 @@ FOND DE TRACÉ
 ## Ce que Lidar'O ne produit pas
 
 ```
-pas de classification automatique fiable 406 / 408 / 410
-    → le signal actuellement utilisé ne fournit pas une classification fiable
-      sur le terrain de test ; la végétation est fournie comme fond de tracé
+pas de couches 406 / 408 / 410 dans le .omap
+    → la classification est calculée et sauvée dans vegetation_masked.gpkg
+      mais exclue du .omap ; non fiable sur le terrain testé
+      (AUC ≤ 0,54 sur Grimbosq) ; la végétation fournie est le fond KP
 
 pas de falaises ni de rochers
     → cliff2 et cliff3 sont désactivés : 745 traits de 2,9 m observés sur
@@ -58,7 +59,7 @@ pas de symboles ponctuels
 |---|---|
 | **Testé** | Forêt normande de feuillus (Grimbosq) · LiDAR HD IGN · COPC · Lambert-93 · acquisition hors feuillaison |
 | **Non testé** | autres types de forêt · autres régions françaises · acquisitions en feuillaison |
-| **Portable** | le code déduit le CRS automatiquement ; la convergence des méridiens est calculée ; les mappings sont externalisés ; trois pays ont été traités par le pipeline |
+| **Portable** | le code déduit le CRS automatiquement ; la convergence des méridiens est calculée ; les mappings sont externalisés ; deux pays ont été traités par le pipeline (France, Estonie) |
 | **Attention** | la portabilité du pipeline ne signifie pas que son réglage de végétation est validé ailleurs |
 
 ![Grimbosq — base de carte dans OpenOrienteering Mapper](docs/images/extrait_grimbosq.jpg)
@@ -267,8 +268,8 @@ Ouvrir `output/grimbosq.omap` dans OpenOrienteering Mapper. Les couches attendue
 - Routes, chemins, bâtiments et cours d'eau depuis la BD TOPO (symboles noirs/bleus/marron)
 - Courbes de niveau de Karttapullautin (marron) — uniquement si `out_kp/` était présent
 
-Les couches de végétation classifiées (406/408/410) sont également produites mais ne constituent
-pas le livrable recommandé — utiliser le fond KP comme décalque et tracer les limites manuellement.
+Les couches de classification (406/408/410) sont sauvées dans `output/vegetation_masked.gpkg`
+mais non injectées dans le .omap — utiliser le fond KP comme décalque et tracer manuellement.
 Voir [docs/bilan_v0.md](docs/bilan_v0.md) pour les résultats d'évaluation.
 
 Si la carte apparaît vide ou décalée par rapport au fond de carte, vérifier que le signe de `declination` dans le fichier georef est correct.
@@ -344,7 +345,7 @@ Voir [docs/portabilite.md](docs/portabilite.md) pour un guide détaillé.
 
 ## Ce que le projet a établi
 
-Onze pistes d'amélioration ont été testées et mesurées : ajustement du seuil de détection, filtre de surface minimale, sigma gaussien, résolution de grille (1 m vs 2 m), stratégie de normalisation (fixe vs p95_local), intensité LiDAR comme signal secondaire, masque canopée, suppression de trous (deux approches), chirurgie des isthmes, sweep des seuils inter-classes. La plupart ont été réfutées par la mesure sur corpus multi-terrain.
+Quinze pistes d'amélioration ont été testées et mesurées : ajustement du seuil de détection, filtre de surface minimale, sigma gaussien, résolution de grille (1 m vs 2 m), stratégie de normalisation (fixe vs p95_local), intensité LiDAR comme signal secondaire, masque canopée, suppression de trous (deux approches), chirurgie des isthmes, sweep des seuils inter-classes, NRD vs HAG brut, variance verticale (sigma/IQR dans [0,3–3 m]), fenêtres verticales alternatives, agrégation spatiale (2 m / 5 m / 10 m). La plupart ont été réfutées par la mesure sur corpus multi-terrain.
 
 Documentées dans [docs/bilan_v0.md](docs/bilan_v0.md) pour éviter à d'autres de refaire le chemin.
 

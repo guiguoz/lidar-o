@@ -36,9 +36,10 @@ FOR THE MAPPER TO DO
 ## What Lidar'O does not produce
 
 ```
-no reliable automatic 406 / 408 / 410 classification
-    → the signal currently used does not provide reliable classification
-      on the test terrain; vegetation is provided as a tracing background only
+no 406 / 408 / 410 layers in the .omap output
+    → classification is computed and saved to vegetation_masked.gpkg
+      but excluded from the .omap; unreliable on the tested terrain
+      (AUC ≤ 0.54 on Grimbosq); vegetation is provided as KP background only
 
 no cliffs or rock features
     → cliff2 and cliff3 are disabled: 745 spurious features of 2.9 m observed
@@ -58,7 +59,7 @@ no point symbols
 |---|---|
 | **Tested** | Normandy deciduous forest (Grimbosq) · IGN HD LiDAR · COPC · Lambert-93 · leaf-off acquisition |
 | **Not tested** | other forest types · other French regions · leaf-on acquisitions |
-| **Portable** | the code derives the CRS automatically; meridian convergence is computed; mappings are externalised; three countries have been processed by the pipeline |
+| **Portable** | the code derives the CRS automatically; meridian convergence is computed; mappings are externalised; two countries have been processed by the pipeline (France, Estonia) |
 | **Important** | the pipeline running on other data does not mean its vegetation settings are valid there |
 
 ![Grimbosq — base map in OpenOrienteering Mapper](docs/images/extrait_grimbosq.jpg)
@@ -138,8 +139,8 @@ Open `output/ma_foret.omap` in OpenOrienteering Mapper. You should see:
 - Roads, tracks, buildings and water from BD TOPO (black/blue/brown symbols)
 - Contour lines from Karttapullautin (brown) — only if KP is installed
 
-The classified vegetation layers (406/408/410) are also produced but are not the recommended
-deliverable — use the KP background as a tracing aid and draw vegetation boundaries manually.
+Classification layers (406/408/410) are saved to `output/vegetation_masked.gpkg` but not included
+in the .omap — use the KP background as a tracing aid and draw vegetation boundaries manually.
 See [docs/bilan_v0.md](docs/bilan_v0.md) for the evaluation results.
 
 If the map appears blank or offset from the background, check that `declination` in the georef file has the correct sign (negative west of the CRS central meridian, positive east).
@@ -321,7 +322,7 @@ To add tile auto-discovery for a new country, create `src/providers/<country>.py
 
 ## What this project has established
 
-Eleven improvement directions were tested and measured: detection threshold tuning, minimum area filtering, Gaussian sigma, grid resolution (1 m vs 2 m), normalization strategy (fixed vs p95_local), LiDAR intensity as a secondary signal, canopy mask, hole removal (two approaches), isthmus surgery, and inter-class threshold sweep. Most were refuted by measurement on a multi-terrain corpus.
+Fifteen improvement directions were tested and measured: detection threshold tuning, minimum area filtering, Gaussian sigma, grid resolution (1 m vs 2 m), normalization strategy (fixed vs p95_local), LiDAR intensity as a secondary signal, canopy mask, hole removal (two approaches), isthmus surgery, inter-class threshold sweep, NRD vs raw HAG, height variance (sigma/IQR in [0.3–3 m]), alternative vertical windows, spatial aggregation (2 m / 5 m / 10 m), and return intensity as a secondary signal. Most were refuted by measurement on a multi-terrain corpus.
 
 Documented in [docs/bilan_v0.md](docs/bilan_v0.md) to save others from repeating the same experiments.
 
