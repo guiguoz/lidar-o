@@ -1,0 +1,34 @@
+{
+  "gpstime_check": {
+    "available": true,
+    "n_pts_first_tile": 22877148,
+    "n_unique_gpstime": 15009582,
+    "ratio_pts_per_impulse": 1.5241695604847623,
+    "fraction_multi_return": 0.558255513318356,
+    "has_return_fields": true,
+    "gpstime_range_s": 2031.566523373127,
+    "gpstime_min_interval_s": 9.5367431640625e-07,
+    "ok": true,
+    "comment": "ratio=1.52 pts/impulsion (attendu ~1.5-3 pour 10-15 impl/m², retours multiples inclus)"
+  },
+  "density_estimated": 1.8772388933295,
+  "subsample_fraction": 0.6666666666666666,
+  "target_density": 10.0,
+  "empreinte": {
+    "max_dist_m": 1.8027756377319946,
+    "theoretical_max_m": 2.8284271247461903,
+    "theoretical_radius_m": 2.0,
+    "changed_cells": 45.0,
+    "perturb_x": 449273.5,
+    "perturb_y": 6887850.5
+  },
+  "paths": {
+    "dtm": "E:\\Vikazim\\Ovector\\experiments\\v0\\output\\level_a\\trier_dtm.tif",
+    "strates": "E:\\Vikazim\\Ovector\\experiments\\v0\\output\\level_a\\trier_strates.tif",
+    "signal_brut": "E:\\Vikazim\\Ovector\\experiments\\v0\\output\\level_a\\trier_signal_brut.tif",
+    "signal_apres_voisinage": "E:\\Vikazim\\Ovector\\experiments\\v0\\output\\level_a\\trier_signal_apres_voisinage.tif",
+    "classes": "E:\\Vikazim\\Ovector\\experiments\\v0\\output\\level_a\\trier_classes.tif",
+    "classes_gen": "E:\\Vikazim\\Ovector\\experiments\\v0\\output\\level_a\\trier_classes_gen.tif",
+    "empreinte_diff": "E:\\Vikazim\\Ovector\\experiments\\v0\\output\\level_a\\trier_empreinte_diff.tif"
+  }
+}
