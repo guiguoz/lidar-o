@@ -2,12 +2,66 @@
 
 *[English version](README.md)*
 
-> **Preuve de concept précoce — pas utilisable en production.** La classe 406 (course lente / sous-bois léger) est hors domaine : AUC 0,487, pas mieux que le hasard. Les classes 408 (marche) et 410 (progression difficile) fonctionnent en forêt tempérée dense (61 % / 82 % de détection, testé sur un seul terrain). Une retouche manuelle importante est à prévoir.
+## Ce que vous obtenez
 
-Génération d'une carte de base ISOM à partir du LiDAR HD IGN (France), sortie en `.omap` ouvrable dans OpenOrienteering Mapper ou OCAD.
+**Une base de carte prête à tracer** — pas une carte terminée.
 
-<!-- Extrait de carte représentatif à l'échelle — copier une capture dans docs/images/ -->
-<!-- ![Extrait Grimbosq](docs/images/extrait_grimbosq.png) -->
+Lidar'O automatise une partie importante de la préparation d'une base cartographique à partir des données LiDAR françaises et des référentiels géographiques existants. Le cartographe conserve le dessin, la végétation, la vérification terrain et le jugement cartographique.
+
+```
+CE QUE LIDAR'O PRODUIT
+
+    vectorisé et symbolisé :
+    relief          — courbes de niveau depuis Karttapullautin
+    chemins / routes  — BD TOPO
+    bâtiments       — BD TOPO
+    hydrographie    — BD TOPO
+    terrain découvert et zones agricoles
+    zones interdites
+
+    assemblage et géoréférencement
+    → fichier .omap exploitable dans OpenOrienteering Mapper
+
+FOND DE TRACÉ
+
+    végétation Karttapullautin, géoréférencée, intégrée au template
+
+À FAIRE PAR LE CARTOGRAPHE
+
+    tracer / corriger la végétation à partir du fond fourni
+    relever au terrain ce que le LiDAR ne permet pas de déterminer
+    ajouter les détails ponctuels et les éléments cartographiques fins
+```
+
+## Ce que Lidar'O ne produit pas
+
+```
+pas de classification automatique fiable 406 / 408 / 410
+    → le signal actuellement utilisé ne fournit pas une classification fiable
+      sur le terrain de test ; la végétation est fournie comme fond de tracé
+
+pas de falaises ni de rochers
+    → cliff2 et cliff3 sont désactivés : 745 traits de 2,9 m observés sur
+      une seule dalle ; cliffheight et cliffangle n'ont pas été instruits
+
+pas de détection fiable du sous-bois léger (406)
+    → sur le test Grimbosq, une fenêtre contenant 45,9 % de végétation FFCO,
+      dont 29 % de 406, ne produit pas de végétation exploitable dans le rendu
+
+pas de plantations en rangs
+pas de symboles ponctuels
+```
+
+## Domaine de validité
+
+| | |
+|---|---|
+| **Testé** | Forêt normande de feuillus (Grimbosq) · LiDAR HD IGN · COPC · Lambert-93 · acquisition hors feuillaison |
+| **Non testé** | autres types de forêt · autres régions françaises · acquisitions en feuillaison |
+| **Portable** | le code déduit le CRS automatiquement ; la convergence des méridiens est calculée ; les mappings sont externalisés ; trois pays ont été traités par le pipeline |
+| **Attention** | la portabilité du pipeline ne signifie pas que son réglage de végétation est validé ailleurs |
+
+![Grimbosq — base de carte dans OpenOrienteering Mapper](docs/images/extrait_grimbosq.jpg)
 
 ---
 
@@ -81,8 +135,7 @@ terrains:
 ```
 
 Créer `assets/georef_ma_foret.xml` — voir `assets/` pour quatre exemples fonctionnels.
-`declination` = convergence des méridiens (≠ déclinaison magnétique) :
-`(longitude − méridien_central) × sin(latitude)`. Lambert-93 : méridien central = 3°E.
+`declination` = convergence des méridiens (≠ déclinaison magnétique). Calculée automatiquement par `init`. Pour recalculer : `python -c "from pyproj import Proj; print(Proj('EPSG:2154').get_factors(lon, lat).meridian_convergence)"`. L'approximation `(longitude − méridien_central) × sin(latitude)` est fausse pour une projection conique conforme — utiliser `get_factors()`.
 
 </details>
 
@@ -166,7 +219,7 @@ Voir le fichier `assets/georef_grimbosq.xml` existant. Pour le remplir :
 |-------|-------------------|
 | `ref_point x/y` | Coordonnée projetée ronde dans l'emprise (ex. 449000 / 6887000) |
 | `ref_point_deg lat/lon` | Convertir sur [epsg.io/transform](https://epsg.io/transform) |
-| `declination` | Convergence des méridiens (°) : `(longitude − méridien_central) × sin(latitude)`. Lambert-93 : méridien = 3°E. Exemple : (−0.42 − 3) × sin(49.04°) ≈ −2.58° → arrondi à 0.5° près : −2.5° |
+| `declination` | Convergence des méridiens au point de référence — calculée automatiquement par `init`. Pour recalculer : `python -c "from pyproj import Proj; print(Proj('EPSG:2154').get_factors(lon, lat).meridian_convergence)"`. L'approximation `(λ−λ₀)×sin(φ)` est fausse pour Lambert conique conforme — utiliser `get_factors()`. **Pas** la déclinaison magnétique. |
 | `auxiliary_scale_factor` | Facteur d'échelle de la projection — 0.999966 correct pour terrain plat en Lambert-93 ; recalculer sur [epsg.io](https://epsg.io) en zone de montagne |
 
 > **Attention au signe de `declination`** : négatif à l'ouest du méridien central, positif à l'est. Une erreur de signe décale tous les symboles de l'angle de convergence.
@@ -222,14 +275,13 @@ Si la carte apparaît vide ou décalée par rapport au fond de carte, vérifier 
 
 ---
 
-## Ce que l'outil détecte
+## Performances de classification — mesures sur Grimbosq
 
-> Ces chiffres décrivent la **couche de classification HAG** (classes automatiques 406/408/410).
-> Le workflow recommandé utilise désormais le fond végétation KP comme décalque ; ces classes
-> restent disponibles mais ne constituent pas le livrable principal.
+> Ces chiffres décrivent la **couche de classification HAG** — qui **n'est pas le livrable principal**.
+> Le livrable recommandé est le fond végétation KP utilisé comme décalque.
 >
-> Mesuré sur **un seul terrain** (forêt de Grimbosq, Calvados, France), contre une carte FFCO
-> de référence, sur emprise commune (hull 324 ha). Ces valeurs ne sont pas garanties ailleurs.
+> Mesuré sur un seul terrain (Grimbosq, Calvados, France) contre une carte FFCO non redistribuable,
+> sur emprise commune (hull 324 ha). Non garantis ailleurs.
 
 | Classe | Détecté | Bonne classe |
 |--------|---------|--------------|
@@ -237,20 +289,16 @@ Si la carte apparaît vide ou décalée par rapport au fond de carte, vérifier 
 | 408 marche | 61 % | 26 % |
 | 410 progression difficile | 82 % | 48 % |
 
-*« Détecté »* = fraction de la surface FFCO couverte par n'importe quelle classe du pipeline — ce que le cartographe n'a pas à dessiner.  
-*« Bonne classe »* = fraction dans la bonne classe exacte — ce qu'il n'a pas à retoucher.  
-Corriger le symbole prend deux clics dans OCAD/OOM ; dessiner un polygone absent de zéro prend bien plus de temps.
-
-*Ces métriques ont été mesurées contre une carte de référence non redistribuable — les chiffres ne sont donc pas reproductibles depuis ce dépôt.*
+*« Détecté »* = fraction de la surface FFCO couverte par n'importe quelle classe du pipeline.  
+*« Bonne classe »* = fraction dans la bonne classe exacte.
 
 ---
 
-## Domaine de validité
+## Domaine de validité — détail
 
-> Cette section documente le domaine du **modèle de classification HAG** (density_hag → 406/408/410).
-> Le domaine du fond végétation KP n'a pas été évalué séparément sur corpus multi-terrain.
+**Classe 406 hors domaine, y compris sur Grimbosq.** AUC Mann-Whitney = 0,487 : la densité HAG[0.3–3 m] dans les zones 406 manquées est statistiquement indiscernable du terrain courable. Baisser le seuil crée autant de faux positifs qu'il ne récupère de vrais positifs.
 
-Le pipeline a été testé sur 5 terrains. Le signal HAG[0.3–3 m] sépare bien les végétations denses ; il est insuffisant pour le sous-bois léger praticable.
+**408/410** fonctionnent sur les forêts à structuration verticale claire (forêt tempérée dense, 61 %/82 % de détection sur Grimbosq). Testé et hors domaine : landes d'altitude, landes-marais, forêts à sous-bois uniforme.
 
 | Terrain | Type | Résultat 406 | Cause |
 |---------|------|-------------|-------|
@@ -260,9 +308,7 @@ Le pipeline a été testé sur 5 terrains. Le signal HAG[0.3–3 m] sépare bien
 | Kuti (Estonie) | Épicéas + Vaccinium | Hors domaine | Signal uniforme dense |
 | Port-en-Bessin (Normandie) | Hêtraie à sol nu | Correctement absent | Pas de sous-bois — bande HAG vide (163 retours sol/cellule) |
 
-**Classe 406 hors domaine, y compris sur Grimbosq.** AUC Mann-Whitney = 0.487 : la densité HAG[0.3–3 m] dans les zones 406 manquées est statistiquement indiscernable du terrain courable. Baisser le seuil crée autant de faux positifs qu'il ne récupère de vrais positifs.
-
-**408/410 dans le domaine** sur les forêts à structuration verticale claire (forêt tempérée dense, 61 %/82 % de détection). Testé et hors domaine : landes d'altitude, landes-marais, forêts à sous-bois uniforme.
+Voir [docs/bilan_v0.md](docs/bilan_v0.md) pour l'ensemble des expérimentations réalisées.
 
 ---
 

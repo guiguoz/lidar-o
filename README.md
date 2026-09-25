@@ -2,11 +2,66 @@
 
 *[Version française](README.fr.md)*
 
-> **Early proof of concept — not production-ready.** Class 406 (slow run / light undergrowth) is out of domain: AUC 0.487, no better than chance. Classes 408 (walk) and 410 (fight) work on dense temperate forest (61 % / 82 % detection, tested on one terrain). Expect significant manual editing.
+## What you get
 
-Generate an ISOM base map from IGN HD LiDAR (France), output as a `.omap` file ready to open in OpenOrienteering Mapper or OCAD.
+**A base map ready to trace** — not a finished map.
 
-![Grimbosq extract](docs/images/extrait_grimbosq.jpg)
+Lidar'O automates a significant part of base-map preparation from French LiDAR data and existing geographic databases. The mapper retains drawing, vegetation, field verification, and cartographic judgement.
+
+```
+AUTOMATED BY LIDAR'O
+
+    vectorised and symbolised:
+    relief          — contour lines from Karttapullautin
+    tracks / roads  — BD TOPO
+    buildings       — BD TOPO
+    hydrography     — BD TOPO
+    open land and agricultural areas
+    out-of-bounds areas
+
+    assembly and georeferencing
+    → usable .omap file in OpenOrienteering Mapper
+
+TRACING BACKGROUND
+
+    Karttapullautin vegetation raster, georeferenced, integrated as a template layer
+
+FOR THE MAPPER TO DO
+
+    trace / correct vegetation from the provided background
+    field check what LiDAR cannot reliably determine
+    add point features and fine cartographic detail
+```
+
+## What Lidar'O does not produce
+
+```
+no reliable automatic 406 / 408 / 410 classification
+    → the signal currently used does not provide reliable classification
+      on the test terrain; vegetation is provided as a tracing background only
+
+no cliffs or rock features
+    → cliff2 and cliff3 are disabled: 745 spurious features of 2.9 m observed
+      on a single tile; cliffheight and cliffangle have not been calibrated
+
+no reliable light undergrowth detection (406)
+    → on the Grimbosq test, a window containing 45.9 % of FFCO vegetation
+      including 29 % of class 406 produces no usable output
+
+no row plantations
+no point symbols
+```
+
+## Validity domain
+
+| | |
+|---|---|
+| **Tested** | Normandy deciduous forest (Grimbosq) · IGN HD LiDAR · COPC · Lambert-93 · leaf-off acquisition |
+| **Not tested** | other forest types · other French regions · leaf-on acquisitions |
+| **Portable** | the code derives the CRS automatically; meridian convergence is computed; mappings are externalised; three countries have been processed by the pipeline |
+| **Important** | the pipeline running on other data does not mean its vegetation settings are valid there |
+
+![Grimbosq — base map in OpenOrienteering Mapper](docs/images/extrait_grimbosq.jpg)
 
 ---
 
@@ -195,14 +250,13 @@ LHD_FXX_0449_6889_PTS_LAMB93_IGN69.copc.laz
 
 ---
 
-## What the tool detects
+## Classification performance — Grimbosq test
 
-> These figures describe the **HAG classification layer** (automatic 406/408/410 classes).
-> The recommended workflow now uses the KP vegetation background as a tracing aid; these
-> classes remain available but are not the primary deliverable.
+> These figures describe the **HAG classification layer** — which is **not the primary deliverable**.
+> The recommended output is the KP vegetation background used as a tracing aid.
 >
-> Measured on **one terrain only** (Grimbosq forest, Calvados, France), against an FFCO reference
-> map, over the common extent (convex hull, 324 ha). These figures are not guaranteed elsewhere.
+> Measured on one terrain only (Grimbosq, Calvados, France) against a non-redistributable FFCO
+> reference map, over the common extent (convex hull, 324 ha). Not guaranteed elsewhere.
 
 | Class | Detected | Correct class |
 |-------|---------|---------------|
@@ -210,20 +264,16 @@ LHD_FXX_0449_6889_PTS_LAMB93_IGN69.copc.laz
 | 408 walk | 61 % | 26 % |
 | 410 fight | 82 % | 48 % |
 
-*"Detected"* = fraction of the FFCO reference area covered by any pipeline class — what the mapper does not need to draw.  
-*"Correct class"* = fraction covered by the exact right class — what needs no retouching at all.  
-Fixing the symbol takes two clicks in OCAD/OOM; drawing a missing polygon from scratch takes much longer.
-
-*These metrics were measured against a non-redistributable reference map — the figures cannot be reproduced from this repository.*
+*"Detected"* = fraction of the FFCO reference area covered by any pipeline class.  
+*"Correct class"* = fraction covered by the exact right class.
 
 ---
 
-## Validity domain
+## Detailed validity domain
 
-> This section documents the domain of the **HAG classification model** (density_hag → 406/408/410).
-> The KP vegetation background domain has not been separately evaluated across terrains.
+**Class 406 is out of domain, including on Grimbosq.** Mann-Whitney AUC = 0.487: the HAG[0.3–3 m] density in missed 406 zones is statistically indistinguishable from runnable open terrain. Lowering the threshold creates as many false positives as it recovers true ones.
 
-The pipeline has been tested on 5 terrains. The HAG[0.3–3 m] signal separates dense vegetation well; it is insufficient for light, runnable undergrowth.
+**408/410** work on forests with clear vertical structure (dense temperate forest, 61 %/82 % detection on Grimbosq). Tested and out of domain: high-altitude heath, bog-heath, forests with uniform understory.
 
 | Terrain | Type | Result on 406 | Cause |
 |---------|------|--------------|-------|
@@ -233,9 +283,7 @@ The pipeline has been tested on 5 terrains. The HAG[0.3–3 m] signal separates 
 | Kuti (Estonia) | Spruce + Vaccinium | Out of domain | Uniformly dense signal |
 | Port-en-Bessin (Normandy) | Bare beech forest | Correctly absent | No understory — HAG band empty (163 ground returns/cell) |
 
-**Class 406 is out of domain, including on Grimbosq.** Mann-Whitney AUC = 0.487: the HAG[0.3–3 m] density in missed 406 zones is statistically indistinguishable from runnable open terrain. Lowering the threshold creates as many false positives as it recovers true ones.
-
-**408/410 are in domain** on forests with clear vertical structure (dense temperate forest, 61 %/82 % detection). Tested and out of domain: high-altitude heath, bog-heath, forests with uniform understory.
+See [docs/bilan_v0.md](docs/bilan_v0.md) for the full experimental record.
 
 ---
 
