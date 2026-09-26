@@ -379,5 +379,5 @@ Free to use and modify. Any derivative or network service must be published unde
 
 Third-party assets:
 - ISOM 2017-2 symbol template from [OpenOrienteering Mapper](https://www.openorienteering.org/) (GPL-3.0)
-- CRT table from [Blaze / Trailblaze Software](https://github.com/Trailblaze-Software/Blaze) (Apache-2.0)
+- CRT table from [Blaze / Trailblaze Software](https://github.com/Trailblaze-Software/Blaze) (GPL-3.0)
 - [Karttapullautin](https://github.com/karttapullautin/karttapullautin) — not included, download separately

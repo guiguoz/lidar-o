@@ -397,5 +397,5 @@ Utilisation libre, modification libre. Tout dérivé ou service réseau doit êt
 
 Assets tiers :
 - Gabarit ISOM 2017-2 extrait d'[OpenOrienteering Mapper](https://www.openorienteering.org/) (GPL-3.0)
-- Table CRT extraite de [Blaze / Trailblaze Software](https://github.com/Trailblaze-Software/Blaze) (Apache-2.0)
+- Table CRT extraite de [Blaze / Trailblaze Software](https://github.com/Trailblaze-Software/Blaze) (GPL-3.0)
 - [Karttapullautin](https://github.com/karttapullautin/karttapullautin) — non inclus, à télécharger séparément
