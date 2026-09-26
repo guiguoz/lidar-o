@@ -6,43 +6,36 @@ lance KP sur le dossier de dalles, et vérifie les DXF produits.
 from __future__ import annotations
 
 import logging
-import os
 import pathlib
-import shutil
 import subprocess
 import time
 
 import yaml
+from src.kp_install import (
+    KP_PINNED_VERSION,
+    locate_binary as _locate_binary,
+    read_binary_version,
+)
 
 log = logging.getLogger(__name__)
 logging.getLogger("ezdxf").setLevel(logging.WARNING)  # supprime le bruit ACAD_xxx à la lecture DXF
 
-_KP_RELEASES_URL = "https://github.com/karttapullautin/karttapullautin/releases"
-
 
 # ── Localisation du binaire ───────────────────────────────────────────────────
 
-def locate_binary() -> pathlib.Path:
-    """KP_BINARY env var → PATH → échec explicite avec lien releases."""
-    env_path = os.environ.get("KP_BINARY")
-    if env_path:
-        p = pathlib.Path(env_path)
-        if p.exists():
-            return p
-        raise FileNotFoundError(
-            f"KP_BINARY={env_path} défini mais fichier absent.\n"
-            f"Télécharger : {_KP_RELEASES_URL}"
-        )
-
-    which = shutil.which("pullauta")
-    if which:
-        return pathlib.Path(which)
-
+def locate_binary(
+    cfg: dict | None = None,
+    terrain: str | None = None,
+) -> pathlib.Path:
+    """KP_BINARY env var → PATH → config → FileNotFoundError."""
+    p = _locate_binary(cfg, terrain)
+    if p is not None:
+        return p
     raise FileNotFoundError(
         "Karttapullautin (pullauta) introuvable.\n"
-        f"  • Définir KP_BINARY=/chemin/vers/pullauta, ou\n"
-        f"  • Ajouter le répertoire contenant pullauta au PATH.\n"
-        f"  • Télécharger : {_KP_RELEASES_URL}"
+        "  • Définir KP_BINARY=/chemin/vers/pullauta, ou\n"
+        "  • Ajouter le répertoire contenant pullauta au PATH, ou\n"
+        "  • Lancer : python main.py setup <terrain>"
     )
 
 
@@ -130,7 +123,7 @@ def _build_ini(
         f"cliffnosmallciffs=5.5\n"
         + (f"cliffheight={cliffheight}\n" if cliffheight is not None else "")
         + (f"cliffangle={cliffangle}\n" if cliffangle is not None else "")
-        f"# végétation\n"
+        + f"# végétation\n"
         f"undergrowth=0.35\n"
         f"undergrowth2=0.56\n"
         f"greenground=0.9\n"
@@ -328,8 +321,17 @@ def run_engine(
     terrain_cfg = cfg.get("terrains", {}).get(terrain, {})
     bbox = terrain_cfg.get("bbox")
 
-    binary = locate_binary()
+    binary = locate_binary(cfg, terrain)
     log.info("KP binaire : %s", binary)
+
+    kp_version_expected = terrain_cfg.get("kp_version") or KP_PINNED_VERSION
+    actual = read_binary_version(binary)
+    if actual and actual != kp_version_expected:
+        log.warning(
+            "KP version %s ≠ attendu %s — paramètres peuvent différer",
+            actual,
+            kp_version_expected,
+        )
 
     out_kp = root / f"out_kp_{terrain}"
     out_kp.mkdir(parents=True, exist_ok=True)

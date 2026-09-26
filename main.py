@@ -671,11 +671,12 @@ def _cmd_tiles() -> None:
         print(f"  bbox : {bbox}")
         return
 
-    print(f"Tuiles LiDAR HD à télécharger ({len(tiles)}) :")
+    print(f"Dalles LiDAR HD à télécharger ({len(tiles)}) :")
     for t in tiles:
         print(f"  {t}")
-    print(f"Source : {source}")
-    print(f"À placer dans : LIDAR/{terrain}/")
+    print(f"\nFichiers attendus dans : LIDAR/{terrain}/")
+    print("Format : .copc.laz")
+    print("\nSource : consulter la documentation officielle IGN LiDAR HD")
 
 
 # ── Sous-commande : check ─────────────────────────────────────────────────────
@@ -688,13 +689,41 @@ def _cmd_check() -> None:
         description="Vérifie dalles, recouvrement, georef XML avant le pipeline.",
     )
     parser.add_argument("terrain", help="Nom du terrain")
+    parser.add_argument(
+        "--force-kp", action="store_true",
+        help="Ignore la vérification de version KP (utiliser avec précaution)",
+    )
     args = parser.parse_args()
 
     cfg = _load_config()
-    ok = cmd_check(args.terrain, cfg, ROOT)
+    ok = cmd_check(args.terrain, cfg, ROOT, force_kp_version=args.force_kp)
     if not ok:
         sys.exit(1)
-    print("check : tous les contrôles OK")
+
+
+# ── Sous-commande : setup ─────────────────────────────────────────────────────
+
+def _cmd_setup() -> None:
+    from src.setup_terrain import cmd_setup
+
+    parser = argparse.ArgumentParser(
+        prog="main.py setup",
+        description="Configuration interactive : LiDAR, BD TOPO, KP.",
+    )
+    parser.add_argument("terrain", help="Nom du terrain")
+    args = parser.parse_args()
+
+    cfg = _load_config()
+    ok = cmd_setup(args.terrain, cfg, ROOT)
+    if not ok:
+        sys.exit(1)
+
+
+# ── Sous-commande : gui ───────────────────────────────────────────────────────
+
+def _cmd_gui() -> None:
+    from gui.app import main as gui_main
+    gui_main()
 
 
 # ── Sous-commande : run (pipeline principal) ───────────────────────────────────
@@ -715,16 +744,28 @@ def _cmd_run() -> None:
     parser.add_argument("--force", action="store_true", help="Ignore les vérifications de fraîcheur")
     parser.add_argument("--reader", default="readers.copc", help="Lecteur PDAL (default: readers.copc)")
     parser.add_argument("--skip-check", action="store_true", help="Ignore les vérifications pré-run (check)")
+    parser.add_argument(
+        "--force-kp", action="store_true",
+        help="Ignore la vérification de version KP (utiliser avec précaution)",
+    )
     args = parser.parse_args()
 
     global OUTPUT
 
     cfg = _load_config()
 
+    if not args.tiles_dir and not args.tiles:
+        lidar_dir_cfg = cfg.get("terrains", {}).get(args.terrain, {}).get("lidar_dir")
+        if lidar_dir_cfg:
+            args.tiles_dir = lidar_dir_cfg
+
     if not args.skip_check:
         tiles_path = pathlib.Path(args.tiles_dir) if args.tiles_dir else None
-        if not cmd_check(args.terrain, cfg, ROOT, lidar_dir=tiles_path):
-            sys.exit("ERREUR pré-run — corriger les problèmes ci-dessus ou relancer avec --skip-check")
+        if not cmd_check(args.terrain, cfg, ROOT, lidar_dir=tiles_path, force_kp_version=args.force_kp):
+            sys.exit(
+                "\nProjet incomplet — corriger les points ci-dessus.\n"
+                f"  python main.py setup {args.terrain}"
+            )
 
     terrain_cfg = cfg.get("terrains", {}).get(args.terrain, {})
     output_dir = terrain_cfg.get("output_dir") or (
@@ -798,13 +839,20 @@ def _cmd_run() -> None:
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
-_SUBCOMMANDS = {"init", "tiles", "check", "run"}
+_SUBCOMMANDS = {"init", "tiles", "check", "run", "setup", "gui"}
 
 
 def main() -> None:
     if len(sys.argv) >= 2 and sys.argv[1] in _SUBCOMMANDS:
         subcmd = sys.argv.pop(1)
-        {"init": _cmd_init, "tiles": _cmd_tiles, "check": _cmd_check, "run": _cmd_run}[subcmd]()
+        {
+            "init": _cmd_init,
+            "tiles": _cmd_tiles,
+            "check": _cmd_check,
+            "run": _cmd_run,
+            "setup": _cmd_setup,
+            "gui": _cmd_gui,
+        }[subcmd]()
     else:
         _cmd_run()
 

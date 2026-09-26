@@ -141,6 +141,65 @@ def _remove_terrain_block(terrain: str, text: str) -> str:
     return "\n".join(result)
 
 
+def patch_terrain_yaml(
+    terrain: str,
+    fields: dict,
+    config_path: pathlib.Path,
+) -> None:
+    """Met à jour les champs d'un terrain dans config.yaml sans écraser les autres.
+
+    Lit le bloc existant, fusionne avec les nouveaux champs, réécrit le bloc entier.
+    Les champs None sont omis. Les valeurs string path sont citées en YAML.
+    """
+    text = config_path.read_text(encoding="utf-8")
+    cfg = yaml.safe_load(text) or {}
+    terrains = cfg.get("terrains") or {}
+    existing = dict(terrains.get(terrain, {}))
+
+    existing.update({k: v for k, v in fields.items() if v is not None})
+
+    _PATH_FIELDS = {"lidar_dir", "bdtopo_path", "kp_binary"}
+    _KNOWN_ORDER = [
+        "bbox", "crs", "departement",
+        "lidar_dir", "bdtopo_path",
+        "kp_binary", "kp_version",
+    ]
+
+    entry_lines = [f"\n  {terrain}:"]
+    written: set[str] = set()
+    for key in _KNOWN_ORDER:
+        if key not in existing:
+            continue
+        val = existing[key]
+        if val is None:
+            continue
+        if key in _PATH_FIELDS and isinstance(val, str):
+            val_str = val.replace("\\", "/")
+            entry_lines.append(f'    {key}: "{val_str}"')
+        elif isinstance(val, str):
+            entry_lines.append(f'    {key}: "{val}"')
+        else:
+            entry_lines.append(f"    {key}: {val}")
+        written.add(key)
+
+    for key, val in existing.items():
+        if key in written or val is None:
+            continue
+        if isinstance(val, str):
+            val_str = val.replace("\\", "/")
+            entry_lines.append(f'    {key}: "{val_str}"')
+        else:
+            entry_lines.append(f"    {key}: {val}")
+
+    if terrain in terrains:
+        text = _remove_terrain_block(terrain, text)
+
+    config_path.write_text(
+        text.rstrip("\n") + "\n" + "\n".join(entry_lines) + "\n",
+        encoding="utf-8",
+    )
+
+
 def update_config_yaml(
     terrain: str,
     bbox: tuple[float, float, float, float],
@@ -271,49 +330,35 @@ def cmd_init(args) -> None:
 
     tiles_dir = f"LIDAR/{terrain}"
 
-    print(f"\nTerrain '{terrain}' initialisé :")
-    print(f"  bbox        : {[int(v) for v in bbox]}")
-    print(f"  CRS         : EPSG:{epsg}")
-    print(f"  georef      : {georef_path}")
-    print(f"  convergence : {conv:.2f}° (méridiens, ≠ déclinaison magnétique)")
+    print(f"\nTerrain '{terrain}' initialisé.")
+    print(f"  bbox   : {[int(v) for v in bbox]}")
+    print(f"  CRS    : EPSG:{epsg}")
+    print(f"  georef : assets/georef_{terrain}.xml")
     print()
-    print("─" * 60)
-    print("Étapes suivantes")
-    print("─" * 60)
-
-    step = 1
+    print("DONNÉES NÉCESSAIRES")
+    print()
 
     if tiles_list:
-        print(f"\n{step}. Dalles LiDAR à télécharger ({len(tiles_list)} fichier(s)) :")
+        print(f"  LiDAR HD — {len(tiles_list)} dalle(s) :")
         for t in tiles_list:
-            print(f"     {t}")
-        print(f"   Source : {tile_source}")
-        print(f"   → Placer dans : {tiles_dir}/")
-        step += 1
+            print(f"    {t}")
+        print(f"  → Télécharger depuis la source officielle IGN LiDAR HD")
     else:
-        print(f"\n{step}. Placez vos dalles LiDAR (.laz ou .copc.laz) dans : {tiles_dir}/")
-        step += 1
+        print(f"  LiDAR HD :")
+        print(f"  → Placer vos dalles (.laz ou .copc.laz) dans : {tiles_dir}/")
+
+    print()
 
     if epsg == 2154:
-        print(f"\n{step}. BD TOPO (France) :")
-        print( "   → https://geoservices.ign.fr/bdtopo")
-        print( "     « Téléchargement par département » — choisir le département")
-        print( "     (sur Géoportail : clic droit sur votre zone → adresse affichée)")
-        print( "   → Placer le fichier .gpkg dans : data/bdtopo/")
-        step += 1
-    else:
-        print(f"\n{step}. Données anthropiques :")
-        print( "   Pas de connecteur BD TOPO pour ce pays.")
-        print( "   Le pipeline utilisera OSM automatiquement (routes, bâtiments, eau).")
-        print( "   Aucun fichier à télécharger pour cette étape.")
-        step += 1
+        print(f"  BD TOPO (France) :")
+        print(f"  → Télécharger depuis la source officielle IGN BD TOPO")
+        print(f"    (format GPKG, département correspondant à votre secteur)")
+        print()
 
-    print(f"\n{step}. Lancer le pipeline :")
-    print(f"   python main.py {terrain} --tiles-dir {tiles_dir}/")
+    print(f"  Karttapullautin :")
+    print(f"  → github.com/karttapullautin/karttapullautin/releases")
+    print(f"    (sera installé automatiquement par setup)")
     print()
-    print(f"   Via Docker :")
-    print(f"   docker run --rm -v $(pwd):/app lidar-o {terrain} --tiles-dir {tiles_dir}/")
-    print()
-    print( "   Windows (Git Bash) :")
-    print(f"   MSYS_NO_PATHCONV=1 docker run --rm -v \"$(pwd):/app\" lidar-o {terrain} --tiles-dir {tiles_dir}/")
+    print(f"Étape suivante :")
+    print(f"  python main.py setup {terrain}")
     print()
