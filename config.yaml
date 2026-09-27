@@ -243,11 +243,6 @@ terrains:
   #   ffco_gpkg: "my_reference.gpkg"  # optional: reference map for QA metrics
   # ─────────────────────────────────────────────────────────────────────────
 
-  grimbosq:
-    bbox: [448000, 6886000, 450001, 6889001]  # EPSG:2154, Lambert 93
-    crs: EPSG:2154
-    departement: "14"
-    ffco_gpkg: "grimbosq.gpkg"               # carte de référence (recall QA — optionnel)
 
   kilemaed:
     bbox: [411888, 6481712, 414255, 6484028]  # EPSG:3301, L-EST97
@@ -298,3 +293,13 @@ terrains:
     bdtopo_path: "data/bdtopo/BDT_3-5_GPKG_LAMB93_D014-ED2026-06-15.gpkg"
     kp_binary: "karttapullautin-x86_64-win.tar/pullauta.exe"
     kp_version: "2.12.1"
+
+  grimbosq:
+    bbox: [448000, 6886000, 450001, 6889001]
+    crs: "EPSG:2154"
+    departement: "14"
+    lidar_dir: "LIDAR/grimbosq"
+    bdtopo_path: "data/bdtopo/BDT_3-5_GPKG_LAMB93_D014-ED2026-06-15.gpkg"
+    kp_binary: "karttapullautin-x86_64-win.tar/pullauta.exe"
+    kp_version: "2.12.1"
+    ffco_gpkg: "grimbosq.gpkg"
