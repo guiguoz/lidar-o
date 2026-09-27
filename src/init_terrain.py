@@ -261,7 +261,7 @@ def cmd_init(args) -> None:
             crs_name = args.crs
         else:
             epsg, crs_name = deduce_crs(lat, lon)
-            print(f"\nPoint {lat}°N, {lon}°E → {_country_label(lat, lon)}")
+            print(f"\nPoint {lat}N, {lon}E -> {_country_label(lat, lon)}")
             print(f"CRS proposé : EPSG:{epsg} ({crs_name})")
             try:
                 ans = input("Confirmer ? [O/n] ").strip().lower()
@@ -342,22 +342,22 @@ def cmd_init(args) -> None:
         print(f"  LiDAR HD — {len(tiles_list)} dalle(s) :")
         for t in tiles_list:
             print(f"    {t}")
-        print(f"  → Télécharger depuis la source officielle IGN LiDAR HD")
+        print(f"  Telecharger depuis la source officielle IGN LiDAR HD")
     else:
         print(f"  LiDAR HD :")
-        print(f"  → Placer vos dalles (.laz ou .copc.laz) dans : {tiles_dir}/")
+        print(f"  Placer vos dalles (.laz ou .copc.laz) dans : {tiles_dir}/")
 
     print()
 
     if epsg == 2154:
         print(f"  BD TOPO (France) :")
-        print(f"  → Télécharger depuis la source officielle IGN BD TOPO")
-        print(f"    (format GPKG, département correspondant à votre secteur)")
+        print(f"  Telecharger depuis la source officielle IGN BD TOPO")
+        print(f"    (format GPKG, departement correspondant a votre secteur)")
         print()
 
     print(f"  Karttapullautin :")
-    print(f"  → github.com/karttapullautin/karttapullautin/releases")
-    print(f"    (sera installé automatiquement par setup)")
+    print(f"  github.com/karttapullautin/karttapullautin/releases")
+    print(f"    (sera installe automatiquement par setup)")
     print()
     print(f"Étape suivante :")
     print(f"  python main.py setup {terrain}")

@@ -44,16 +44,31 @@ def download_url(version: str = KP_PINNED_VERSION) -> str:
 
 
 def read_binary_version(binary: pathlib.Path) -> str | None:
-    """Lance `pullauta --version` et extrait le semver. Retourne None en cas d'échec."""
+    """Extrait la version semver de pullauta. Retourne None en cas d'échec.
+
+    KP v2.x n'accepte pas --version : la version s'affiche sur stdout au démarrage
+    sans argument. On lance depuis un dossier temporaire vide pour éviter de déclencher
+    un vrai traitement (KP s'arrête si pullauta.ini est absent).
+    """
+    import tempfile
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            r = subprocess.run(
+                [str(binary)],
+                capture_output=True, text=True, timeout=10, cwd=tmpdir,
+            )
+            m = re.search(r"(\d+\.\d+\.\d+)", r.stdout + r.stderr)
+            if m:
+                return m.group(1)
+    except Exception:
+        pass
+    # Fallback --version pour les versions futures qui pourraient l'accepter
     try:
         r = subprocess.run(
             [str(binary), "--version"],
-            capture_output=True,
-            text=True,
-            timeout=10,
+            capture_output=True, text=True, timeout=10,
         )
-        output = (r.stdout + r.stderr).strip()
-        m = re.search(r"(\d+\.\d+\.\d+)", output)
+        m = re.search(r"(\d+\.\d+\.\d+)", r.stdout + r.stderr)
         return m.group(1) if m else None
     except Exception:
         return None

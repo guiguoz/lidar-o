@@ -156,7 +156,7 @@ def step_relief(
     """Retourne un statut court décrivant ce qui s'est passé (affiché en fin de run)."""
     try:
         from src.run_engine import locate_binary
-        locate_binary()
+        locate_binary(cfg, terrain)
     except FileNotFoundError:
         log.warning("relief : KP (pullauta) introuvable — étape ignorée")
         return "ignoré : KP absent (définir KP_BINARY ou ajouter pullauta au PATH)"
@@ -478,8 +478,7 @@ def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
     out = OUTPUT / f"{terrain}.omap"
     masked_gpkg = OUTPUT / "vegetation_masked.gpkg"
     bdtopo_gpkg = DATA / f"{terrain}_bdtopo.gpkg"
-    _kp_terrain = ROOT / f"out_kp_{terrain}"
-    out_kp = _kp_terrain if _kp_terrain.exists() else ROOT / "out_kp"
+    out_kp = ROOT / f"out_kp_{terrain}"
     osm_cache = DATA / f"osm_landuse_{terrain}.json"
 
     if not masked_gpkg.exists():

@@ -47,11 +47,6 @@ def check_deps() -> bool:
         )
         return False
 
-    # KP binary — optional, info only
-    kp = os.environ.get("KP_BINARY") or shutil.which("pullauta")
-    if not kp:
-        log.info("Info : binaire Karttapullautin (pullauta) absent — relief non disponible")
-
     return True
 
 # IGN LiDAR HD filename pattern: LHD_FXX_XXXX_YYYY_PTS_LAMB93_IGN69.copc.laz
