@@ -595,6 +595,14 @@ def write_config_snapshot(cfg: dict, output_dir: str | pathlib.Path) -> None:
     kp = cfg.get("karttapullautin", {})
     kp_rendering = kp.get("rendering", {}) or {}
 
+    # Découpage calibration/validation (optionnel — chargé si le fichier existe)
+    split_snapshot: dict | None = None
+    try:
+        from src.split import load_split
+        split_snapshot = load_split().as_snapshot_dict()
+    except Exception:
+        pass
+
     meta["config_snapshot"] = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "git_hash": _git_hash(),
@@ -613,6 +621,8 @@ def write_config_snapshot(cfg: dict, output_dir: str | pathlib.Path) -> None:
         "kp_lightgreentone": kp_rendering.get("lightgreentone"),
         "kp_medianboxsize2": kp_rendering.get("medianboxsize2"),
         "kp_template_opacity_pct": kp_rendering.get("template_opacity_pct"),
+        # Découpage calibration/validation
+        "split": split_snapshot,
     }
 
     meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
