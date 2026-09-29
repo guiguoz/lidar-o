@@ -319,8 +319,8 @@ class TestCmdCheck:
     def test_passes_with_correct_tiles_and_georef(self, tmp_path):
         from src.init_terrain import write_georef_xml
 
-        lidar = tmp_path / "LIDAR"
-        lidar.mkdir()
+        lidar = tmp_path / "LIDAR" / "test_t"
+        lidar.mkdir(parents=True)
         assets = tmp_path / "assets"
         assets.mkdir()
 
@@ -335,6 +335,9 @@ class TestCmdCheck:
                      "LHD_FXX_0426_6922_PTS_LAMB93_IGN69.copc.laz"]:
             (lidar / tile).write_text("")
 
+        fake_kp = tmp_path / "pullauta.exe"
+        fake_kp.write_text("fake")
         cfg = self._make_cfg(bbox=bbox)
+        cfg["terrains"]["test_t"]["kp_binary"] = str(fake_kp)
         result = cmd_check("test_t", cfg, tmp_path)
         assert result is True

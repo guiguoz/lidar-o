@@ -21,12 +21,9 @@ log = logging.getLogger(__name__)
 
 REQUIRED_BDTOPO_LAYERS = [
     "troncon_de_route",
-    "zone_d_habitation",
     "batiment",
-    "plan_d_eau",
-    "cours_d_eau",
-    "surface_de_transport",
-    "zone_de_vegetation",
+    "surface_hydrographique",
+    "troncon_hydrographique",
 ]
 
 
@@ -39,16 +36,16 @@ def _extract_dept_from_filename(filename: str) -> str | None:
 
 
 def _validate_bdtopo_layers(gpkg_path: pathlib.Path) -> list[str]:
-    """Retourne la liste des couches REQUIRED manquantes dans le GPKG.
-
-    Utilise fiona si disponible, sinon retourne liste vide (skip).
-    """
+    """Retourne la liste des couches REQUIRED manquantes dans le GPKG."""
     try:
-        import fiona
-        available = fiona.listlayers(str(gpkg_path))
+        import warnings
+        import pyogrio
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            available = {row[0] for row in pyogrio.list_layers(str(gpkg_path))}
         return [l for l in REQUIRED_BDTOPO_LAYERS if l not in available]
     except ImportError:
-        log.warning("fiona non disponible — validation couches ignorée")
+        log.warning("pyogrio non disponible — validation couches ignorée")
         return []
     except Exception as exc:
         log.warning("Validation couches BD TOPO échouée : %s", exc)
@@ -61,11 +58,14 @@ def _bdtopo_covers_bbox(
 ) -> bool:
     """Vérifie que la couche 'troncon_de_route' du GPKG couvre la bbox terrain."""
     try:
-        import fiona
-        with fiona.open(str(gpkg_path), layer="troncon_de_route") as src:
-            b = src.bounds  # (minx, miny, maxx, maxy)
+        import warnings
+        import pyogrio
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            info = pyogrio.read_info(str(gpkg_path), layer="troncon_de_route")
+        b = info["total_bounds"]  # (minx, miny, maxx, maxy)
         bx1, by1, bx2, by2 = bbox
-        return b[0] <= bx1 and b[1] <= by1 and b[2] >= bx2 and b[3] >= by2
+        return float(b[0]) <= bx1 and float(b[1]) <= by1 and float(b[2]) >= bx2 and float(b[3]) >= by2
     except Exception:
         return True  # bénéfice du doute
 
@@ -182,20 +182,16 @@ def _ascii_grid(
 
 def _show_current_state(terrain: str, terrain_cfg: dict) -> None:
     print(f"\nÉtat actuel du terrain '{terrain}' :")
-    fields = [
-        ("lidar_dir", "Répertoire LiDAR"),
-        ("bdtopo_path", "BD TOPO"),
-        ("kp_binary", "Binaire KP"),
-        ("kp_version", "Version KP attendue"),
-    ]
-    for key, label in fields:
+    path_keys = [("lidar_dir", "Répertoire LiDAR"), ("bdtopo_path", "BD TOPO"), ("kp_binary", "Binaire KP")]
+    for key, label in path_keys:
         val = terrain_cfg.get(key)
         if val:
-            exists = pathlib.Path(val).exists()
-            status = "✓" if exists else "✗ (absent)"
+            status = "✓" if pathlib.Path(val).exists() else "✗ (absent)"
             print(f"  {label} : {val}  [{status}]")
         else:
             print(f"  {label} : non configuré")
+    kp_ver = terrain_cfg.get("kp_version")
+    print(f"  Version KP attendue : {kp_ver}" if kp_ver else "  Version KP attendue : non configurée")
 
 
 # ── Étape 2 : LiDAR ──────────────────────────────────────────────────────────
@@ -311,6 +307,15 @@ def _setup_bdtopo(
         p = pathlib.Path(existing)
         if p.exists():
             print(f"  ✓ déjà configuré : {p}")
+            missing_layers = _validate_bdtopo_layers(p)
+            if missing_layers:
+                print(f"  ⚠ Couches manquantes : {', '.join(missing_layers)}")
+            else:
+                print(f"  ✓ Couches BD TOPO validées")
+            bbox = terrain_cfg.get("bbox")
+            if bbox:
+                covers = _bdtopo_covers_bbox(p, tuple(bbox))
+                print(f"  ✓ Couverture spatiale OK" if covers else f"  ⚠ Couverture spatiale insuffisante")
             return p, _extract_dept_from_filename(p.name)
         print(f"  ✗ chemin invalide : {p}")
 

@@ -161,12 +161,9 @@ def _validate_georef_xml(path: pathlib.Path) -> bool:
 
 REQUIRED_BDTOPO_LAYERS = [
     "troncon_de_route",
-    "zone_d_habitation",
     "batiment",
-    "plan_d_eau",
-    "cours_d_eau",
-    "surface_de_transport",
-    "zone_de_vegetation",
+    "surface_hydrographique",
+    "troncon_hydrographique",
 ]
 
 
