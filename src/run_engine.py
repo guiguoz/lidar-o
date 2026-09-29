@@ -349,6 +349,13 @@ def run_engine(
         lightgreentone=lightgreentone, medianboxsize2=medianboxsize2,
     )
 
+    # KP skips tiles whose output PNG already exists — purger avant le run.
+    for ext in ("*.png", "*.pgw", "*.dxf", "*.bin"):
+        for f in out_kp.glob(ext):
+            if f.name != "pullauta.ini":
+                f.unlink()
+    log.info("KP : répertoire purgé (%s)", out_kp.name)
+
     launch_time = time.time()
     run_kp(binary, work_dir=out_kp)
 
