@@ -507,18 +507,11 @@ def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
 
     all_layers: list = []
 
-    # Végétation vectorielle masquée (406/408/410)
-    import geopandas as gpd
-    from src.omap_writer import Layer
-    for veg_code in [406, 408, 410]:
-        layer_name = f"veg_{veg_code}"
-        try:
-            gdf_veg = gpd.read_file(str(masked_gpkg), layer=layer_name)
-            if not gdf_veg.empty:
-                all_layers.append(Layer(layer_name, veg_code, list(gdf_veg.geometry)))
-                log.info("Vegetation %d : %d polygones", veg_code, len(gdf_veg))
-        except Exception as exc:
-            log.warning("Vegetation %d ignorée : %s", veg_code, exc)
+    # Les polygones 406/408/410 restent disponibles dans les sorties internes
+    # (vegetation_masked.gpkg), mais ne sont pas injectés dans le .omap :
+    # superposés au fond KP, ils le rendent illisible (AUC ≤ 0.54 sur Grimbosq).
+    # La végétation du livrable est fournie par le template KP géoréférencé.
+    # Voir README.fr.md et docs/bilan_v0.md.
 
     fill: list = []
     if bdtopo_gpkg is not None:
