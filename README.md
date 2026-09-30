@@ -79,13 +79,16 @@ INFO  Assemblé : output/ma_foret.omap (18 couches)
 ```
 
 Open `output/ma_foret.omap` in OpenOrienteering Mapper. You should see:
-- A KP vegetation raster (green shading, 50 % opacity) as a tracing background
+- Vectorised vegetation (ISOM 406/408/410 **area objects, editable**), from the Karttapullautin
+  class raster (`vegetation.source: kp`) or from the HAG chain (`pdal`)
+- The KP vegetation raster (green shading, 50 % opacity) as a control background while editing —
+  switch off with `karttapullautin.vectorization.keep_template: false`
 - Roads, tracks, buildings and water from BD TOPO (black/blue/brown symbols)
 - Contour lines from Karttapullautin (brown) — only if KP is installed
 
-The classified vegetation layers (406/408/410) are also produced but are not the recommended
-deliverable — use the KP background as a tracing aid and draw vegetation boundaries manually.
-See [docs/bilan_v0.md](docs/bilan_v0.md) for the evaluation results.
+The vectorisation protocol (why KP's PNG is an exact class raster, how green shades map to ISOM
+codes, what stays manual) is documented in [docs/protocole_vectorisation_kp.md](docs/protocole_vectorisation_kp.md).
+Evaluation results: [docs/bilan_v0.md](docs/bilan_v0.md).
 
 If the map appears blank or offset from the background, check that `declination` in the georef file has the correct sign (negative west of the CRS central meridian, positive east).
 
@@ -198,8 +201,8 @@ LHD_FXX_0449_6889_PTS_LAMB93_IGN69.copc.laz
 ## What the tool detects
 
 > These figures describe the **HAG classification layer** (automatic 406/408/410 classes).
-> The recommended workflow now uses the KP vegetation background as a tracing aid; these
-> classes remain available but are not the primary deliverable.
+> The same metrics apply to the Karttapullautin-sourced vegetation (`vegetation.source: kp`);
+> the KP class raster replaces the HAG raster upstream of the generalisation engine.
 >
 > Measured on **one terrain only** (Grimbosq forest, Calvados, France), against an FFCO reference
 > map, over the common extent (convex hull, 324 ha). These figures are not guaranteed elsewhere.
@@ -294,7 +297,8 @@ main.py                      subcommands: init / tiles / check / run (8 steps)
 config.yaml                  all parameters — thresholds, profiles, endpoints
 
 src/
-  vegetation.py              CO Generalization Engine (9 chained steps)
+  vegetation.py              CO Generalization Engine (10 chained steps)
+  kp_raster.py               KP vegetation class raster -> classified raster bridge
   omap_writer.py             .omap file generation (OOM XML)
   qa.py                      QA metrics + config snapshot
   guards.py                  config drift detection between runs

@@ -248,3 +248,31 @@ Export GeoJSON → import OOM  ← vérification visuelle avant tout writer nati
 
 - `config.vegetation.source: "pdal"` ✓
 - Prochaine priorité : Phase 6 vectorisation — pas les paramètres raster
+
+---
+
+## Addendum 2026-09-30 — « KP ne produit que du PNG » : vrai, mais ce PNG est un raster de classes
+
+La conclusion de la Phase 0 (§1 : « Karttapullautin ne produit que du PNG → option kp
+éliminée ») reposait sur l'hypothèse que `vegetation.png` est un **rendu** à interpréter.
+La lecture du source Rust v2.12.1 (`src/palette.rs`, `src/vegetation.rs`, `src/process.rs`)
+et l'analyse des sorties batch montrent autre chose :
+
+- `temp/vegetation.png` est un PNG **indexé** : indices 1 = blanc, 3 = jaune, 16+i = vert i
+  (palette codée en dur, aucun dégradé) ;
+- avec `vege_bitmode=1`, KP écrit `{dalle}_vege_bit.png` : gris `0 = blanc, 1 = jaune,
+  2+i = vert i`, plein cadre, `.pgw` en centres de pixels à 1 m ;
+- les filtres médians (`medianboxsize` 9, `medianboxsize2` 16) tournent **sur les indices** :
+  le raster est donc déjà généralisé avant tout rendu ;
+- en mode batch la palette est étendue en RGB mais reste exactement celle de `palette.rs` :
+  l'appariement couleur → classe est **exact**, sans pixel ambigu.
+
+Conséquence : la source `kp` réintroduite dans `config.yaml` n'est pas un retour au
+décalque, c'est un pont exact raster de classes → raster classifié (contrat
+`process_hag.py`) → moteur de généralisation → objets `.omap` modifiables. L'option
+« pdal » reste disponible et produit le même contrat.
+
+Protocole complet, calibration, limites (407/409/416/419/401 restent humains) :
+**[docs/protocole_vectorisation_kp.md](protocole_vectorisation_kp.md)**.
+Décisions §5 inchangées sur le fond (pas de float continu chez KP, pas de DXF végétation) ;
+seule la conclusion « kp éliminée » est révisée.

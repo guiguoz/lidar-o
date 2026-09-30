@@ -99,7 +99,21 @@ def step_fetch(terrain: str, cfg: dict, force: bool) -> None:
 
 # ── Étape 2 : pdal ────────────────────────────────────────────────────────────
 
+def _vegetation_source(cfg: dict) -> str:
+    """Source de végétation active : "kp" (raster Karttapullautin vectorisé) ou "pdal" (HAG).
+
+    Les deux produisent le même artefact — un raster classifié uint8 en DN
+    85/170/255 — donc tout l'aval (généralisation, masque, .omap, QA) est commun.
+    """
+    return str(cfg.get("vegetation", {}).get("source", "pdal")).lower()
+
+
 def step_pdal(terrain: str, cfg: dict, tiles: list[str], reader: str, force: bool) -> None:
+    if _vegetation_source(cfg) == "kp":
+        log.info("SKIP pdal — vegetation.source=kp : la végétation vient du raster KP, "
+                 "pas de la chaîne HAG (LiDAR toujours nécessaire pour le relief)")
+        return
+
     hag_tif = OUTPUT / "density_hag.tif"
     ref_mtime = _newest_mtime(*[pathlib.Path(t) for t in tiles])
 
@@ -127,6 +141,10 @@ def step_pdal(terrain: str, cfg: dict, tiles: list[str], reader: str, force: boo
 # ── Étape 3 : process_hag ────────────────────────────────────────────────────
 
 def step_process_hag(cfg: dict, force: bool) -> None:
+    if _vegetation_source(cfg) == "kp":
+        log.info("SKIP process_hag — vegetation.source=kp")
+        return
+
     hag_tif = OUTPUT / "density_hag.tif"
     classified_tif = OUTPUT / "density_hag_classified.tif"
 
@@ -193,11 +211,37 @@ def step_vegetation(terrain: str, cfg: dict, force: bool) -> None:
     import geopandas as gpd
     from src.vegetation import run_pipeline
 
-    classified_tif = OUTPUT / "density_hag_classified.tif"
+    source = _vegetation_source(cfg)
     veg_gpkg = OUTPUT / "vegetation.gpkg"
 
-    if not classified_tif.exists():
-        sys.exit("ABSENT : output/density_hag_classified.tif — lancer process_hag d'abord")
+    if source == "kp":
+        classified_tif = OUTPUT / "kp_vege_classified.tif"
+        _kp_terrain = ROOT / f"out_kp_{terrain}"
+        out_kp = _kp_terrain if _kp_terrain.exists() else ROOT / "out_kp"
+        tiles = sorted(out_kp.glob("*_vege*.png")) if out_kp.exists() else []
+        if not tiles:
+            sys.exit(
+                f"ABSENT : aucune tuile *_vege*.png dans {out_kp.name}/ — vegetation.source=kp "
+                f"exige un run Karttapullautin (étape relief) préalable."
+            )
+        if force or not _is_fresh(classified_tif, *_tile_refs(tiles)):
+            from src.kp_raster import build_class_raster
+
+            terrain_cfg = cfg.get("terrains", {}).get(terrain, {})
+            bbox = terrain_cfg.get("bbox")
+            OUTPUT.mkdir(parents=True, exist_ok=True)
+            build_class_raster(
+                out_kp, cfg,
+                terrain_cfg.get("crs", cfg.get("crs", "EPSG:2154")),
+                classified_tif,
+                bbox=tuple(bbox) if bbox else None,
+            )
+        else:
+            log.info("SKIP raster KP — %s à jour", classified_tif.name)
+    else:
+        classified_tif = OUTPUT / "density_hag_classified.tif"
+        if not classified_tif.exists():
+            sys.exit("ABSENT : output/density_hag_classified.tif — lancer process_hag d'abord")
 
     if not force and _is_fresh(veg_gpkg, classified_tif):
         log.info("SKIP vegetation — vegetation.gpkg à jour")
@@ -212,6 +256,17 @@ def step_vegetation(terrain: str, cfg: dict, force: bool) -> None:
         subset.to_file(str(veg_gpkg), layer=f"veg_{cls}", driver="GPKG")
         log.info("  veg_%d : %d polygones", cls, len(subset))
     log.info("vegetation.gpkg écrit")
+
+
+def _tile_refs(tiles: list[pathlib.Path]) -> list[pathlib.Path]:
+    """Fichiers de référence pour la fraîcheur d'un raster KP : tuiles + ini du run."""
+    refs = list(tiles)
+    for t in tiles:
+        ini = t.parent / "pullauta.ini"
+        if ini.exists():
+            refs.append(ini)
+            break
+    return refs
 
 
 # ── Étape 5 : mask ────────────────────────────────────────────────────────────
@@ -349,13 +404,16 @@ def _png_wh(png_path: pathlib.Path) -> tuple[int, int]:
 def _merge_vege_tiles(
     out_kp: pathlib.Path,
     lightgreentone: int = 200,
+    rendered_tone: int = 200,
 ) -> pathlib.Path | None:
     """Mosaïque les tuiles *_vege.png en un seul vegetation.png + vegetation.pgw.
 
-    lightgreentone : ton du vert clair dans le PNG (0–255, défaut KP : 200).
+    lightgreentone : ton du vert clair **voulu à l'affichage** (0–255).
+    rendered_tone  : ton du vert clair **avec lequel KP a rendu ces tuiles**
+                     (lu dans le pullauta.ini du run). Le remapping n'est appliqué
+                     que si les deux diffèrent — sinon le template est assombri
+                     deux fois (bug constaté : ini à 160 + remap 200→160).
     160 = fond lisible à 50 % d'opacité (validé 2026-09).
-    Si != 200, un étirement de canal R/B est appliqué sur les pixels verts
-    pour simuler le rendu qu'un vrai `makevegenew` produirait avec ce paramètre.
     Les tuiles sources (*_vege.png) ne sont jamais modifiées.
 
     Retourne le chemin du fichier produit, ou None si aucune tuile ou PIL absent.
@@ -399,20 +457,23 @@ def _merge_vege_tiles(
         with Image.open(tile_path) as img:
             canvas.paste(img.convert("RGB"), (col, row))
 
-    # Remapping tone si différent du défaut KP (200)
-    if lightgreentone != 200:
+    # Remapping de ton : uniquement si le ton voulu diffère du ton réellement rendu
+    # par KP. Approximation assumée (G est traité comme 255 alors que la formule KP
+    # donne 254 − 74/(N−1)·i) : ce PNG ne sert qu'à l'affichage du template, jamais
+    # à la classification — src/kp_raster.py lit les tuiles directement.
+    if lightgreentone != rendered_tone:
         arr = np.array(canvas, dtype=np.float32)
         # Pixels verts : G est le canal dominant, non-blanc
         is_green = (arr[:,:,1] > arr[:,:,0]) & (arr[:,:,1] > arr[:,:,2]) & (arr[:,:,0] < 248)
-        factor = (255 - lightgreentone) / (255 - 200)
-        for ch in (0, 2):  # R et B seulement — G reste 255
+        factor = (255 - lightgreentone) / max(1, (255 - rendered_tone))
+        for ch in (0, 2):  # R et B seulement — G reste inchangé
             arr[:,:,ch] = np.where(
                 is_green,
                 (255 + (arr[:,:,ch] - 255) * factor).clip(0, 255),
                 arr[:,:,ch],
             )
         canvas = Image.fromarray(arr.astype(np.uint8))
-        log.info("vegetation.png : tone remapping %d→%d appliqué", 200, lightgreentone)
+        log.info("vegetation.png : tone remapping %d→%d appliqué", rendered_tone, lightgreentone)
 
     veg_png = out_kp / "vegetation.png"
     canvas.save(str(veg_png), "PNG")
@@ -507,8 +568,21 @@ def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
         return _clip_layers_to_bbox(layers, bbox_geom, family) if bbox_geom is not None else layers
 
     all_layers: list = []
-    # Végétation : fournie par le fond KP (vegetation.png en template).
-    # Les couches 406/408/410 ne sont plus injectées dans le .omap.
+    # Végétation vectorisée (406/408/410) : écrite en objets .omap modifiables dès
+    # que vegetation_masked.gpkg existe. Le fond raster KP reste disponible en
+    # template de contrôle (karttapullautin.vectorization.keep_template) mais ne
+    # tient plus lieu de végétation.
+    from scripts.mask_vegetation import build_veg_layers
+
+    veg_layers = build_veg_layers(masked_gpkg)
+    n_veg = sum(len(layer.geometries) for layer in veg_layers)
+    if n_veg:
+        all_layers += veg_layers          # en premier : les écrans verts passent sous tout le reste
+        log.info("Végétation vectorisée injectée : %d objets (%s)", n_veg,
+                 ", ".join(f"{l.isom_code}={len(l.geometries)}" for l in veg_layers))
+    else:
+        log.warning("assemble : aucune géométrie 406/408/410 dans %s — carte sans vert",
+                    masked_gpkg.name)
 
     fill: list = []
     if bdtopo_gpkg is not None:
@@ -534,28 +608,43 @@ def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
     georef = load_georef(ASSETS / f"georef_{terrain}.xml")
     OUTPUT.mkdir(parents=True, exist_ok=True)
 
-    # Template KP végétation
+    # Template KP végétation — fond de contrôle pendant la reprise humaine.
+    # À désactiver (keep_template: false) pour la carte finale : le vert est alors
+    # porté par les objets vectoriels, et un PNG opaque doublonnerait le rendu.
     kp_rendering = cfg.get("karttapullautin", {}).get("rendering", {}) or {}
+    kp_vector = cfg.get("karttapullautin", {}).get("vectorization", {}) or {}
     lightgreentone: int = kp_rendering.get("lightgreentone", 200) or 200
     template_opacity_pct: int = kp_rendering.get("template_opacity_pct", 100) or 100
+    keep_template: bool = bool(kp_vector.get("keep_template", True))
 
     veg_png = out_kp / "vegetation.png"
-    if out_kp.exists() and list(out_kp.glob("*_vege.png")):
-        # Re-mosaïque toujours : applique le tone mapping courant
-        merged = _merge_vege_tiles(out_kp, lightgreentone=lightgreentone)
-        if merged is not None:
-            veg_png = merged
     img_templates = []
-    if veg_png.exists():
-        tmpl = _png_to_template(veg_png, out, opacity_pct=template_opacity_pct)
-        if tmpl is not None:
-            img_templates.append(tmpl)
-            log.info(
-                "Template KP végétation : %s (%d×%d px, tone=%d, opacité=%d%%)",
-                veg_png.name, tmpl.width_px, tmpl.height_px, lightgreentone, template_opacity_pct,
-            )
+    if not keep_template:
+        log.info("Template KP omis (vectorization.keep_template=false) — vert 100 % vectoriel")
     else:
-        log.info("vegetation.png absent dans %s — template omis", out_kp.name)
+        # Ton réellement utilisé par KP pour ce run (lu dans le ini écrit par run_engine) :
+        # sans cette lecture, un run en lightgreentone=160 subissait le remapping une
+        # seconde fois et le template ressortait plus sombre que la carte KP d'origine.
+        from src.kp_raster import read_ini_vege_params
+
+        rendered_tone = read_ini_vege_params(out_kp / "pullauta.ini")["lightgreentone"]
+        if out_kp.exists() and list(out_kp.glob("*_vege.png")):
+            merged = _merge_vege_tiles(
+                out_kp, lightgreentone=lightgreentone, rendered_tone=rendered_tone,
+            )
+            if merged is not None:
+                veg_png = merged
+        if veg_png.exists():
+            tmpl = _png_to_template(veg_png, out, opacity_pct=template_opacity_pct)
+            if tmpl is not None:
+                img_templates.append(tmpl)
+                log.info(
+                    "Template KP végétation : %s (%d×%d px, tone rendu=%d → affiché=%d, opacité=%d%%)",
+                    veg_png.name, tmpl.width_px, tmpl.height_px, rendered_tone,
+                    lightgreentone, template_opacity_pct,
+                )
+        else:
+            log.info("vegetation.png absent dans %s — template omis", out_kp.name)
 
     write_omap(out, template, all_layers, georef, image_templates=img_templates or None)
     log.info("Assemblé : %s (%d couches)", out, len(all_layers))

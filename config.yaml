@@ -3,7 +3,18 @@ scale: 10000                  # 1:10000 par défaut ; accepté : 10000 | 15000
 max_area_km2: 9.0             # Emprise max v1 — rejet bloquant au-delà (une carte CO = 1-5 km²)
 
 vegetation:
-  source: "pdal"                # HAG 0.3–3 m — fixé au spike Phase 1 (2026-06-24)
+  source: "kp"                  # "kp"   = raster de végétation Karttapullautin vectorisé
+                                #          (pont src/kp_raster.py, étape vegetation)
+                                # "pdal" = chaîne HAG maison (étapes pdal + process_hag)
+                                # Les deux produisent le MÊME artefact — un raster classifié
+                                # uint8 en DN 85/170/255 — et partagent tout l'aval :
+                                # généralisation, masque anthropique, écriture .omap, QA.
+                                # Historique : "pdal" avait été fixé au spike Phase 1
+                                # (2026-06-24) parce que KP « ne produisait que du PNG ».
+                                # Ce PNG est en réalité un raster de classes exact (palette
+                                # indexée, aucune teinte intermédiaire) — voir
+                                # docs/protocole_vectorisation_kp.md §2. Repasser à "pdal"
+                                # réactive automatiquement les étapes pdal + process_hag.
   resolution_m: 1.0             # Cap 1 m — sous-métrique inutile à 1:15000 et explose polygonize
   majority_radius: 3            # Filtre majoritaire post-polygonize dans vegetation.py (pixels)
 
@@ -166,6 +177,14 @@ generalization:
           408: 10
           410: 8
       closing_kernel_size: 0    # Fermeture morphologique raster avant polygonize (0=off, 3=3x3 1m, 5=5x5 2m)
+      planar_partition: true    # Étape 10 du moteur : ampute chaque classe de ce qui
+                                # appartient à plus dense (410 > 408 > 406) → zéro
+                                # chevauchement entre surfaces vertes. Obligatoire dès
+                                # que la végétation est écrite en objets .omap
+                                # modifiables (deux verts superposés se masquent et
+                                # l'édition révèle un dessin incohérent). Sans effet
+                                # visible sur un rendu raster. false = comportement
+                                # antérieur (chevauchements possibles).
       min_corridor_width_m: 5
       douglas_peucker_tolerance_m: 2.0
       chaikin_passes: 2          # ×1→×2 : +0.022 cpt_med, −1.6 pp %<0.3, 0 poly supplémentaire (sweep 2026-08-15)
@@ -190,6 +209,51 @@ karttapullautin:
     lightgreentone: 160             # ton du vert clair dans vegetation.png (défaut KP : 200 ≈ quasi-blanc)
     template_opacity_pct: 50        # opacité du template OOM 0–100 (100 = opaque, défaut)
     medianboxsize2: 16              # 2e passe filtre médian végétation — validé TEST A 2026-09 (1=désactivé, 16=zones nettes)
+
+  # ── Vectorisation du raster de végétation KP ────────────────────────────────
+  # KP ne produit AUCUN vecteur de végétation : seulement des PNG. Ce bloc pilote
+  # le pont src/kp_raster.py, qui traduit ces PNG dans le raster classifié attendu
+  # par le CO Generalization Engine (DN 85/170/255 → ISOM 406/408/410). Aucun
+  # vectorisateur parallèle : la chaîne généralisation → masque → .omap → QA est
+  # celle qui existe déjà. Protocole et justification : docs/protocole_vectorisation_kp.md
+  vectorization:
+    enabled: true
+    bitmode: true                 # ajoute vege_bitmode=1 au pullauta.ini généré : KP écrit
+                                  # {dalle}_vege_bit.png, un raster de CLASSES en niveaux de
+                                  # gris (0 = blanc · 1 = jaune · 2+i = vert i) au lieu d'un
+                                  # rendu. Supprime toute dépendance à lightgreentone et
+                                  # greenshades → classification exacte, aucune tolérance
+                                  # chromatique à régler.
+    input: auto                   # auto | bit | rgb — "auto" prend *_vege_bit.png si présent,
+                                  # sinon *_vege.png (runs antérieurs à bitmode). En mode rgb,
+                                  # la palette est recalculée depuis le pullauta.ini du run.
+    keep_template: true           # conserve vegetation.png comme calque de fond OOM (opacité
+                                  # rendering.template_opacity_pct) pendant la reprise humaine :
+                                  # le cartographe compare le vert vectoriel au rendu KP et
+                                  # corrige. À passer à false pour la carte finale — sinon le
+                                  # PNG se superpose aux objets verts et alourdit le .omap.
+    # Valeur du raster bit KP → code ISOM. 0 = teinte volontairement abandonnée (reste blanc 405).
+    # KP v2.12.1 avec greenshades par défaut (11 entrées dont 4 à 99 = inactives) n'atteint que
+    # les teintes 1 à 7 → valeurs bit 2 à 8.
+    # ⚠ Ces coupures sont un POINT DE DÉPART, pas une calibration. Les placer avec :
+    #     python -m src.kp_raster report out_kp_<terrain>
+    #   puis comparer la couverture cumulée de chaque teinte aux cibles mesurées sur carte
+    #   humaine (qa_targets ci-dessus, Grimbosq FFCO : 406 = 19,3 %, 408 = 6,9 %, 410 = 8,0 %).
+    shade_to_isom:
+      2: 0          # vert 1 (le plus clair) — sous-bois épars : laissé blanc (405)
+      3: 406        # vert 2
+      4: 406        # vert 3
+      5: 408        # vert 4
+      6: 408        # vert 5
+      7: 410        # vert 6
+      8: 410        # vert 7 (le plus foncé)
+    yellow_to: 0                  # jaune KP (401) ignoré. Deux raisons : (1) le découvert vient
+                                  # déjà de BD TOPO zone_de_vegetation / OSM landuse via
+                                  # mask_vegetation.build_fill_layers() ; (2) KP marque en jaune
+                                  # tout ce qui est bas (coupe rase, culture, herbe, lande) sans
+                                  # distinguer 401 de 403 — ce tri est un jugement de terrain.
+                                  # Une valeur != 0 est refusée à l'exécution (moteur calibré
+                                  # pour 406/408/410 uniquement).
   cliff:
     cliffheight: null               # m — hauteur minimale de falaise (défaut KP si null)
     cliffangle: null                # ° — angle minimal de falaise (défaut KP si null)

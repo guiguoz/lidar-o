@@ -12,6 +12,13 @@ Ordre verrouillé (cf. docs/iof_generalization_rules.md §8) :
   4. Merge proximity     [TODO Sprint 3]
   5. Simplify (DP)       [TODO Sprint 4]
   6. Smooth (Chaikin ×1) [TODO Sprint 4]
+  7. Coverage partition  — ajouté avec la végétation vectorisée dans le .omap :
+     garantit qu'aucune surface verte n'en chevauche une autre (voir
+     stage_coverage_partition et docs/protocole_vectorisation_kp.md §4 É5).
+
+Le raster classifié en entrée peut venir de la chaîne PDAL/HAG
+(scripts/process_hag.py) ou du pont Karttapullautin (src/kp_raster.py) :
+le contrat est le même — uint8, DN 85/170/255 → ISOM 406/408/410.
 
 Usage :
   from src.vegetation import run_pipeline
@@ -29,13 +36,15 @@ from typing import Any
 
 import geopandas as gpd
 import numpy as np
-from osgeo import gdal, ogr, osr
 from scipy.ndimage import binary_closing
 from shapely.geometry import MultiPolygon, Polygon
 from shapely.strtree import STRtree
+from shapely.validation import make_valid
 from shapely.wkt import loads as _wkt_loads
 
-gdal.UseExceptions()
+# osgeo n'est importé que par stage_polygonize (et son fermeture morphologique) :
+# le reste du moteur — dissolve, seuils, fusion, simplification, lissage,
+# partition plane — est du Shapely/GeoPandas pur et reste testable sans GDAL.
 
 log = logging.getLogger(__name__)
 
@@ -106,6 +115,10 @@ def _apply_closing(arr: np.ndarray, kernel_size: int) -> np.ndarray:
 
 def stage_polygonize(tif_path: str | Path, config: dict) -> tuple[gpd.GeoDataFrame, dict]:
     """Étape 0 — GDAL Polygonize du raster classifié 8-bit → GeoDataFrame."""
+    from osgeo import gdal, ogr, osr
+
+    gdal.UseExceptions()
+
     ds = gdal.Open(str(tif_path))
     if ds is None:
         raise FileNotFoundError(f"Raster introuvable : {tif_path}")
@@ -615,6 +628,136 @@ def stage_smooth(gdf: gpd.GeoDataFrame, config: dict) -> tuple[gpd.GeoDataFrame,
 # Orchestrateur                                                                #
 # --------------------------------------------------------------------------- #
 
+# Priorité de superposition : la classe la plus dense l'emporte.
+_COVERAGE_PRIORITY = {406: 0, 408: 1, 410: 2}
+
+
+def _iter_polys(geom) -> list[Polygon]:
+    """Liste les polygones d'une géométrie (Polygon ou MultiPolygon)."""
+    if isinstance(geom, Polygon):
+        return [geom]
+    if isinstance(geom, MultiPolygon):
+        return list(geom.geoms)
+    return []
+
+
+def _drop_tiny_parts(geom, min_area: float = 0.5):
+    """Écarte les éclats < min_area m² laissés par une soustraction de géométries.
+
+    Un Polygon trop petit devient vide ; un MultiPolygon perd ses parties naines
+    sans être converti s'il n'en reste qu'une.
+    """
+    parts = [p for p in _iter_polys(geom) if p.area >= min_area]
+    if not parts:
+        return Polygon()          # géométrie vide — filtrée en sortie d'étape
+    if len(parts) == 1:
+        return parts[0]
+    return MultiPolygon(parts)
+
+
+def _class_union(sub: gpd.GeoDataFrame):
+    """Union de toutes les géométries d'une sous-classe.
+
+    `union_all()` (GeoPandas ≥ 1.0) avec repli sur `unary_union` : l'image Docker
+    installe geopandas depuis conda-forge sans version épinglée.
+    """
+    geoms = sub.geometry
+    if hasattr(geoms, "union_all"):
+        return geoms.union_all()
+    return geoms.unary_union
+
+
+def _total_overlap(gdf: gpd.GeoDataFrame) -> float:
+    """Surface totale (m²) où deux classes de végétation se chevauchent."""
+    unions = {cls: _class_union(sub) for cls, sub in gdf.groupby("class") if not sub.empty}
+    overlap = 0.0
+    classes = sorted(unions)
+    for i, a in enumerate(classes):
+        for b in classes[i + 1:]:
+            inter = unions[a].intersection(unions[b])
+            if not inter.is_empty:
+                overlap += inter.area
+    return overlap
+
+
+def stage_coverage_partition(gdf: gpd.GeoDataFrame, config: dict) -> tuple[gpd.GeoDataFrame, dict]:
+    """Étape 10 — partition plane : plus aucun chevauchement entre classes de vert.
+
+    Cette étape n'existait pas tant que la végétation était rendue par un fond
+    raster (template KP) : les pixels se recouvraient d'eux-mêmes. Elle devient
+    obligatoire dès que le vert est écrit en **objets .omap modifiables** —
+    deux surfaces 406 et 410 qui se chevauchent se masquent selon l'ordre de
+    dessin, et déplacer/supprimer l'un des polygones révèle un dessin incohérent
+    sous l'autre. Un cartographe qui reprend la carte dans OOM doit trouver une
+    couverture propre : chaque point du terrain appartient à au plus une classe.
+
+    Méthode : les classes sont ordonnées par densité (`_COVERAGE_PRIORITY`) et
+    chaque classe est amputée de tout ce qui appartient à plus dense qu'elle.
+    L'opération est déterministe, géométrique et locale — pas de règle
+    contextuelle (cf. avenant n°02 §B).
+
+    Elle passe **en dernier** : simplification et lissage (DP + Chaikin) sont
+    appliqués polygone par polygone et réintroduiraient de micro-chevauchements
+    si la partition était posée avant.
+    """
+    before = _stage_stats(gdf)
+    if gdf.empty:
+        return gdf, {"stage": "coverage_partition", "enabled": True, "before": before, "after": before}
+
+    enabled = bool(_gen_cfg(config).get("planar_partition", True))
+    if not enabled:
+        log.info("coverage_partition : désactivé par la config (planar_partition=false)")
+        return gdf, {"stage": "coverage_partition", "enabled": False, "before": before, "after": before}
+
+    overlap_before = _total_overlap(gdf)
+
+    unknown = sorted({int(c) for c in gdf["class"].unique()} - set(_COVERAGE_PRIORITY))
+    if unknown:
+        log.warning("coverage_partition : classes hors table de priorité %s — traitées "
+                    "comme les moins prioritaires", unknown)
+
+    def rank(cls: int) -> int:
+        return _COVERAGE_PRIORITY.get(int(cls), -1)
+
+    result = gdf.copy()
+    removed_ha: dict[str, float] = {}
+    for cls in sorted(result["class"].unique(), key=rank):
+        denser = result[[rank(c) > rank(cls) for c in result["class"]]]
+        if denser.empty:
+            continue
+        mask_cls = result["class"] == cls
+        area_before = float(result.loc[mask_cls, "geometry"].area.sum())
+        cutter = _class_union(denser)
+        cleaned = (
+            result.loc[mask_cls, "geometry"]
+            .apply(lambda g: _drop_tiny_parts(make_valid(g).difference(cutter)))
+        )
+        result.loc[mask_cls, "geometry"] = cleaned
+        area_after = float(cleaned.apply(lambda g: g.area if not g.is_empty else 0.0).sum())
+        removed_ha[str(cls)] = round((area_before - area_after) / 10_000.0, 3)
+
+    result = result[~result.geometry.is_empty & result.geometry.notna()].copy()
+    result = result.explode(index_parts=False).reset_index(drop=True)
+    result["geometry"] = result["geometry"].apply(make_valid)
+
+    after = _stage_stats(result)
+    overlap_after = _total_overlap(result)
+    log.info(
+        "coverage_partition : chevauchements %.2f ha → %.2f ha (amputé : %s)",
+        overlap_before / 10_000.0, overlap_after / 10_000.0,
+        ", ".join(f"{c}=−{v} ha" for c, v in removed_ha.items() if v) or "rien",
+    )
+    return result, {
+        "stage": "coverage_partition",
+        "enabled": True,
+        "overlap_ha_before": round(overlap_before / 10_000.0, 4),
+        "overlap_ha_after": round(overlap_after / 10_000.0, 4),
+        "removed_ha_by_class": removed_ha,
+        "before": before,
+        "after": after,
+    }
+
+
 _STAGES = [
     (1, "dissolved",              stage_dissolve),
     (2, "holes_removed",          stage_remove_holes),
@@ -627,6 +770,10 @@ _STAGES = [
     (7, "simplified",             stage_simplify),
     (8, "smoothed",               stage_smooth),
     (9, "isthmes_cut",            stage_cut_isthmes),  # après smooth : ESA et r=1m calibrés sur poly lissés
+    # Étape finale obligatoire dès que la végétation est écrite en objets .omap
+    # modifiables : DP + Chaikin (7-8) travaillent polygone par polygone et
+    # réintroduisent des micro-chevauchements. La partition se pose donc APRÈS.
+    (10, "coverage_partition",    stage_coverage_partition),
 ]
 
 

@@ -56,6 +56,7 @@ def _build_ini(
     cliffangle: float | None = None,
     lightgreentone: int | None = None,
     medianboxsize2: int | None = None,
+    vege_bitmode: bool = True,
 ) -> str:
     """Construit le contenu de pullauta.ini.
 
@@ -67,6 +68,10 @@ def _build_ini(
     160 = fond lisible comme support de décalque à 50 % d'opacité (validé 2026-09).
     medianboxsize2 : 2e passe filtre médian végétation. 1=désactivé (défaut KP).
     16 = zones nettes et suivables à 1:10 000 (validé TEST A 2026-09).
+    vege_bitmode : True → KP écrit aussi {dalle}_vege_bit.png, un raster de CLASSES
+    (0 = blanc · 1 = jaune · 2+i = vert i) au lieu du seul rendu RGB. C'est l'entrée
+    propre de src/kp_raster.py : la vectorisation ne dépend plus de lightgreentone
+    ni de greenshades. Coût : un PNG supplémentaire par dalle.
     """
     laz_str = str(lazfolder).replace("\\", "/")
     out_str = str(batchoutfolder).replace("\\", "/")
@@ -79,6 +84,7 @@ def _build_ini(
         overrides["lightgreentone"] = str(lightgreentone)
     if medianboxsize2 is not None:
         overrides["medianboxsize2"] = str(medianboxsize2)
+    overrides["vege_bitmode"] = "1" if vege_bitmode else "0"
 
     if base_ini is not None and base_ini.exists():
         result: list[str] = []
@@ -101,49 +107,60 @@ def _build_ini(
     # Paramètres essentiels pour la CO — cohérents avec scripts/mappings/kp_relief.yaml.
     # cliff2/cliff3 restent générés par KP (pas de flag "désactiver") mais sont écartés
     # au niveau du mapping. cliffnosmallciffs=5.5 réduit les artefacts courts.
-    return (
-        f"batch=1\n"
-        f"processes=2\n"
-        f"lazfolder={laz_str}\n"
-        f"batchoutfolder={out_str}\n"
-        f"savetempfiles=1\n"
-        f"output_dxf=1\n"
-        f"# contours\n"
-        f"contour_interval=5\n"
-        f"formline=2\n"
-        f"formlinesteepness=0.37\n"
-        f"formlineaddition=17\n"
-        f"minimumgap=30\n"
-        f"dashlength=60\n"
-        f"gaplength=12\n"
-        f"depression_length=181\n"
-        f"smoothing=0.7\n"
-        f"curviness=1.1\n"
-        f"knolls=0.6\n"
-        f"thinfactor=1\n"
-        f"# falaises — seuils confirmés sur Grimbosq/Port-en-Bessin\n"
-        f"cliff1=1.15\n"
-        f"cliff2=2.0\n"
-        f"cliffthin=1\n"
-        f"cliffsteepfactor=0.38\n"
-        f"cliffflatplace=3.5\n"
-        f"cliffnosmallciffs=5.5\n"
-        + (f"cliffheight={cliffheight}\n" if cliffheight is not None else "")
-        + (f"cliffangle={cliffangle}\n" if cliffangle is not None else "")
-        f"# végétation\n"
-        f"undergrowth=0.35\n"
-        f"undergrowth2=0.56\n"
-        f"greenground=0.9\n"
-        f"greenhigh=2\n"
-        f"topweight=0.80\n"
-        f"greendetectsize=3\n"
-        f"zone1=1.0|2.65|99|1\n"
-        f"zone2=2.65|3.4|99|0.1\n"
-        f"zone3=3.4|5.5|8|0.2\n"
-        f"pointvolumefactor=0.1\n"
-        f"pointvolumeexponent=1\n"
-        f"parallel_laz_decompression=1\n"
-    )
+    # Écrit comme une liste de lignes : la version précédente enchaînait des
+    # f-strings par concaténation implicite, cassée par les `+ (… if … else "")`
+    # intercalés → SyntaxError sur tout le module (détecté en branchant la
+    # vectorisation KP : sans pullauta.ini de base, rien ne pouvait tourner).
+    lines = [
+        "batch=1",
+        "processes=2",
+        f"lazfolder={laz_str}",
+        f"batchoutfolder={out_str}",
+        "savetempfiles=1",
+        "output_dxf=1",
+        "# contours",
+        "contour_interval=5",
+        "formline=2",
+        "formlinesteepness=0.37",
+        "formlineaddition=17",
+        "minimumgap=30",
+        "dashlength=60",
+        "gaplength=12",
+        "depression_length=181",
+        "smoothing=0.7",
+        "curviness=1.1",
+        "knolls=0.6",
+        "thinfactor=1",
+        "# falaises — seuils confirmés sur Grimbosq/Port-en-Bessin",
+        "cliff1=1.15",
+        "cliff2=2.0",
+        "cliffthin=1",
+        "cliffsteepfactor=0.38",
+        "cliffflatplace=3.5",
+        "cliffnosmallciffs=5.5",
+    ]
+    if cliffheight is not None:
+        lines.append(f"cliffheight={cliffheight}")
+    if cliffangle is not None:
+        lines.append(f"cliffangle={cliffangle}")
+    lines += [
+        "# végétation",
+        # raster de classes pour src/kp_raster.py (0 blanc · 1 jaune · 2+i vert i)
+        f"vege_bitmode={1 if vege_bitmode else 0}",
+        "undergrowth=0.35",
+        "undergrowth2=0.56",
+        "greenground=0.9",
+        "greenhigh=2",
+        "topweight=0.80",
+        "greendetectsize=3",
+        "zone1=1.0|2.65|99|1",
+        "zone2=2.65|3.4|99|0.1",
+        "zone3=3.4|5.5|8|0.2",
+        "pointvolumefactor=0.1",
+        "pointvolumeexponent=1",
+        "parallel_laz_decompression=1",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 def generate_ini(
@@ -155,17 +172,20 @@ def generate_ini(
     cliffangle: float | None = None,
     lightgreentone: int | None = None,
     medianboxsize2: int | None = None,
+    vege_bitmode: bool = True,
 ) -> pathlib.Path:
     """Génère pullauta.ini dans work_dir avec chemins absolus.
 
     Utilise root/pullauta.ini comme template s'il existe.
     cliffheight/cliffangle/lightgreentone/medianboxsize2 : injectés si renseignés.
+    vege_bitmode : écrit `vege_bitmode=1` (raster de classes pour la vectorisation).
     """
     base_ini = root / "pullauta.ini"
     content = _build_ini(
         tiles_dir.resolve(), output_dir.resolve(), base_ini,
         cliffheight=cliffheight, cliffangle=cliffangle,
         lightgreentone=lightgreentone, medianboxsize2=medianboxsize2,
+        vege_bitmode=vege_bitmode,
     )
     ini_path = work_dir / "pullauta.ini"
     ini_path.write_text(content, encoding="utf-8")
@@ -345,6 +365,7 @@ def run_engine(
         tiles_dir, out_kp, work_dir=out_kp, root=root,
         cliffheight=cliffheight, cliffangle=cliffangle,
         lightgreentone=lightgreentone, medianboxsize2=medianboxsize2,
+        vege_bitmode=vege_bitmode,
     )
 
     launch_time = time.time()

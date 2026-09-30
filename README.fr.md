@@ -31,7 +31,7 @@ Génération d'une carte de base ISOM à partir du LiDAR HD IGN (France), sortie
 
 - **OpenOrienteering Mapper** — [openorienteering.org](https://www.openorienteering.org/) — pour ouvrir le `.omap` produit
 
-- **Karttapullautin** (optionnel, pour les courbes de niveau) — [github.com/karttapullautin](https://github.com/karttapullautin/karttapullautin) — à lancer manuellement sur les dalles LiDAR, sortie dans `out_kp/`
+- **Karttapullautin** (optionnel : courbes de niveau **et** végétation vectorisée) — [github.com/karttapullautin](https://github.com/karttapullautin/karttapullautin) — à lancer manuellement sur les dalles LiDAR, sortie dans `out_kp/`. Avec `vege_bitmode=1` (activé par défaut), KP écrit en plus un raster de classes de végétation que le pipeline vectorise en objets `.omap` modifiables — voir [docs/protocole_vectorisation_kp.md](docs/protocole_vectorisation_kp.md)
 
 ### Données d'entrée (France)
 
@@ -106,7 +106,7 @@ lidar-o/
 ├── LIDAR/                        ← dalles .copc.laz
 │   └── LHD_FXX_0448_6887_...laz
 ├── data/bdtopo/                  ← GPKG département BD TOPO (France uniquement)
-├── out_kp/                       ← DXF Karttapullautin (optionnel, pour le relief)
+├── out_kp/                       ← DXF relief + *_vege_bit.png végétation (optionnel, Karttapullautin)
 ├── output/                       ← créé automatiquement
 │   └── ma_foret.omap             ← le résultat
 └── config.yaml                   ← déclarer votre terrain ici
@@ -210,13 +210,16 @@ INFO  410 : n=465  cov=82%  …
 > Ces valeurs varient si le profil ou les seuils changent.
 
 Ouvrir `output/grimbosq.omap` dans OpenOrienteering Mapper. Les couches attendues :
-- Fond végétation KP (aplats verts, 50 % d'opacité) — à utiliser comme décalque
+- Végétation vectorisée (surfaces ISOM 406/408/410, **modifiables**) — issue du raster de
+  classes Karttapullautin (`vegetation.source: kp`) ou de la chaîne HAG (`pdal`)
+- Fond végétation KP (aplats verts, 50 % d'opacité) — calque de contrôle pendant la reprise,
+  désactivable avec `karttapullautin.vectorization.keep_template: false`
 - Routes, chemins, bâtiments et cours d'eau depuis la BD TOPO (symboles noirs/bleus/marron)
 - Courbes de niveau de Karttapullautin (marron) — uniquement si `out_kp/` était présent
 
-Les couches de végétation classifiées (406/408/410) sont également produites mais ne constituent
-pas le livrable recommandé — utiliser le fond KP comme décalque et tracer les limites manuellement.
-Voir [docs/bilan_v0.md](docs/bilan_v0.md) pour les résultats d'évaluation.
+Protocole de vectorisation du raster KP, calibration teinte → ISOM et limites du procédé :
+[docs/protocole_vectorisation_kp.md](docs/protocole_vectorisation_kp.md).
+Résultats d'évaluation : [docs/bilan_v0.md](docs/bilan_v0.md).
 
 Si la carte apparaît vide ou décalée par rapport au fond de carte, vérifier que le signe de `declination` dans le fichier georef est correct.
 
@@ -331,6 +334,7 @@ scripts/
   mask_vegetation.py         masque anthropique sur la végétation
   generate_bdtopo.py         BD TOPO → couches .omap
   generate_relief.py         DXF Karttapullautin → courbes de niveau .omap
+  (src/) kp_raster.py        raster de classes KP → raster classifié vectorisable
   run_terrain.py             pipeline PDAL standalone
   measure_corpus.py          comparaison pipeline vs référence FFCO
   mappings/                  tables de correspondance ISOM (BD TOPO, KP)
