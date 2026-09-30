@@ -1,13 +1,8 @@
 # PLAN 1 — Améliorer le raster végétation : expériences à portes
 
-> **v2.1, 2026-09-30 — réécrit après revue (v2), puis corrigé sur quatre points
-> après validation comme base de travail.** La v1 (huit objectifs O1–O8 à dérouler)
+> **v2.1, 2026-09-30 — après revue v2.** La v1 (huit objectifs O1–O8 à dérouler)
 > est remplacée : trop ambitieuse, elle mélangeait diagnostic, amélioration et
 > modification de production, et laissait `qa.py` décider à la place du cartographe.
-> v2.1 : conflit fenêtre/tuiles résolu (règle de contenance), statut de recouvrement
-> de la fenêtre remonté en Phase 0, Phase 3 reformulée en expérience contrôlée,
-> seuil KP repoussé après la fusion avec go explicite, recouvrement avec les verts
-> KP ramené à une mesure descriptive.
 > **Brief destiné à Claude Code (ou tout exécutant).** Autonome.
 > **La veille mapant.fr/Cassini (faits F1–F9) reste valable : résumée en annexe.**
 > **Production intouchée tant que la porte 1 n'est pas passée :** `config.yaml`,
@@ -53,10 +48,16 @@ Livrable : `work/expe/phase0_notes.md`. Pas de porte : ce sont des prérequis.
   effet des `99`. Note écrite. **Aucun objectif ne parle de « seuil bas » avant que
   cette note existe** (l'ex-O8 supposait cette sémantique).
 - **V0.2 — pipeline PDAL Cassini reproduit à l'identique** (filtres, ordre, options) :
-  `writers.gdal` DEM (Classification==2, mean, rés 0,5 m) → `filters.hag_dem` →
-  `filters.voxeldownsize` (cell 0,5, mode first) → `writers.gdal` count 1 m uint8 par
-  strate, `where` sur `HeightAboveGround` : (0,1], (0,3,1], (0,3,1,3], (1,4], (4,30].
-  → `work/expe/pipelines/strata_cassini.json`.
+  DEM sol (`Classification == 2`, mean, rés 0,5 m) → `filters.hag_dem` →
+  `filters.voxeldownsize` (cell 0,5, mode first) → un `writers.gdal` count 1 m uint8
+  par strate. **Les clauses `where` de strates ne sont pas décidées dans ce plan :**
+  V0.2 relève les expressions **exactes** écrites par Cassini (`src/lidar.rs`) pour
+  ses trois strates, les recopie telles quelles dans `phase0_notes.md` **et** dans
+  `work/expe/pipelines/strata_cassini.json`, et dérive les deux variantes low du plan
+  (0,3–1 m et 0,3–1,3 m) dans la même syntaxe, figées aux mêmes endroits. Les bornes
+  citées ailleurs dans le plan — (0,1], (0,3,1], (0,3,1,3], (1,4], (4,30] — sont une
+  notation humaine pour la lecture, **pas des clauses à recopier** : aucun risque
+  de réinterprétation (virgules décimales, crochets) par l'exécutant.
 - **V0.3 — notre pipeline à nous** : confirmer par lecture (sans modifier) que
   `run_terrain.py` n'a pas de voxeldownsize et identifier où le double-comptage de
   recouvrement entre dans nos densités. Note.
@@ -138,8 +139,10 @@ Implémentation de référence : `work/expe/undergrowth/expe_undergrowth.py`
 2. **Deux runs expérimentaux** sur une tuile en recouvrement + une tuile témoin :
    comptages de strates **avec** et **sans** `voxeldownsize(0,5, first)`
    (deux JSON dans `work/expe/pipelines/`).
-3. **Carte du biais** (ratio des densités avec/sans) + chiffres : médiane du ratio en
-   recouvrement vs hors recouvrement, par strate.
+3. **Carte du biais** + chiffres : `ratio = avec_voxeldownsize / sans_voxeldownsize`,
+   calculé **uniquement sur les cellules où `sans_voxeldownsize > 0`** (les cellules
+   vides produiraient des ratios absurdes) ; médiane du ratio en recouvrement vs
+   hors recouvrement, par strate.
 4. **PORTE 2 = vous regardez la carte du biais.**
    - biais négligeable → clos par une note (résultat négatif tracé) ;
    - biais réel → **correction expérimentale** (comptages corrigés dans `work/expe/`)
@@ -153,8 +156,11 @@ Le critère « biais divisé par 2 » de la v1 est abandonné : arbitraire.
 ## 4. PHASE 3 — médian vs gaussien : même signal, mêmes seuils
 
 Seule variable = le lissage (R3). Représentation fixée = comptages de strates 1 m.
+**Signal d'entrée gelé à l'issue de la Phase 2 :** comptage brut si aucune correction
+n'est retenue, comptage corrigé si une correction a été validée expérimentalement.
+A et B utilisent **exactement** ce même signal, et rien d'autre.
 
-- **A** = comptages + **médian** (fenêtres équivalentes aux medianboxsize KP 9 puis 17 px,
+- **A** = comptages + **médian** (fenêtres équivalentes aux medianboxsize KP **9 puis 16 px** (valeur de production validée visuellement),
   appliquées aux classes construites depuis les comptages) ;
 - **B** = mêmes comptages + **gaussienne** σ1 = 1 m (strate medium) / σ2 = 2 m (low) ;
 - **mêmes seuils** (pt/m²) appliqués ensuite à A et à B ;
@@ -163,7 +169,7 @@ Seule variable = le lissage (R3). Représentation fixée = comptages de strates 
 **A et B constituent une expérience contrôlée indépendante du raster KP actuel :**
 même comptage d'entrée, même seuil, seul le lissage varie. Le KP actuel est affiché
 **uniquement comme référence visuelle externe** (sa chaîne diffère : indices de
-palette, médian par tuile, seusils propres). La conclusion autorisée porte sur le
+palette, médian par tuile, seuils propres). La conclusion autorisée porte sur le
 lissage à signal fixé — jamais « le gaussien est meilleur que KP ».
 
 **PORTE 3 = vous regardez** (protocole de jugement mbs2 : lisibilité vs fidélité).
