@@ -5,7 +5,7 @@
 > ses preuves et ses limites) — ce plan n'en répète pas le contenu, il ordonne **ce qui
 > reste à faire** après le commit `47e01eb` (2026-09-30).
 > **Indépendance :** ce plan est exécutable **sans** le plan 1
-> (`docs/plan_amelioration_raster.md`) ; les tâches dépendantes sont marquées « P1 ».
+> (`docs/plan_amelioration_raster.md`) ; les tâches dépendantes sont marquées « P1-Phase n » (plan 1 v2, expériences à portes).
 > **Interdit :** nouveau vectoriseur (CoVe/potrace/graphe de frontières — écartés,
 > protocole §3), ML/scoring, modification des étapes 1–9 du moteur sans mesure corpus.
 
@@ -34,10 +34,10 @@
 - **Acceptation :** couverture mesurée des 3 classes à ± 3 points des cibles ; table
   gelée + commit ; le `report` du terrain suivant part de cette table comme prior.
 
-### V2 — Coutures inter-tuiles : mesurer, puis décider (dépend de P1-O3 pour la correction)
+### V2 — Coutures inter-tuiles : mesurer, puis décider (correction = P1-Phase 3)
 - Mesure autonome (sans P1) : diff de classes le long des joints de tuiles sur le
   raster mosaïqué ; publier le % de pixels de joint discordants.
-- Si > 1 % : appliquer la correction du plan 1 (lissage après mosaïque) **avant** de
+- Si > 1 % : appliquer la correction issue du plan 1 (Phase 3, lissage après mosaïque) **avant** de
   re-mesurer la partition plane.
 - **Acceptation :** chiffre dans `docs/bilan_v0.md` ; décision tracée (corriger /
   accepter) avec la mesure.
@@ -58,8 +58,9 @@
 - **Acceptation :** capture ou description précise des 3 calques verts + note dans
   `bilan_v0.md` ; aucun objet orphelin hors bbox.
 
-### V5 — Couche 409 sous-bois (dépend de P1-O5 `layer409`)
-- Si le plan 1 produit `undergrowth.tif` : nouvelle couche surfacique ISOM 409 dans
+### V5 — Couche 409 sous-bois (dépend de P1-Phase 1 porte 1 + P1-Phase 4a `layer409`)
+- Si la porte 1 du plan 1 valide le canal undergrowth **et** si la Phase 4a choisit le mode
+  `layer409` : nouvelle couche surfacique ISOM 409 dans
   `src/omap_writer.py` (le symbole existe dans le gabarit), même pipeline de
   généralisation (seuils d'aire propres : 409 = sous-bois, aire mini ISOM à vérifier
   dans le gabarit), partition plane étendue (409 sous 406/408/410 ? **non** : 409 se

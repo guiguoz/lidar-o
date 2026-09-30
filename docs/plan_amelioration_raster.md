@@ -1,153 +1,198 @@
-# PLAN 1 — Améliorer le raster végétation, avant toute vectorisation
+# PLAN 1 — Améliorer le raster végétation : expériences à portes
 
-> **Brief destiné à Claude Code (ou tout exécutant).** Autonome : tout le contexte
-> nécessaire est ici + les fichiers cités. Ne pas toucher à la vectorisation
-> (voir `docs/plan_vectorisation.md`, plan séparé).
-> **État au 2026-09-30.** `medianboxsize2 = 16` est **figé** (tranché par jugement
-> cartographique, planches `docs/images/vege_mbs2_*.png`). `greenshades` reste à la
-> valeur de production. Le problème ouvert est unique : **le sous-bois léger n'est
-> pas détecté**, et aucun paramètre KP testé n'y change rien.
-> **Interdit :** ML/scoring (avenant 02 §0), tests terrain chronophages, copier du
-> code Cassini (GPL-3.0 — réimplémentation « clean room » des *idées* seulement, ou
-> exécution de Cassini comme processus Docker séparé).
+> **v2, 2026-09-30 — réécrit après revue.** La v1 (huit objectifs O1–O8 à dérouler)
+> est remplacée : trop ambitieuse, elle mélangeait diagnostic, amélioration et
+> modification de production, et laissait `qa.py` décider à la place du cartographe.
+> **Brief destiné à Claude Code (ou tout exécutant).** Autonome.
+> **La veille mapant.fr/Cassini (faits F1–F9) reste valable : résumée en annexe.**
+> **Production intouchée tant que la porte 1 n'est pas passée :** `config.yaml`,
+> `scripts/run_terrain.py`, `scripts/process_hag.py`, `src/kp_raster.py`, `main.py`.
 
 ---
 
-## 1. Ce que mapant.fr apporte (sources vérifiées le 2026-09-30)
+## 0. Règles non négociables (issues de la revue)
 
-**Oui, il y a de l'information décisive sur mapant.fr.** Le projet (Nicolas Rio) a
-produit **Cassini** ([github.com/NicoRio42/cassini](https://github.com/NicoRio42/cassini),
-GPL-3.0, Rust, 207 commits, dernière release 0.16.0 *« Improved vegetation rendering
-algorithm + undergrowth rendering »*), moteur de rendu de **toute la carte de France**
-de mapant.fr à partir du LiDAR HD IGN — *nos* données, *notre* pays, *notre* échelle.
-Lecture de `src/lidar.rs`, `src/vegetation.rs`, `src/config.rs`, `src/buffer.rs` :
+| # | Règle |
+|---|---|
+| R1 | **Une porte = votre jugement sur une planche 1:10 000**, même format que `docs/images/vege_mbs2_comparaison.png`. `qa.py` / rappel FFCO = mesures **informatives** rapportées à côté de la planche, jamais un critère de porte (un rappel peut éliminer un raster visuellement utile, ou récompenser un signal qui couvre beaucoup mais mal). |
+| R2 | **Expérimentation ≠ production.** Code, configs, rasters, planches d'essai → `work/expe/` (gitignoré). Un commit n'intervient que pour (a) un **verdict** (doc), (b) du **code propre après porte passée**, avec le paramètre gelé et la planche de décision copiée dans `docs/images/`. Pas de commit par essai : les branches abandonnées ne doivent pas polluer l'historique. |
+| R3 | **Une seule variable par expérience.** Tester un lissage = mêmes comptages, mêmes seuils, seul le lissage change. |
+| R4 | **Verdicts négatifs tracés aussi** : `work/expe/JOURNAL.md` (persiste dans l'espace de travail) + commit doc `docs/expe_journal.md` à chaque porte. C'est la protection contre la régression « décision perdue six semaines plus tard ». |
+| R5 | **Pas de branche git d'expérimentation** : la session Arena est fixée à `arena/01a0f111-lidar-o`. L'isolation est obtenue par le répertoire `work/expe/` + **aucun import du code de production** + pipelines PDAL expérimentaux dans `work/expe/pipelines/` (JSON propres, jamais ceux de `run_terrain.py`). |
+| R6 | Les seuils expérimentaux vivent dans `work/expe/configs/*.yaml`. `config.yaml` de production ne reçoit un paramètre **qu'après** porte passée et commit de code propre. |
 
-| # | Fait Cassini/mapant | Fichier source | Pourquoi ça nous concerne |
-|---|---|---|---|
-| F1 | Trois strates LiDAR séparées, comptage 1 m uint8 : **low = HAG (0,1]**, **medium = (1,4]**, **high = (4,30]** ; sol = classe IGN 2 conservée, végétation **reclassifiée par HAG** (la classification IGN végétation n'est pas jugée fiable) | `lidar.rs` (pipeline PDAL) | notre `band_split` (Étape D) a low 0,3–1,3 / mid 1,3–4,0 mais **sans canal undergrowth** |
-| F2 | **Undergrowth = canal indépendant** : moyenne gaussienne **rayon 4 (σ≈2 m)** du canal low, seuil `low_vegetation_density_threshold` (défaut 1 pt/m²) ; 3 modes : `merge` (s'additionne à la densité medium → devient du vert), `406` (vert clair), `409` (PNG séparé) | `vegetation.rs` (`UndergrowthMode`) | **c'est exactement le sous-bois léger qui nous manque** : KP le noie dans une densité unique puis le médian l'efface |
-| F3 | Verts = moyenne gaussienne **rayon 2 (σ≈1 m)** du canal **medium** ; seuils en **points/m²** (blog : 0,2 / 1,0 / 2,0 ; défauts code : 1/2/3) | `vegetation.rs`, `config.rs` | seuils *physiques* et interprétables, vs `greenshades` KP sans unité |
-| F4 | Blanc/jaune = **MIN** du canal high sur un cercle 5×5 > `yellow_threshold` (blog 0,5) : toute trouée de canopée → jaune | `vegetation.rs` | test de découvert déterministe, complémentaire BD TOPO |
-| F5 | `filters.voxeldownsize` **cell 0,5 m, mode first** avant reclassification | `lidar.rs` | tue le double-comptage des **recouvrements LiDAR HD** ; notre pipeline (`filters.hag_nn`) ne le fait **pas** |
-| F6 | VRT tuile + **voisines, buffer 200 m** avant tout lissage → **pas de couture inter-tuiles** | `buffer.rs` | nos coutures KP (médian par tuile) sont un risque listé au protocole §5 |
-| F7 | `mapant-scripts` (scripts de production mapant.fr) contient **`lidar_delete_overlap`** : les tuiles des zones de recouvrement sont *mises de côté* | `mapant-scripts/lidar_delete_overlap/` | confirme : le recouvrement LiDAR HD est un problème connu de la production française |
-| F8 | Lissage **gaussien sur densités** (linéaire) et non médian sur indices : le gradient du sous-bois léger survit | `vegetation.rs` | piste pour remplacer/compléter le médian KP *après* mosaïque |
-| F9 | Famille mapant : fi/no/es/lu + gokartor.se = Karttapullautin ; ch = OCAD ; **Cassini est le seul moteur avec undergrowth** | cassini-map.com/what-and-why | il n'y a pas d'autre État de l'art à aller chercher sur l'undergrowth |
+Arborescence expérimentale :
 
-**Conséquence directe :** améliorer le raster ne demande **aucun test terrain**. Les
-gains sont *structurels* (strates, canal undergrowth, voxeldownsize, buffer) et se
-mesurent sur ce qu'on a déjà : dalles Grimbosq en `LIDAR/` (si présentes), raster KP
-en `out_kp_grimbosq/`, carte FFCO de référence (`qa_targets`), planches A/B
-(`docs/images/`), métriques `src/qa.py`. Un rendu A/B sur tuiles existantes = minutes,
-pas jours.
+```text
+work/expe/
+├── JOURNAL.md                  verdicts datés, y compris négatifs
+├── pipelines/strata_cassini.json
+├── configs/undergrowth_01.yaml … _04.yaml
+├── undergrowth/expe_undergrowth.py   implémentation de référence (strata|candidates|planche|kernel_test)
+├── rasters/                    comptages de strates, candidats (uint8)
+└── planches/                   PNG 1:10 000 pour jugement
+```
+
+Si `work/` est perdu, tout se reconstruit depuis le présent plan (§1–§4) : les formules
+y sont écrites explicitement.
 
 ---
 
-## 2. Objectifs, dans l'ordre
+## 1. PHASE 0 — vérifier les éléments Cassini et nos prérequis (aucun raster produit)
 
-Chaque objectif = 1 commit + mesure avant/après. Paramètres **dans `config.yaml`**
-(section `vegetation.raster_improvements` à créer), jamais en dur.
+Livrable : `work/expe/phase0_notes.md`. Pas de porte : ce sont des prérequis.
 
-### O1 — Canal undergrowth (cible : le problème ouvert)
-- PDAL : comptage 1 m uint8 de la strate **HAG (0,3–1,0]** (borne basse = notre seuil
-  de bruit 0,3 ; variante (0–1] à tester) → `output/undergrowth_count.tif`.
-- Lissage gaussien σ = 2 m (noyau rayon 4, normalisé — même forme que Cassini).
-- Seuillage `undergrowth_threshold` (pt/m², départ 1,0 comme Cassini) →
-  `output/undergrowth.tif` (0/1) + ha couverte dans le log.
-- **Acceptation :** (a) le canal couvre visiblement les zones de sous-bois léger
-  identifiées sur la planche D de l'expérimentation mbs2 ; (b) recouvrement avec le
-  406/408 KP existant < 50 % (sinon ce n'est pas de l'information nouvelle) ;
-  (c) rappel FFCO 408+410 de la sortie combinée ≥ rappel actuel (mesure `qa.py`).
-
-### O2 — Voxel downsize anti-recouvrement
-- Ajouter `filters.voxeldownsize` (cell 0,5, mode `first`) dans le pipeline PDAL
-  (`scripts/run_terrain.py`) **avant** `hag_nn`/comptages.
-- Mesurer le biais de recouvrement : densité médiane dans les zones de recouvrement
-  LiDAR HD (emprises de dalles ∩, calculables depuis les bbox des tuiles) vs ailleurs,
-  avant/après. Script diag `scripts/diag/measure_overlap_bias.py`.
-- **Acceptation :** biais |Δ| divisé par ≥ 2 ; densités hors recouvrement inchangées
-  à ± 3 %.
-
-### O3 — Mosaïque bufferisée avant lissage (coutures)
-- Source `kp` : le médian KP est par tuile (inchangeable). Ajouter après mosaïque
-  (`src/kp_raster.mosaic`) un lissage de raccord : recomputation des classes sur une
-  bande de 200 m autour des joints ? **Non** — plus simple et fidèle à Cassini :
-  pour la source `pdal`, lisser (O4) **après** mosaïque VRT voisines+buffer ; pour la
-  source `kp`, mesurer l'amplitude réelle des coutures (diff de classes le long des
-  joints) et ne corriger que si > 1 % des pixels de joint.
-- **Acceptation :** mesure de couture publiée dans `docs/bilan_v0.md` ; correction
-  uniquement si le seuil est dépassé (ne pas complexifier sans preuve).
-
-### O4 — Lissage gaussien sur densité vs médian sur indices (A/B)
-- Produire deux rasters classifiés Grimbosq : (A) pipeline actuel, (B) comptages
-  strates + gaussienne σ1 (medium) / σ2 (low) + seuils pt/m² inizés sur les quantiles
-  du raster A (pas de recalibration terrain).
-- **Acceptation :** planche `docs/images/raster_ab_gaussien.png` (A, B, FFCO) + table
-  `qa.py` ; décision cartographique documentée comme pour mbs2 (c'est le protocole qui
-  a tranché medianboxsize2).
-
-### O5 — Fusion undergrowth → verts, trois modes
-- `undergrowth_mode: none | merge | layer409` (noms Cassini, sémantique ISOM) :
-  - `merge` : les pixels undergrowth montent d'une classe de vert (406→408 interdit :
-    merge = **ajout au canal medium avant seuillage**, pas un rehaussement de classe) ;
-  - `layer409` : `undergrowth.tif` devient une couche .omap 409 (symbole présent dans
-    le gabarit) — **pont vers le plan 2, task V5** ;
-  - `none` : raster de diagnostic seulement.
-- **Acceptation :** les trois modes tournent sur la démo synthétique
-  (`scripts/diag/demo_vectorisation_kp.py`, étendu d'un canal low) sans erreur ;
-  choix par défaut `none` tant que O1 n'est pas validé.
-
-### O6 — Test de découvert « min canopée » (optionnel, si O1–O5 passent)
-- MIN du canal high (4–30 m) sur fenêtre 5×5 m < seuil → candidat ouvert ; intersection
-  avec BD TOPO `zone_de_vegetation`/OSM : mesurer les désaccords (le LiDAR voit des
-  trouées que la BD TOPO ignore, et inversement).
-- **Acceptation :** table de désaccord ha ; **aucune** modification automatique du
-  jaune/401 sans validation humaine (le jaune reste BD TOPO/OSM, protocole §É2).
-
-### O7 — Cible externe : les tuiles publiées de mapant.fr
-- mapant.fr sert une pyramide de tuiles PNG (scripts de production = tile pyramid).
-  Télécharger la couverture Grimbosq (~quelques tuiles 1:10 000), la géoréférencer
-  (grille Web Mercator standard), produire une planche de diff contre notre raster.
-- **Vérifier la licence/CGU avant tout usage** ; usage réservé : calibration visuelle
-  et extraction de leurs seuils effectifs, **pas** de redistribution dans le dépôt.
-- **Acceptation :** planche diff + note : leurs masses de sous-bois apparaissent-elles
-  là où notre canal O1 apparaît ? (validation croisée indépendante de la FFCO)
-
-### O8 — `greenshades[0] < 0,2` **gate** par l'undergrowth (piste planche D, enfin testable)
-- Uniquement si O1 validé : appliquer l'abaissement du premier seuil KP **seulement
-  là où** `undergrowth.tif = 1` (masque), pas globalement → pas de confetti général.
-- **Acceptation :** planche A/B + % de pixels modifiés ; si le gain de rappel 408/410
-  est < 2 points, abandonner et le dire dans `bilan_v0.md`.
+- **V0.1 — sémantique exacte de `greenshades` dans NOTRE KP (v2.12.1 Rust).** Lire
+  `src/config.rs` + `src/vegetation.rs` du clone : quelle grandeur est seuillée
+  (densité normalisée comment ?), ordre de la liste, rôle de la première entrée,
+  effet des `99`. Note écrite. **Aucun objectif ne parle de « seuil bas » avant que
+  cette note existe** (l'ex-O8 supposait cette sémantique).
+- **V0.2 — pipeline PDAL Cassini reproduit à l'identique** (filtres, ordre, options) :
+  `writers.gdal` DEM (Classification==2, mean, rés 0,5 m) → `filters.hag_dem` →
+  `filters.voxeldownsize` (cell 0,5, mode first) → `writers.gdal` count 1 m uint8 par
+  strate, `where` sur `HeightAboveGround` : (0,1], (0,3,1], (0,3,1,3], (1,4], (4,30].
+  → `work/expe/pipelines/strata_cassini.json`.
+- **V0.3 — notre pipeline à nous** : confirmer par lecture (sans modifier) que
+  `run_terrain.py` n'a pas de voxeldownsize et identifier où le double-comptage de
+  recouvrement entre dans nos densités. Note.
+- **V0.4 — inventaire données** : `LIDAR/`, `out_kp_grimbosq/`, référence FFCO
+  (chemin déclaré dans `config.yaml` qa / `autres cartes/`), **bbox exacte de la
+  fenêtre des planches mbs2** (à relever une fois pour toutes et geler dans
+  `phase0_notes.md` : toutes les planches du plan utiliseront cette fenêtre).
+  Dire explicitement ce qui est exécutable où (machine à dalles vs sandbox).
+- **V0.5 — noyau gaussien Cassini** (rayon r, σ = r/2, normalisé somme 1) :
+  test unitaire `expe_undergrowth.py kernel_test`.
 
 ---
 
-## 3. Méthode, contraintes, pièges
+## 2. PHASE 1 — diagnostic undergrowth (la seule expérience décidée d'avance)
 
-- **Mesurer d'abord, changer ensuite** : O2 et O3 commencent par un script de mesure
-  (`scripts/diag/`), pas par une modification.
-- Chaque seuil nouveau part de la valeur Cassini (pt/m²) puis se règle sur **quantiles
-  du raster Grimbosq existant** — jamais à l'œil, jamais sur le terrain.
-- Le protocole de décision cartographique est celui de mbs2 : planche 3 panneaux
-  (notre raster / variante / FFCO) + métriques `qa.py` + verdict écrit dans
-  `docs/bilan_v0.md`.
-- **GPL-3.0 :** ne pas copier-coller de code Cassini. Réimplémenter les formules
-  (gaussienne normalisée rayon r, strates HAG, min 5×5) depuis zéro dans
-  `src/metrics.py` / `scripts/process_hag.py`, ou appeler l'image Docker
-  `nicorio42/cassini` en processus séparé pour comparaison (usage outil, pas lien).
-- Ne pas réouvrir : `medianboxsize2`, `vegetation.source`, la vectorisation (plan 2),
-  les symboles 407/416/419 (humains).
-- Sorties intermédiaires dans `work/` (gitignoré) ; seules les planches
-  `docs/images/*.png` et les docs sont commitées.
+**Question unique de la porte :** *est-ce que ce canal fait apparaître visiblement les
+zones où le fond KP actuel manque de sous-bois ?*
 
-## 4. Definition of done du plan
+1. **Strates** : sur 1 tuile Grimbosq (+ 1 tuile témoin), `pdal pipeline
+   work/expe/pipelines/strata_cassini.json` → comptages 1 m uint8 dans `work/expe/rasters/`.
+   (`run_terrain.py` n'est pas appelé.)
+2. **Candidats — 4 maximum**, chacun = une strate low + gaussienne σ = 2 m (noyau
+   rayon 4, σ = r/2, normalisé) + un seuil en pt/m² :
 
-1. `undergrowth.tif` produit sur Grimbosq, seuil gelé dans `config.yaml`, rappel FFCO
-   408+410 ≥ valeur actuelle, planche diff commitée.
-2. Biais de recouvrement LiDAR HD mesuré et, si > 5 %, corrigé (voxeldownsize).
-3. Amplitude des coutures inter-tuiles mesurée et documentée (corrigée seulement si
-   > 1 % des pixels de joint).
-4. Décision gaussien-vs-médian tranchée par planche + métriques, verdict dans
-   `bilan_v0.md`.
-5. Note mapant.fr (licence + planche diff) dans `docs/bilan_v0.md`.
-6. Aucun test terrain n'a été nécessaire ; chaque verdict cite une mesure reproductible
-   (commande + commit).
+   | id | strate | σ | seuil |
+   |---|---|---|---|
+   | C1 | (0,3, 1] | 2 m | 1,0 (valeur Cassini) |
+   | C2 | (0,3, 1] | 2 m | 0,5 |
+   | C3 | (0, 1] | 2 m | 1,0 |
+   | C4 | (0,3, 1,3] | 2 m | 1,0 |
+
+3. **Planche** `work/expe/planches/phase1_undergrowth.png`, 1:10 000, fenêtre V0.4,
+   4 panneaux : **KP actuel** (mosaïque `vege_bit`) / **C1** / **C2** / **FFCO**
+   (si la référence raster n'existe pas : C3 en 4ᵉ panneau + note). Même échelle,
+   mêmes couleurs, mêmes légendes que la planche mbs2. Candidats binaires dessinés
+   en vert 60 % sur blanc.
+4. **Mesures informatives** (rapportées, pas un critère) : ha couvertes par candidat ;
+   recouvrement avec le 406/408/410 KP actuel ; le cas échéant rappel FFCO 408+410.
+5. **PORTE 1 = vous regardez.** Verdict dans `JOURNAL.md` + commit `docs/expe_journal.md`.
+   - **NON** → stop définitif du plan sur cette piste ; note dans `bilan_v0.md`
+     (« le canal undergrowth n'apporte rien sur nos données » est un résultat).
+   - **OUI** → Phases 2 et 3 débloquées.
+
+Implémentation de référence : `work/expe/undergrowth/expe_undergrowth.py`
+(`strata` | `candidates` | `planche` | `kernel_test`), configs
+`work/expe/configs/undergrowth_01..04.yaml`.
+
+---
+
+## 3. PHASE 2 — recouvrement LiDAR : mesurer, pas corriger
+
+1. **Carte de recouvrement** : ∩ des emprises de dalles (noms/bbox des tuiles) →
+   `overlap.tif` 0/1. Aucune modification de code.
+2. **Deux runs expérimentaux** sur une tuile en recouvrement + une tuile témoin :
+   comptages de strates **avec** et **sans** `voxeldownsize(0,5, first)`
+   (deux JSON dans `work/expe/pipelines/`).
+3. **Carte du biais** (ratio des densités avec/sans) + chiffres : médiane du ratio en
+   recouvrement vs hors recouvrement, par strate.
+4. **PORTE 2 = vous regardez la carte du biais.**
+   - biais négligeable → clos par une note (résultat négatif tracé) ;
+   - biais réel → **correction expérimentale** (comptages corrigés dans `work/expe/`)
+     comparée par planche + mesures ; `run_terrain.py` ne sera touché que par un commit
+     de code propre post-porte.
+
+Le critère « biais divisé par 2 » de la v1 est abandonné : arbitraire.
+
+---
+
+## 4. PHASE 3 — médian vs gaussien : même signal, mêmes seuils
+
+Seule variable = le lissage (R3). Représentation fixée = comptages de strates 1 m.
+
+- **A** = comptages + **médian** (fenêtres équivalentes aux medianboxsize KP 9 puis 17 px,
+  appliquées aux classes construites depuis les comptages) ;
+- **B** = mêmes comptages + **gaussienne** σ1 = 1 m (strate medium) / σ2 = 2 m (low) ;
+- **mêmes seuils** (pt/m²) appliqués ensuite à A et à B ;
+- planche A / B / FFCO (+ KP actuel pour mémoire), fenêtre V0.4, 1:10 000.
+
+**PORTE 3 = vous regardez** (protocole de jugement mbs2 : lisibilité vs fidélité).
+Si B gagne : commit de code propre = option de lissage **après mosaïque** dans le pont
+KP / `process_hag`, paramètre gelé dans `config.yaml`, planche de décision dans
+`docs/images/`.
+
+---
+
+## 5. PHASE 4 — seulement si les portes 1–3 sont passées ; un sujet à la fois
+
+Chaque sujet = sa planche, sa porte, son verdict. Ordre imposé :
+
+- **4a fusion undergrowth → verts** : modes `none | merge | layer409` (sémantique
+  Cassini, noms ISOM). `merge` = ajout au canal medium **avant seuillage** (pas un
+  rehaussement de classe). `layer409` = couche .omap 409, **exclue de
+  `coverage_partition`** (409 se superpose par conception) — fait le pont avec le
+  plan 2, tâche V5.
+- **4b découvert « min canopée »** : MIN du canal high (4, 30] sur fenêtre 5×5 m vs
+  `yellow_threshold` ; mesure de désaccord avec BD TOPO / OSM ; **aucune** modification
+  automatique du jaune (le jaune reste BD TOPO/OSM, protocole vectorisation §É2).
+- **4c comparaison mapant.fr** : **d'abord** lire les conditions d'utilisation du
+  service de tuiles ; puis planche de diff sur Grimbosq = contrôle indépendant
+  (LiDAR HD France grande échelle), jamais une dépendance du produit.
+- **4d seuil KP gaté par l'undergrowth** (piste planche D) : abaissement du premier
+  seuil appliqué **seulement là où** le canal undergrowth = 1. **Condition absolue :**
+  la note V0.1 confirme la sémantique supposée ; sinon abandon sans test.
+
+---
+
+## 6. Ce que ce plan ne fait pas
+
+- Aucun critère `qa.py` comme porte (R1).
+- Aucun commit par essai ; aucun paramètre dans `config.yaml` avant porte (R2, R6).
+- Aucune modification de `run_terrain.py` / `process_hag.py` / `kp_raster.py` /
+  `main.py` / `config.yaml` avant porte passée (R4 de la revue).
+- Aucune branche git d'expérimentation (R5).
+- Pas de ML/scoring (avenant 02 §0) ; pas de copie de code Cassini (GPL-3.0) :
+  réimplémentation clean-room des formules, ou image Docker `nicorio42/cassini`
+  appelée comme outil séparé pour comparaison.
+- Pas de test terrain : toutes les mesures se font sur dalles et références existantes.
+
+## 7. Definition of done, phase par phase
+
+| Phase | Done |
+|---|---|
+| 0 | `phase0_notes.md` : sémantique greenshades, JSON strates, inventaire données + bbox planches |
+| 1 | planche 4 panneaux 1:10 000 produite **et regardée** ; verdict commité (même négatif) |
+| 2 | carte du biais + chiffres commités ; décision corrigé/pas-corrigé tracée |
+| 3 | planche A/B commitée ; verdict ; si positif, code propre + paramètre gelé |
+| 4 | chaque sujet a son verdict ; 409 éventuel raccordé au plan 2 V5 |
+
+---
+
+## Annexe — veille Cassini/mapant (résumé de la v1, sources vérifiées 2026-09-30)
+
+F1 trois strates (0,1]/(1,4]/(4,30] comptées à 1 m, classification IGN végétation
+ignorée, sol = classe 2 (`lidar.rs`) · F2 undergrowth = canal low lissé gaussienne
+rayon 4, seuil pt/m², modes merge/406/409 (`vegetation.rs`) · F3 verts = gaussienne
+rayon 2 sur la strate medium, seuils 0,2/1,0/2,0 pt/m² (blog) · F4 blanc = MIN du canal
+high sur cercle 5×5 > yellow_threshold · F5 `voxeldownsize` 0,5 m mode first avant
+comptage · F6 VRT tuile+voisines buffer 200 m avant lissage → sans couture ·
+F7 `mapant-scripts/lidar_delete_overlap` écarte les tuiles en recouvrement → le
+recouvrement LiDAR HD est un problème connu de la production française · F8 lissage
+gaussien sur densités, pas médian sur indices · F9 famille mapant (fi/no/es/lu,
+gokartor.se) = KP, ch = OCAD : **Cassini est le seul moteur avec undergrowth**.
+Sources : github.com/NicoRio42/cassini (GPL-3), github.com/NicoRio42/mapant-scripts,
+mapant.fr/blog/cassini-pour-les-nuls, cassini-map.com/what-and-why.
