@@ -1,8 +1,13 @@
 # PLAN 1 — Améliorer le raster végétation : expériences à portes
 
-> **v2, 2026-09-30 — réécrit après revue.** La v1 (huit objectifs O1–O8 à dérouler)
+> **v2.1, 2026-09-30 — réécrit après revue (v2), puis corrigé sur quatre points
+> après validation comme base de travail.** La v1 (huit objectifs O1–O8 à dérouler)
 > est remplacée : trop ambitieuse, elle mélangeait diagnostic, amélioration et
 > modification de production, et laissait `qa.py` décider à la place du cartographe.
+> v2.1 : conflit fenêtre/tuiles résolu (règle de contenance), statut de recouvrement
+> de la fenêtre remonté en Phase 0, Phase 3 reformulée en expérience contrôlée,
+> seuil KP repoussé après la fusion avec go explicite, recouvrement avec les verts
+> KP ramené à une mesure descriptive.
 > **Brief destiné à Claude Code (ou tout exécutant).** Autonome.
 > **La veille mapant.fr/Cassini (faits F1–F9) reste valable : résumée en annexe.**
 > **Production intouchée tant que la porte 1 n'est pas passée :** `config.yaml`,
@@ -55,13 +60,27 @@ Livrable : `work/expe/phase0_notes.md`. Pas de porte : ce sont des prérequis.
 - **V0.3 — notre pipeline à nous** : confirmer par lecture (sans modifier) que
   `run_terrain.py` n'a pas de voxeldownsize et identifier où le double-comptage de
   recouvrement entre dans nos densités. Note.
-- **V0.4 — inventaire données** : `LIDAR/`, `out_kp_grimbosq/`, référence FFCO
-  (chemin déclaré dans `config.yaml` qa / `autres cartes/`), **bbox exacte de la
-  fenêtre des planches mbs2** (à relever une fois pour toutes et geler dans
-  `phase0_notes.md` : toutes les planches du plan utiliseront cette fenêtre).
-  Dire explicitement ce qui est exécutable où (machine à dalles vs sandbox).
+- **V0.4 — inventaire données et gel de la fenêtre O1** (le point à verrouiller
+  du plan). Les fenêtres candidates sont **déjà consignées** : les trois fenêtres
+  mbs2 de `scripts/diag/testa_medianboxsize2.py` (`WINDOWS`, 500 × 500 m, centres
+  Lambert-93) : `fen1_406` (448225, 6887720), `fen2_408` (448997, 6887939),
+  `fen3_410` (449420, 6887239). Choix de la fenêtre O1 = celle où le désaccord
+  KP-vs-FFCO montre du sous-bois manquant (pré-contrôle descriptif, pas une porte).
+  Geler dans `phase0_notes.md` : bbox de la fenêtre, **noms des tuiles LiDAR HD qui
+  la couvrent** (via `src/providers/france.py` ou la liste de `out_kp_grimbosq/`),
+  statut V0.6. Toutes les planches du plan utiliseront cette fenêtre.
+  Inventaire données : `LIDAR/`, `out_kp_grimbosq/`, référence FFCO (chemin déclaré
+  dans `config.yaml` qa / `autres cartes/`) ; dire explicitement ce qui est
+  exécutable où (machine à dalles vs sandbox).
 - **V0.5 — noyau gaussien Cassini** (rayon r, σ = r/2, normalisé somme 1) :
   test unitaire `expe_undergrowth.py kernel_test`.
+- **V0.6 — statut de recouvrement de la fenêtre O1** (sécurise la Phase 1) :
+  ∩ des emprises des tuiles couvrant la fenêtre ; mesure simple de densité de
+  retours dans la fenêtre vs hors fenêtre sur les mêmes tuiles (un chiffre par
+  strate, pas de carte complète). Si la fenêtre est en recouvrement : le noter,
+  la Phase 1 a lieu mais l'interprétation de la planche en tiendra compte ; le
+  diagnostic complet reste la Phase 2. Objectif : ne pas fabriquer artificiellement
+  une partie du signal undergrowth avec un biais de recouvrement.
 
 ---
 
@@ -70,8 +89,15 @@ Livrable : `work/expe/phase0_notes.md`. Pas de porte : ce sont des prérequis.
 **Question unique de la porte :** *est-ce que ce canal fait apparaître visiblement les
 zones où le fond KP actuel manque de sous-bois ?*
 
-1. **Strates** : sur 1 tuile Grimbosq (+ 1 tuile témoin), `pdal pipeline
-   work/expe/pipelines/strata_cassini.json` → comptages 1 m uint8 dans `work/expe/rasters/`.
+1. **Strates** : `pdal pipeline work/expe/pipelines/strata_cassini.json` sur
+   **toutes les tuiles LiDAR couvrant la fenêtre gelée** (V0.4) → comptages 1 m
+   uint8 dans `work/expe/rasters/`, mosaïqués sur la fenêtre. **Règle de
+   contenance :** la fenêtre de la planche doit être entièrement contenue dans
+   la/les tuile(s) utilisée(s) ; si elle recouvre N tuiles, utiliser les N tuiles ;
+   **ne pas tronquer la fenêtre** pour respecter une contrainte « une tuile ».
+   **Tuile témoin :** tuile comparable (couvert forestier similaire) et **hors
+   recouvrement**, pour ne pas confondre undergrowth et artefact de densité ;
+   si aucune n'existe, le noter et interpréter avec V0.6.
    (`run_terrain.py` n'est pas appelé.)
 2. **Candidats — 4 maximum**, chacun = une strate low + gaussienne σ = 2 m (noyau
    rayon 4, σ = r/2, normalisé) + un seuil en pt/m² :
@@ -90,6 +116,10 @@ zones où le fond KP actuel manque de sous-bois ?*
    en vert 60 % sur blanc.
 4. **Mesures informatives** (rapportées, pas un critère) : ha couvertes par candidat ;
    recouvrement avec le 406/408/410 KP actuel ; le cas échéant rappel FFCO 408+410.
+   Le recouvrement avec les verts KP est **purement descriptif** : un undergrowth
+   qui recouvre 70 % du vert existant peut parfaitement être utile s'il ajoute les
+   bonnes petites structures là où elles manquent — aucun critère implicite de
+   « nouveauté » (même logique que R1).
 5. **PORTE 1 = vous regardez.** Verdict dans `JOURNAL.md` + commit `docs/expe_journal.md`.
    - **NON** → stop définitif du plan sur cette piste ; note dans `bilan_v0.md`
      (« le canal undergrowth n'apporte rien sur nos données » est un résultat).
@@ -130,6 +160,12 @@ Seule variable = le lissage (R3). Représentation fixée = comptages de strates 
 - **mêmes seuils** (pt/m²) appliqués ensuite à A et à B ;
 - planche A / B / FFCO (+ KP actuel pour mémoire), fenêtre V0.4, 1:10 000.
 
+**A et B constituent une expérience contrôlée indépendante du raster KP actuel :**
+même comptage d'entrée, même seuil, seul le lissage varie. Le KP actuel est affiché
+**uniquement comme référence visuelle externe** (sa chaîne diffère : indices de
+palette, médian par tuile, seusils propres). La conclusion autorisée porte sur le
+lissage à signal fixé — jamais « le gaussien est meilleur que KP ».
+
 **PORTE 3 = vous regardez** (protocole de jugement mbs2 : lisibilité vs fidélité).
 Si B gagne : commit de code propre = option de lissage **après mosaïque** dans le pont
 KP / `process_hag`, paramètre gelé dans `config.yaml`, planche de décision dans
@@ -139,22 +175,26 @@ KP / `process_hag`, paramètre gelé dans `config.yaml`, planche de décision da
 
 ## 5. PHASE 4 — seulement si les portes 1–3 sont passées ; un sujet à la fois
 
-Chaque sujet = sa planche, sa porte, son verdict. Ordre imposé :
+Chaque sujet = sa planche, sa porte, son verdict. Ordre imposé. **Aucun sujet n'est
+enclenché automatiquement par le succès du précédent : chacun demande un go explicite.**
 
 - **4a fusion undergrowth → verts** : modes `none | merge | layer409` (sémantique
   Cassini, noms ISOM). `merge` = ajout au canal medium **avant seuillage** (pas un
   rehaussement de classe). `layer409` = couche .omap 409, **exclue de
   `coverage_partition`** (409 se superpose par conception) — fait le pont avec le
-  plan 2, tâche V5.
-- **4b découvert « min canopée »** : MIN du canal high (4, 30] sur fenêtre 5×5 m vs
+  plan 2, tâche V5. Planche propre, porte 4a.
+- **4b seuil KP gaté par l'undergrowth** (piste planche D, ex-4d) : abaissement du
+  premier seuil appliqué **seulement là où** le canal undergrowth = 1. **Ce n'est
+  pas une suite logique de 4a** : hypothèse supplémentaire, enclenchée seulement sur
+  décision explicite après la porte 4a ; planche propre, porte propre.
+  **Condition absolue :** la note V0.1 confirme la sémantique supposée ; sinon
+  abandon sans test.
+- **4c découvert « min canopée »** : MIN du canal high (4, 30] sur fenêtre 5×5 m vs
   `yellow_threshold` ; mesure de désaccord avec BD TOPO / OSM ; **aucune** modification
   automatique du jaune (le jaune reste BD TOPO/OSM, protocole vectorisation §É2).
-- **4c comparaison mapant.fr** : **d'abord** lire les conditions d'utilisation du
+- **4d comparaison mapant.fr** : **d'abord** lire les conditions d'utilisation du
   service de tuiles ; puis planche de diff sur Grimbosq = contrôle indépendant
   (LiDAR HD France grande échelle), jamais une dépendance du produit.
-- **4d seuil KP gaté par l'undergrowth** (piste planche D) : abaissement du premier
-  seuil appliqué **seulement là où** le canal undergrowth = 1. **Condition absolue :**
-  la note V0.1 confirme la sémantique supposée ; sinon abandon sans test.
 
 ---
 
@@ -178,7 +218,7 @@ Chaque sujet = sa planche, sa porte, son verdict. Ordre imposé :
 | 1 | planche 4 panneaux 1:10 000 produite **et regardée** ; verdict commité (même négatif) |
 | 2 | carte du biais + chiffres commités ; décision corrigé/pas-corrigé tracée |
 | 3 | planche A/B commitée ; verdict ; si positif, code propre + paramètre gelé |
-| 4 | chaque sujet a son verdict ; 409 éventuel raccordé au plan 2 V5 |
+| 4 | chaque sujet a son verdict, renoncements compris ; 409 éventuel raccordé au plan 2 V5 ; 4b enclenché seulement sur go explicite |
 
 ---
 
