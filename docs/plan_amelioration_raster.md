@@ -13,6 +13,9 @@
 > sur la fenêtre Grimbosq fen3_410 : verdict et chiffres dans `docs/expe_journal.md`.
 > Conséquences : Phases 2–3 non conduites sur cette piste ; sujets 4a/4b sans objet ;
 > Phase 4 conditionnée aux portes 1–3 — statut des sujets restants au journal.
+> **Expérience OVL (go explicite 2026-10-01) :** recouvrement rouvert en expérience
+> **indépendante** (§3 réécrit, porte OVL-1) — qualité du signal de production,
+> sans aucun lien avec l'undergrowth.
 
 ---
 
@@ -26,6 +29,9 @@
 | R4 | **Verdicts négatifs tracés aussi** : `work/expe/JOURNAL.md` (persiste dans l'espace de travail) + commit doc `docs/expe_journal.md` à chaque porte. C'est la protection contre la régression « décision perdue six semaines plus tard ». |
 | R5 | **Pas de branche git d'expérimentation** : la session Arena est fixée à `arena/01a0f111-lidar-o`. L'isolation est obtenue par le répertoire `work/expe/` + **aucun import du code de production** + pipelines PDAL expérimentaux dans `work/expe/pipelines/` (JSON propres, jamais ceux de `run_terrain.py`). |
 | R6 | Les seuils expérimentaux vivent dans `work/expe/configs/*.yaml`. `config.yaml` de production ne reçoit un paramètre **qu'après** porte passée et commit de code propre. |
+| R8 | **Une piste close reste close.** Undergrowth (porte 1 NON) : aucun seuil,
+| strate, sigma ou fenêtre nouveau sur cette piste ; aucune réutilisation de ses
+| sorties ailleurs sans étiquette explicite (l'expérience OVL n'en réutilise aucune). |
 | R7 | **Une hypothèse n'est jamais un fait.** Tout énoncé portant sur *nos* données (Grimbosq, tuiles IGN, biais, sous-bois) est une hypothèse à mesurer ; seuls les énoncés sur les logiciels tiers (KP, Cassini, OCAD) sont des relevés de source, cités avec fichier/ligne. Aucune phrase du plan ne préjuge du résultat d'une porte. |
 
 Arborescence expérimentale :
@@ -157,39 +163,60 @@ Implémentation de référence : `work/expe/undergrowth/expe_undergrowth.py`
 
 ---
 
-## 3. PHASE 2 — recouvrement LiDAR : mesurer, pas corriger
+## 3. PHASE 2 — recouvrement de dalles : expérience indépendante (porte OVL-1)
 
-> **Statut 2026-10-01 :** non conduite sur la piste undergrowth (porte 1 NON).
-> Réouvrable en **piste indépendante** (biais de production ; Plan 2 V2 en a besoin)
-> sur go explicite seulement. V0.6 a déjà produit le chiffre principal : +50 % sur
-> la strate low dans la bande ~30 m en bas de fenêtre.
+> **Réouverte 2026-10-01 sur go explicite, après porte 1 NON :** le recouvrement
+> n'est plus un sous-étage de la piste undergrowth mais une question de **qualité
+> du signal de production**, indépendante de tout canal végétation. Aucun seuil,
+> strate, sigma ni fenêtre de la piste close n'est réutilisé ici (R8).
+> **Production intouchée :** ni `run_terrain.py`, ni `process_hag.py`, ni
+> `config.yaml`, ni `kp_raster.py`, ni `main.py`.
 
-1. **Carte de recouvrement** : ∩ des emprises de dalles (noms/bbox des tuiles) →
-   `overlap.tif` 0/1. Aucune modification de code.
-2. **Deux runs expérimentaux** : un sur l'ensemble des tuiles en recouvrement, un sur
-   une tuile témoin ; comptages de strates **avec** et **sans** `voxeldownsize(0,5, first)`
-   (deux JSON dans `work/expe/pipelines/`).
-   **Les tuiles en recouvrement sont chargées ensemble** : un seul pipeline PDAL listant
-   les N fichiers (`readers.las` accepte plusieurs entrées), sur l'union des emprises
-   qui se chevauchent. C'est la seule manière de mesurer l'effet réel du recouvrement :
-   un run par tuile isolée ne voit jamais les points comptés deux fois. La tuile témoin
-   reste chargée seule.
-3. **Carte du biais** + chiffres : `ratio = avec_voxeldownsize / sans_voxeldownsize`,
-   calculé **uniquement sur les cellules où `sans_voxeldownsize > 0`** (les cellules
-   vides produiraient des ratios absurdes) ; médiane du ratio en recouvrement vs
-   hors recouvrement, par strate.
-   **Mesure dérivée d'OCAD** (wiki LiDAR Point Cloud Manager) : si les tuiles IGN
-   portent des points LAS « overlap » (classe 12, inter-lignes de vol), part de ces
-   points en/hors recouvrement — second levier, indépendant du double-comptage de
-   retours : OCAD seuille ces points au lieu de sous-échantillonner. Deux biais
-   possibles, deux mesures, une seule planche.
-4. **PORTE 2 = vous regardez la carte du biais.**
-   - biais négligeable → clos par une note (résultat négatif tracé) ;
-   - biais réel → **correction expérimentale** (comptages corrigés dans `work/expe/`)
-     comparée par planche + mesures ; `run_terrain.py` ne sera touché que par un commit
-     de code propre post-porte.
+**Question unique de la porte :** *le recouvrement de dalles introduit-il une
+surdensité suffisamment importante pour modifier visiblement le raster végétation
+produit ?*
 
-Le critère « biais divisé par 2 » de la v1 est abandonné : arbitraire.
+**Fenêtre O2 gelée** (nouvelle ; à consigner dans `work/expe/phase0_notes.md`) :
+500 × 500 m centrée sur **(449420, 6887000)** L93 — la frontière inter-tuiles
+0449_6887/0449_6888 y passe au milieu, donc la bande de recouvrement (V0.6 :
+~30 m) est au **centre** de la planche, pas sur un bord. Les deux dalles sont
+chargées **ensemble** (un seul pipeline PDAL listant les deux fichiers) : c'est
+la seule manière de voir les points comptés deux fois. **Zone témoin** = même
+fenêtre hors ±50 m autour de la frontière (même forêt, sans recouvrement) —
+le témoin est dans la planche, pas ailleurs.
+
+1. **Pipelines** `work/expe/pipelines/overlap_A.json` et `overlap_B.json` :
+   mêmes clauses de strates V0.2 (figées), mêmes points, **une seule différence** =
+   présence de `filters.voxeldownsize` (cell 0,5, mode first) dans B. Un writer
+   par strate `low` / `medium` / `high`, 1 m, uint8, emprise O2 (R3).
+2. **Livrables** dans `work/expe/overlap/` :
+   `overlap_map.tif` (bande 0/1), `ratio_low.tif`, `ratio_medium.tif`,
+   `ratio_high.tif`, `overlap_stats.md`, `planche_overlap.png`.
+   `ratio = B / A` calculé **uniquement là où A > 0** ; part des cellules A = 0
+   rapportée en/hors recouvrement (garde-fou no-data).
+3. **Statistiques, par strate :** médiane du ratio **en recouvrement**, médiane
+   du ratio **témoin**, et **différence recouvrement − témoin publiée** (contrôle
+   nul : sans elle, l'effet de voxeldownsize sur le signal réel est indiscernable
+   de son effet sur les doublons). Plus, informatif sur le mécanisme (jamais un
+   critère) : part des points LAS classe 12 (overlap inter-lignes de vol, mesure
+   OCAD) en/hors bande ; et une ligne « A chargé ensemble ressemble-t-il à la
+   production dans la bande ? » (compare A au panneau 1) — elle tranchera plus
+   tard comment la production mosaïque réellement.
+4. **Planche** `planche_overlap.png`, même emprise O2, bande de recouvrement et
+   zone témoin hachurées, quatre panneaux aux titres **sans préjugé** :
+   (1) **production actuelle** (mosaïque `_vege.png` existante recadrée sur O2 —
+   aucun rerun) ; (2) **densité A** = comptage brut low, dalles chargées
+   ensemble ; (3) **densité B** = après voxeldownsize — *traitement candidat, pas
+   correction prouvée* ; (4) **ratio B/A** (low). Medium/high : petits multiples
+   ou stats seules. L'expérience montre **ce que fait le recouvrement et ce que
+   change voxeldownsize** — pas que voxeldownsize est la bonne correction.
+5. **STOP** après `planche_overlap.png` + `overlap_stats.md`.
+   **PORTE OVL-1 = vous regardez.** Verdict dans `work/expe/JOURNAL.md` + entrée
+   `docs/expe_journal.md` (R4) ; planche copiée dans `docs/images/` seulement au
+   commit de verdict (R2).
+   - surdensité invisible ou négligeable → clos par une note (négatif tracé) ;
+   - surdensité visible → **la correction est un sujet séparé**, ouvert sur go
+     explicite seulement ; rien dans cette phase ne la décide ni ne la code.
 
 ---
 
@@ -310,7 +337,7 @@ enclenché automatiquement par le succès du précédent : chacun demande un go 
 |---|---|
 | 0 | `phase0_notes.md` : sémantique greenshades, JSON strates, inventaire données + bbox planches + équivalence medianboxsize↔mètres (V0.7) |
 | 1 | planche 4 panneaux 1:10 000 produite **et regardée** ; verdict commité (même négatif) — **PORTE 1 NON 2026-10-01, close** (`docs/expe_journal.md`) |
-| 2 | carte du biais + chiffres commités ; décision corrigé/pas-corrigé tracée |
+| 2 (OVL) | stats recouvrement + planche produites **et regardées** ; verdict porte OVL-1 commité (même négatif) ; toute correction = sujet séparé sur go explicite |
 | 3 | planche A/B commitée ; verdict ; si positif, code propre + paramètre gelé |
 | 4 | chaque sujet a son verdict, renoncements compris ; propose409 éventuel raccordé au plan 2 V5 ; 4b/4e/4f enclenchés seulement sur go explicite |
 

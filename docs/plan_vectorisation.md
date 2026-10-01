@@ -45,7 +45,9 @@
 - **Statut 2026-10-01 :** la source de correction (plan 1 Phase 3) est close par la
   porte 1 NON. V2 reste exécutable en **mesure + décision d'accepter** (coutures
   documentées dans `docs/bilan_v0.md`) ; une éventuelle correction devient un sujet
-  séparé, hors de ce plan.
+  séparé, hors de ce plan. Référence nouvelle : expérience **OVL** (plan 1 §3, porte
+  OVL-1) — si cette porte ouvre un sujet de correction et qu'il est validé, V2 s'y
+  raccorde ; d'ici là, V2 = mesure + décision d'accepter.
 - Mesure autonome (sans P1) : diff de classes le long des joints de tuiles sur le
   raster mosaïqué, **avec contrôle nul** : même mesure sur des pseudo-joints (mêmes
   lignes décalées à l'intérieur d'une tuile) — sans contrôle nul, n'importe quelle
