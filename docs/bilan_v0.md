@@ -677,3 +677,4 @@ vers KP**, où les couches 406/408/410 étaient encore injectées dans le `.omap
 | 13 | Fenêtres verticales alternatives | [0,3–1,5 m] vs [0,3–3,0 m] | AUC détériore, couverture divise par 3 |
 | 14 | Agrégation spatiale 2 m/5 m/10 m | AUC global et conditionnel | Gain marginal (+0,004 global) ; plafond non levé |
 | 15 | Intensité de retour HAG[0,3:3,0 m] | AUC FN_406 vs blanc | AUC=0,364 (inversé=0,636) — gradient physiquement incohérent ; biais de sélection |
+| 16 | Strate basse LiDAR comme canal undergrowth | Planche Phase 1 — 4 candidats (C1–C4), σ=2 m, seuil 0,5–1,0 pt/m² | Couverture 38–76 % sur fen3_410 — signal trop diffus, non discriminant (Porte 1 NON, 2026-10-01) |
