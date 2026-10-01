@@ -178,7 +178,7 @@ Implémentation de référence : `work/expe/undergrowth/expe_undergrowth.py`
 > `config.yaml`, ni `kp_raster.py`, ni `main.py`.
 
 > **PORTE OVL-1 (2026-10-01) : OUI — surdensité significative.** Juge : agent,
-> sur délégation explicite ; chiffres, lect ures et mécanisme (passes de vol
+> sur délégation explicite ; chiffres, lectures et mécanisme (passes de vol
 > convergentes en bord de tuile, pas doublon inter-tuiles) dans
 > `docs/expe_journal.md`. Clause visuelle panneau 1 à confirmer au commit de
 > verdict. **Sujet correction non ouvert — go explicite requis.**
