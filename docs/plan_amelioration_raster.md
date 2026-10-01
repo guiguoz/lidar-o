@@ -334,6 +334,115 @@ Ne rien faire au-delà de cette étape. Livrables minimaux avant jugement :
 
 Aucun changement de production n'est effectué par OVL-1.
 
+### 7. Sujet conditionnel OVL-2 — audit des basculements de classe (second go)
+
+> **Mesure seule. Aucun code de correction, aucune modification du pipeline,
+> aucun paramètre KP.** Porte explicite à la fin (PORTE OVL-2) : sans second
+> feu vert, rien ne s'écrit ensuite. Aucun commit avant relecture (R2).
+
+**Ce que OVL-1 a établi :** surdensité réelle en bande frontière (low 1,25× ·
+medium 1,35× · high 1,85× vs témoin) ; voxeldownsize retire proportionnellement
+plus en frontière (B/A 0,33–0,52 vs 0,50–0,68) ; aucune couture **visible** dans
+la production sur O2 ; voxeldownsize disqualifié comme correctif (il lave le
+signal partout : 32–50 % de réduction hors de tout recouvrement).
+
+**Le défaut est comptable. Il n'est pas démontré cartographique.** « Pas ici »
+n'est pas « pas ailleurs » : O2 est une fenêtre aux comptages loin des seuils
+(4→5, 20→27, 92→170 pts/m²) ; une couture traversant une densité proche d'un
+seuil `greenshades` basculerait de classe — et 30 m à 1:10 000 font 3 mm de
+liseré : visible si ça bascule, invisible sinon.
+
+#### 7.1 Question unique
+
+> **Existe-t-il, sur l'ensemble de la carte, des basculements de classe alignés
+> sur une couture de dalle ?**
+
+- **OUI** → le défaut est cartographique ; les étapes 2 et 3 s'ouvriront, sur un
+  second go explicite.
+- **NON** → le recouvrement rejoint `bilan_v0.md` comme caractéristique de
+  production documentée et close.
+
+#### 7.2 Entrées et références
+
+- **Raster d'entrée :** mosaïque de production **telle quelle**
+  (`output/vegetation.png` + pgw, 1 m/px, classes 406/408/410 + ouvert/blanc).
+  Aucun recalcul, aucune réinterprétation.
+- **Coutures :** arêtes internes entre tuiles réellement utilisées en production
+  (liste depuis `out_kp_grimbosq/`), deux orientations.
+- **Référence du test d'alignement :** la **ligne nominale de coupe** (droite par
+  construction). **Corridor de recherche :** bande M1∧M2 de OVL-1 (§2), ou ±25 m
+  là où M1∧M2 n'est pas calculable. Ne pas aligner sur le bord de M1∧M2 : c'est
+  la ligne nominale qui est rectiligne par construction.
+
+#### 7.3 Critère : alignement exact, pas proximité
+
+- **Mauvais :** appartenance à une bande ±25 m — une limite de parcelle peut s'y
+  trouver par hasard.
+- **Bon :** écart à la ligne nominale **au pixel** (±1 px = 1 m) ; écart médian ;
+  longueur sur laquelle l'alignement se maintient.
+
+Détection opérationnelle : pixels de frontière de classe
+(classe(x, y) ≠ classe(x, y−1) pour une couture horizontale ; symétrique en x
+pour une verticale) ; **segment aligné** = run maximal de pixels de frontière
+avec |y − y0| ≤ 1 px. **Contrôle nul par ligne :** comptage des transitions par
+ligne dans le corridor, niveau de chance = médiane des lignes hors ±2 px ;
+excès sur la ligne rapporté. Sans ce niveau de chance, toute frontière
+rectiligne qui passe là augmente mécaniquement la densité de transitions.
+
+> Un artefact de recouvrement est rectiligne par construction — il suit la limite
+> de dalle. Une structure du terrain ne l'est que par coïncidence, et pas sur
+> toute sa longueur.
+
+#### 7.4 Candidat prioritaire — à traiter en premier
+
+Fenêtre O2, tiers droit, x > 449500 : un bord vert/beige court dans la bande.
+Lecture actuelle : **limite de parcelle** (bord rectiligne aligné avec les rangs
+de plantation visibles en densité A ; contresens physique : une surdensité de
++85 % sur la strate haute pousse vers PLUS de vert, jamais vers du découvert —
+un artefact de couture VERDIRAIT la bande, il ne l'ouvrirait pas).
+
+Test : y de frontière par x sur [449500, 449670] → médiane, IQR,
+max |y − 6887000|, et longueur sur laquelle |y − 6887000| ≤ 1 px.
+
+- y exactement 6887000 sur plusieurs dizaines de mètres → la lecture « parcelle »
+  est contredite, et l'inférence du contresens physique tombe avec elle ;
+- sinon → elle est confirmée.
+
+> Vérification qui apprend dans les deux sens : si les chiffres contredisent
+> l'œil, ce sont les chiffres qui gagnent.
+
+#### 7.5 Périmètre par couture
+
+Pour chaque couture de l'emprise : nombre de transitions de classe dans le
+corridor ; part de ces transitions alignées au pixel sur la ligne ; longueur
+cumulée des segments alignés ; classes concernées et **sens du basculement**
+(classe dans la bande vs classe juste hors corridor) : une surdensité doit faire
+*monter* d'une classe de vert (406→408→410), jamais descendre — un basculement
+dans le mauvais sens signale autre chose qu'un recouvrement.
+
+#### 7.6 Ne pas faire
+
+- ❌ écrire du code de correction (étape 2, elle attend un second go) ;
+- ❌ modifier pipeline, voxeldownsize, paramètres KP ;
+- ❌ conclure « aucun problème » depuis une non-détection sur une seule fenêtre
+  (le NON de cet audit est un résultat mesuré map-wide, pas une absence locale) ;
+- ❌ tolérance d'alignement large : elle confondrait parcelles et artefacts.
+
+#### 7.7 STOP — PORTE OVL-2
+
+Livrables dans `work/expe/overlap/audit/` : `audit_stats.md`,
+`aligned_segments.tif` (ou geojson par couture), `planche_audit.png` (segments
+alignés superposés à la production, s'il y en a). Rapporter : résultat du test
+candidat (y exact, longueur) ; par couture : transitions, part alignée,
+longueur, classes et sens ; planche. **Puis STOP.**
+
+- aucun basculement aligné → note de clôture dans `bilan_v0.md` :
+  « recouvrement de dalles : surdensité mesurée, sans effet cartographique
+  constaté sur l'emprise de Grimbosq » ; sujet **CLOS** ; verdict + note
+  commités (R4), planche dans `docs/images/` au commit de verdict seulement ;
+- basculements alignés trouvés → ampleur et localisation rapportées ; les
+  étapes 2 et 3 attendent un **SECOND GO** explicite.
+
 ---
 
 ## 4. PHASE 3 — médian vs gaussien : même signal, mêmes seuils
