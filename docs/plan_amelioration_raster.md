@@ -31,7 +31,8 @@
 | R6 | Les seuils expérimentaux vivent dans `work/expe/configs/*.yaml`. `config.yaml` de production ne reçoit un paramètre **qu'après** porte passée et commit de code propre. |
 | R8 | **Une piste close reste close.** Undergrowth (porte 1 NON) : aucun seuil,
 | strate, sigma ou fenêtre nouveau sur cette piste ; aucune réutilisation de ses
-| sorties ailleurs sans étiquette explicite (l'expérience OVL n'en réutilise aucune). |
+| sorties ailleurs sans étiquette explicite — l'expérience OVL (§3) ne réutilise
+| que les trois strates V0.2 figées, en sorties de mesure, et le dit. |
 | R7 | **Une hypothèse n'est jamais un fait.** Tout énoncé portant sur *nos* données (Grimbosq, tuiles IGN, biais, sous-bois) est une hypothèse à mesurer ; seuls les énoncés sur les logiciels tiers (KP, Cassini, OCAD) sont des relevés de source, cités avec fichier/ligne. Aucune phrase du plan ne préjuge du résultat d'une porte. |
 
 Arborescence expérimentale :
@@ -165,58 +166,163 @@ Implémentation de référence : `work/expe/undergrowth/expe_undergrowth.py`
 
 ## 3. PHASE 2 — recouvrement de dalles : expérience indépendante (porte OVL-1)
 
-> **Réouverte 2026-10-01 sur go explicite, après porte 1 NON :** le recouvrement
-> n'est plus un sous-étage de la piste undergrowth mais une question de **qualité
-> du signal de production**, indépendante de tout canal végétation. Aucun seuil,
-> strate, sigma ni fenêtre de la piste close n'est réutilisé ici (R8).
+> **Réouverte le 2026-10-01 sur go explicite, après Porte 1 = NON :** le
+> recouvrement n'est plus un sous-étage de la piste undergrowth. C'est une
+> question indépendante de **qualité du signal de production**.
+>
+> Aucun seuil, strate expérimentale, sigma ou fenêtre de la piste undergrowth
+> close n'est réutilisé ici, à l'exception des **trois strates V0.2 déjà figées**
+> (`low`, `medium`, `high`) utilisées uniquement comme sorties de mesure.
+>
 > **Production intouchée :** ni `run_terrain.py`, ni `process_hag.py`, ni
 > `config.yaml`, ni `kp_raster.py`, ni `main.py`.
 
-**Question unique de la porte :** *le recouvrement de dalles introduit-il une
-surdensité suffisamment importante pour modifier visiblement le raster végétation
-produit ?*
+### Question unique de la porte
 
-**Fenêtre O2 gelée** (nouvelle ; à consigner dans `work/expe/phase0_notes.md`) :
-500 × 500 m centrée sur **(449420, 6887000)** L93 — la frontière inter-tuiles
-0449_6887/0449_6888 y passe au milieu, donc la bande de recouvrement (V0.6 :
-~30 m) est au **centre** de la planche, pas sur un bord. Les deux dalles sont
-chargées **ensemble** (un seul pipeline PDAL listant les deux fichiers) : c'est
-la seule manière de voir les points comptés deux fois. **Zone témoin** = même
-fenêtre hors ±50 m autour de la frontière (même forêt, sans recouvrement) —
-le témoin est dans la planche, pas ailleurs.
+> **Le recouvrement réel entre les deux dalles introduit-il une surdensité
+> suffisamment importante pour modifier visiblement le raster végétation
+> produit ?**
 
-1. **Pipelines** `work/expe/pipelines/overlap_A.json` et `overlap_B.json` :
-   mêmes clauses de strates V0.2 (figées), mêmes points, **une seule différence** =
-   présence de `filters.voxeldownsize` (cell 0,5, mode first) dans B. Un writer
-   par strate `low` / `medium` / `high`, 1 m, uint8, emprise O2 (R3).
-2. **Livrables** dans `work/expe/overlap/` :
-   `overlap_map.tif` (bande 0/1), `ratio_low.tif`, `ratio_medium.tif`,
-   `ratio_high.tif`, `overlap_stats.md`, `planche_overlap.png`.
-   `ratio = B / A` calculé **uniquement là où A > 0** ; part des cellules A = 0
-   rapportée en/hors recouvrement (garde-fou no-data).
-3. **Statistiques, par strate :** médiane du ratio **en recouvrement**, médiane
-   du ratio **témoin**, et **différence recouvrement − témoin publiée** (contrôle
-   nul : sans elle, l'effet de voxeldownsize sur le signal réel est indiscernable
-   de son effet sur les doublons). Plus, informatif sur le mécanisme (jamais un
-   critère) : part des points LAS classe 12 (overlap inter-lignes de vol, mesure
-   OCAD) en/hors bande ; et une ligne « A chargé ensemble ressemble-t-il à la
-   production dans la bande ? » (compare A au panneau 1) — elle tranchera plus
-   tard comment la production mosaïque réellement.
-4. **Planche** `planche_overlap.png`, même emprise O2, bande de recouvrement et
-   zone témoin hachurées, quatre panneaux aux titres **sans préjugé** :
-   (1) **production actuelle** (mosaïque `_vege.png` existante recadrée sur O2 —
-   aucun rerun) ; (2) **densité A** = comptage brut low, dalles chargées
-   ensemble ; (3) **densité B** = après voxeldownsize — *traitement candidat, pas
-   correction prouvée* ; (4) **ratio B/A** (low). Medium/high : petits multiples
-   ou stats seules. L'expérience montre **ce que fait le recouvrement et ce que
-   change voxeldownsize** — pas que voxeldownsize est la bonne correction.
-5. **STOP** après `planche_overlap.png` + `overlap_stats.md`.
-   **PORTE OVL-1 = vous regardez.** Verdict dans `work/expe/JOURNAL.md` + entrée
-   `docs/expe_journal.md` (R4) ; planche copiée dans `docs/images/` seulement au
-   commit de verdict (R2).
-   - surdensité invisible ou négligeable → clos par une note (négatif tracé) ;
-   - surdensité visible → **la correction est un sujet séparé**, ouvert sur go
-     explicite seulement ; rien dans cette phase ne la décide ni ne la code.
+### Fenêtre O2 gelée
+
+Nouvelle fenêtre, à consigner dans `work/expe/phase0_notes.md` :
+
+- centre : **(449420, 6887000)** en Lambert-93 ;
+- dimensions : **500 × 500 m** ;
+- la frontière entre `0449_6887` et `0449_6888` traverse le centre de la fenêtre ;
+- la bande de points effectivement fournie par les deux dalles, identifiée en
+  V0.6, est d'environ **30 m** et se trouve donc au centre de la planche ;
+- les deux dalles sont toujours chargées ensemble pour les traitements A et B.
+
+**Zone témoin :** dans cette même fenêtre O2, utiliser les cellules situées à
+plus de **50 m de la frontière**, hors zone de recouvrement, comme contrôle
+interne. Ne pas utiliser une autre emprise comme témoin.
+
+### 1. Pipelines contrôlés
+
+Créer :
+
+```text
+work/expe/pipelines/overlap_A.json
+work/expe/pipelines/overlap_B.json
+```
+
+A et B doivent recevoir exactement le même ensemble de points d'entrée :
+les deux dalles chargées ensemble.
+
+Les deux pipelines utilisent :
+
+- les mêmes filtres et le même ordre que V0.2 ;
+- les mêmes clauses de strates V0.2 ;
+- la même emprise O2 ;
+- une résolution de 1 m ;
+- un writer par strate low / medium / high ;
+- uint8.
+
+Une seule différence :
+
+- A = comptage brut ;
+- B = comptage après `filters.voxeldownsize` (cell = 0,5 m, mode = first).
+
+Aucune autre modification de traitement n'est autorisée.
+
+### 2. Carte réelle du recouvrement
+
+Construire `overlap_map.tif` à partir des points effectivement présents dans
+chaque dalle, et non à partir de l'intersection de leurs bbox nominales :
+**on mesure le recouvrement des points, pas le recouvrement administratif des
+tuiles** — c'est le verrou clé de l'expérience.
+
+Pour chaque dalle, produire un masque de présence sur la grille O2
+(implémentation : deux pipelines minimaux, un par dalle isolée, comptage
+tous-points sans clause where sur O2 ; M = comptage > 0) :
+
+- M1 = au moins un point de `0449_6887` dans la cellule ;
+- M2 = au moins un point de `0449_6888` dans la cellule ;
+
+puis `overlap_map = M1 AND M2`, avec :
+
+- 0 = une seule dalle fournit des points ;
+- 1 = les deux dalles fournissent des points.
+
+La bande obtenue doit être cohérente avec le recouvrement d'environ 30 m observé
+en V0.6. Cette définition est la référence spatiale de toute la phase OVL-1.
+
+### 3. Livrables
+
+Dans `work/expe/overlap/`, produire : `overlap_map.tif`, `ratio_low.tif`,
+`ratio_medium.tif`, `ratio_high.tif`, `overlap_stats.md`, `planche_overlap.png`.
+
+Pour chaque strate : `ratio = B / A`, calculé uniquement pour les cellules où
+`A > 0`. Les cellules A = 0 sont rapportées séparément (part A=0 dans la zone
+overlap, part A=0 dans la zone témoin) : elles constituent un garde-fou de
+couverture et ne doivent pas être utilisées comme ratios.
+
+### 4. Statistiques
+
+Pour low, medium et high, rapporter séparément :
+
+- médiane du ratio B/A dans overlap ;
+- médiane du ratio B/A dans témoin ;
+- **différence overlap − témoin**.
+
+La comparaison overlap − témoin est obligatoire : elle permet de distinguer
+l'effet général de voxeldownsize sur le signal de l'effet spécifique du double
+apport de points dans la zone de recouvrement.
+
+Ajouter, uniquement comme informations mécanistiques :
+
+- part des points LAS de classe 12 dans la bande de recouvrement ;
+- part des points LAS de classe 12 dans la zone témoin ;
+- comparaison du comptage A avec le signal de la production actuelle dans la
+  bande de recouvrement.
+
+Cette dernière comparaison répond uniquement à la question : le comptage A
+chargé ensemble reproduit-il le comportement observé dans la production
+actuelle ? Elle ne constitue pas une mesure de qualité cartographique.
+
+Aucune de ces statistiques n'est un critère numérique de passage.
+
+### 5. Planche `planche_overlap.png`
+
+Même emprise O2, même échelle 1:10 000. Localiser visuellement :
+
+- la bande réelle de recouvrement ;
+- la zone témoin située à plus de 50 m de la frontière.
+
+Produire quatre panneaux, avec des titres descriptifs et sans préjuger du
+résultat :
+
+1. **Production actuelle** — mosaïque `_vege.png` existante, simplement recadrée
+   sur O2 ; aucun rerun ;
+2. **Densité A** — comptage low brut, les deux dalles chargées ensemble ;
+3. **Densité B** — même comptage après voxeldownsize ; traitement expérimental,
+   pas correction validée ;
+4. **Ratio B/A** — strate low.
+
+medium et high sont traités par les statistiques et peuvent être montrés en
+petits multiples uniquement si cela améliore la lecture.
+
+La planche doit permettre de voir **ce que produit réellement le recouvrement +
+ce que change voxeldownsize**, et pas de démontrer à l'avance que voxeldownsize
+constitue la bonne correction.
+
+### 6. STOP — Porte OVL-1
+
+Ne rien faire au-delà de cette étape. Livrables minimaux avant jugement :
+`planche_overlap.png`, `overlap_stats.md`, `overlap_map.tif`.
+
+**PORTE OVL-1 = jugement humain sur la planche.** Tracer le verdict dans
+`work/expe/JOURNAL.md` et `docs/expe_journal.md` ; la planche est copiée dans
+`docs/images/` uniquement avec le commit du verdict.
+
+- Si la surdensité est invisible ou négligeable : fermer cette piste par une
+  note documentée.
+- Si la surdensité est visiblement significative : ne pas corriger dans cette
+  phase ; ouvrir uniquement sur go explicite une nouvelle expérience consacrée
+  à la correction du recouvrement.
+
+Aucun changement de production n'est effectué par OVL-1.
 
 ---
 
