@@ -8,6 +8,9 @@
 > (`docs/plan_amelioration_raster.md`) ; les tâches dépendantes sont marquées « P1-Phase n » (plan 1 v2, expériences à portes).
 > **Interdit :** nouveau vectoriseur (CoVe/potrace/graphe de frontières — écartés,
 > protocole §3), ML/scoring, modification des étapes 1–9 du moteur sans mesure corpus.
+> **Veille vectorisation pro (Illustrator, cartes O réelles, ISOM, OCAD, LivElox) : §5** —
+> stratégies S1–S7 intégrées comme mesures, références et variantes ; jamais portes
+> (le jugement visuel humain reste la seule porte, R1 du plan 1), jamais dépendances.
 
 ---
 
@@ -58,6 +61,11 @@
   `coverage_simplify`. Test : remplacer DP+Chaikin par (DP léger → coverage_simplify →
   Chaikin) sur le corpus de calibration ; comparer sommets, médiane mm², % < 1 mm²,
   et **chevauchements résiduels** (doit rester 0).
+- **Variante « coins » (S1, Illustrator) :** Chaikin arrondit les angles ; les traceurs
+  pro les préservent (slider « Corners »). Comparer deux variantes : Chaikin actuel vs
+  simplification **préservant les coins** (DP seul avec epsilon, ou Chaikin à coins
+  verrouillés — angles nets conservés). Distribution des angles de coin avant/après
+  dans la table d'acceptation.
 - **Acceptation :** table avant/après sur corpus : sommets, médiane mm² et % < 1 mm²
   ISOM, **chevauchements (doivent rester 0) et lacunes inter-classes** (slivers blancs
   entre 406/408/410 : Chaikin par polygone après coverage_simplify casse les frontières
@@ -91,15 +99,37 @@
   couche surfacique 409 dans `src/omap_writer.py`, même pipeline de généralisation
   (aire mini ISOM 409 = 0,7 × 0,7 mm, comme 408 — à geler dans config), **exclue de
   `coverage_partition`** (superposition par conception), documenté.
+  Taguer chaque objet `propose409` (tag OOM) à l'écriture : réaffectation groupée
+  possible via `Edit > Find` (tag) → `Convert to object` (S6, workflow pro OOM).
+- **Étalonnage informatif par allures GPS (S5) :** si des traces GPX d'épreuves sur
+  Grimbosq existent (LivElox / 3D Rerun) **et** avec l'accord des organisateurs,
+  calculer l'allure agrégée par classe de vert (blanc / 406 / 408 / 410) et la
+  confronter aux plages de runnability IOF (≈ 100 % / slow running / walk /
+  fight / 0–20 %). Rapporté à côté de la planche ; **jamais une porte** — la
+  runnability reste un jugement de cartographe (BKO : « there is no precise way of
+  measuring runnability »). Données personnelles : statistiques agrégées uniquement,
+  aucune trace republiée.
 - **Acceptation :** `.omap` avec 4 calques verts dont un marqué « pour revue » ;
   planche OOM ; décision humaine finale sur le devenir de chaque objet 409.
 
 ### V6 — QA comparée des deux sources
 - Même terrain, `vegetation.source: kp` puis `pdal` : table `qa.py` (rappel 406/408/410,
   n objets, médiane mm², chevauchements) + planche 3 panneaux **regardée** (R1).
+- **Planche de référence pro (S3) :** la carte de Grimbosq de décembre 2015 (CO
+  Pédestre / Orientation Caennaise, doma go78.org via omaps.worldofo.com —
+  versions **sans tracés** disponibles) géoréférencée (3 points) en panneau
+  supplémentaire : référence dessinée par des humains sur le même terrain. JPG
+  seulement (worldofo ne publie pas les fichiers vectoriels) : comparaison visuelle,
+  pas de statistiques de polygones.
+- **Vocabulaire ISOM §2.6 (S2) pour le compte rendu :** généralisation *sélective*
+  (dimensions mini, ce qu'on omet) vs *graphique* (simplification, déplacement,
+  exagération) ; la lisibilité ne doit jamais être sacrifiée au détail ; les
+  frontières nettes entre végétations sont des points de repère du lecteur — la
+  topologie (0 chevauchement, 0 lacune) de V3/V4 est une exigence ISOM, pas
+  seulement interne.
 - Y adjoindre le **contrôle des tailles mini ISOM par symbole** (stratégie OCAD
   « Check Legibility Space » : aires minimales ISOM 2017 comme aide à la
-  généralisation ; OCAD ne contrôle pas les largeurs minimales — nous sí : métriques
+  généralisation ; OCAD ne contrôle pas les largeurs minimales — nous, si : métriques
   de largeur/isthmes déjà dans le moteur), en aide informative, jamais en arbitre.
 - Comparateur externe optionnel : « Extract Features » / « Vegetation Base Map » d'OCAD
   (vectorisation végétation native) si licence OCAD disponible — OCAD prévient lui-même
@@ -132,6 +162,10 @@
 - OCAD (propriétaire) : stratégies lues sur le wiki public, aucun code copié ; ses
   sorties (Vegetation Base Map, Extract Features) ne sont que des comparateurs
   externes optionnels, jamais des dépendances ni des références.
+- Traces GPS (LivElox / 3D Rerun) : données personnelles — statistiques agrégées
+  seulement, accord des organisateurs/utilisateurs ; jamais une porte.
+- Logiciels pro (Illustrator, OCAD…) : stratégies et vocabulaire repris de leurs
+  documentations publiques ; aucun code ni binaire propriétaire dans le pipeline.
 - Les 3 tests en échec pré-existants sur `main` (`test_init_terrain` check, georef
   450 000 vs 449 000) sont **hors périmètre** : ne pas les « corriger » pour faire
   passer une CI, ouvrir une note distincte.
@@ -144,3 +178,18 @@
 4. Recommandation kp-vs-pdal écrite par type de terrain.
 5. Le protocole (`protocole_vectorisation_kp.md`) ne contient plus aucun chiffre
    synthétique non remplacé ou explicitement marqué « démo ».
+
+## 5. Veille — stratégies de vectorisation pro (2026-10-01)
+
+Même statut que la veille OCAD : **stratégies, références et mesures — jamais
+dépendances, jamais portes.**
+
+| # | Stratégie | Source | Intégration |
+|---|---|---|---|
+| S1 | **Image Trace** (Illustrator) : 5 réglages — Threshold, Paths (fidélité), Corners (préservation des angles), Noise (nombre minimal de pixels adjacents ignoré), Ignore White (fond) — puis nettoyage pro : `Object > Path > Simplify` (« le minimum de points qui tient la forme »), alignement des ancres vacillants (Direct Selection + Align), `Clean up` des objets non peints | helpx.adobe.com « Image tracing presets » ; tutoriels pro | Équivalents déjà présents : Threshold = greenshades (gelé), Noise = aire mini ISOM (V6), Ignore White = fond, Clean up = contrôle orphelins (V4). **Apport nouveau : Corners → variante de V3** (Chaikin arrondit les coins ; les traceurs pro les préservent) |
+| S2 | **ISOM 2017-2 §2.6** : la généralisation a deux phases — *sélective* (choisir ce qu'on représente ; dimensions mini adoptées dès le relevé) et *graphique* (simplification, déplacement, exagération). « La lisibilité ne doit jamais être sacrifiée pour représenter un excès de détails » ; la cohérence entre cartes est une qualité première ; **les frontières nettes entre types de végétation sont des points de repère du lecteur** | ISOM 2017-2, PDF bilingue FFCO (mars 2022) ; baoc.org | Vocabulaire et critères de V6 ; V3/V4 : la topologie (0 chevauchement, 0 lacune, frontières partagées) est une exigence ISOM, pas seulement une propreté interne |
+| S3 | **Carte pro du même terrain** : Grimbosq la Motte, 6 déc. 2015 — « One-man relais RDE » et « WE RDE court-long » (CO Pédestre / Orientation Caennaise ; collection Axel Pannier). JPG **sans tracés** téléchargeable ; worldofo ne publie **aucun fichier vectoriel** | omaps.worldofo.com id 159467/159468 → doma go78.org | V6 : panneau de référence supplémentaire (géoréférencement 3 points) ; comparaison visuelle uniquement, pas de statistiques de polygones |
+| S4 | **OCAD contrôle les dimensions mini IOF pendant le dessin** (indicateur vert/rouge + % trop petit), en plus de Check Legibility Space en fin de carte ; le mapper du WOC 2025 (Janne Weckman, ~50 km² dont 20 km² WOC) l'utilise en contrôle final | ocad.com/blog (tag ISOM 2017 ; interview Weckman) | V6 (tailles mini déjà intégrées) ; référence pour l'édition manuelle dans OOM : « dessiner assez grand ou omettre » |
+| S5 | **LivElox / 3D Rerun** : traces GPS téléchargeables (GPX), allures par patte ; runnability IOF = plages de vitesse (blanc ≈ 100 %, 406 slow running, 408 walk, 410 fight, 411 impassable ≈ 0–20 %) mais « there is no precise way of measuring runnability — c'est un jugement du cartographe » | livelox.com/documentation ; bko.org.uk KYS-Vegetation.pdf | V5 : allure agrégée par classe de vert = étalonnage **informatif** des bandes de vitesse (accord organisateurs requis ; données personnelles : agrégats seulement) ; confirme R1 |
+| S6 | **OOM pro workflow** : `Edit > Find` par tag d'objet → sélection groupée → `Convert to object` (utilisé p. ex. pour réaffecter les courbes importées de Karttapullautin) | attackpoint.org (Jagge) | V5 : taguer les objets `propose409` à l'écriture pour permettre la réaffectation groupée dans OOM |
+| S7 | **Karttapullautin = KP, notre propre outil** (auteur Jarkko Ryyppä, « Jagge ») : réglage conseillé — clip représentatif contenant tous les types de vert, `greenshades` à 3–4 valeurs + `99` pour sauter une nuance, éclaircissage sans effet ≥ 2 pts/m² ; **« benchmark patches »** (JWOC 2015) : cercles à végétation connue → histogrammes LiDAR → étalonnage — code privé, **absent du KP public** (vérifié par grep) | attackpoint.org ; orienteeringbc.ca ; whorienteers.net | Pas un comparateur (c'est notre moteur) : conseils vers le plan 1 (sujet 4f benchmark patches ; annexe F13–F14) |

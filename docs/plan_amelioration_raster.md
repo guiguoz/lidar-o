@@ -4,8 +4,9 @@
 > est remplacée : trop ambitieuse, elle mélangeait diagnostic, amélioration et
 > modification de production, et laissait `qa.py` décider à la place du cartographe.
 > **Brief destiné à Claude Code (ou tout exécutant).** Autonome.
-> **Veille mapant.fr/Cassini/OCAD en annexe :** F1–F6, F8 et F10–F12 sont des relevés
-> de source (fichier/ligne) ; F7 et F9 sont des **inférences**, marquées comme telles.
+> **Veilles en annexe (mapant.fr/Cassini/OCAD/vectorisation pro) :** F1–F6, F8 et
+> F10–F17 sont des relevés de source ; F7 et F9 sont des **inférences**, marquées
+> comme telles.
 > **Production intouchée tant que la porte 1 n'est pas passée :** `config.yaml`,
 > `scripts/run_terrain.py`, `scripts/process_hag.py`, `src/kp_raster.py`, `main.py`.
 
@@ -238,6 +239,18 @@ enclenché automatiquement par le succès du précédent : chacun demande un go 
   lisibles sur le wiki public sans licence, planches comparatives seulement si licence
   disponible. Contrôle indépendant, jamais une dépendance ; les défauts OCAD
   (Steinhauserwald, canton de Zurich) sont des priors, pas des valeurs.
+- **4f étalonnage « benchmark patches »** (optionnel, go explicite, après 4e ;
+  technique Jagge/JWOC 2015, voir plan 2 §5 S7) : l'utilisateur place **par jugement**
+  une dizaine de cercles (rayon ~10 m) sur la fenêtre V0.4 dont le type de végétation
+  est connu (blanc / vert léger / moyen / foncé). Le script mesure sur ces cercles les
+  histogrammes des strates issues des comptages de la Phase 1 et rapporte la position
+  des seuils `greenshades` et des candidats undergrowth par rapport aux distributions
+  réelles de chaque classe. **Étalonnage informatif, jamais une porte** (R1) ; aucune
+  campagne terrain nécessaire (connaissance du terrain + cartes existantes suffisent).
+  Le mécanisme existait dans le code privé de Jagge pour JWOC 2015 ; **absent du KP
+  public** (vérifié par grep) → implémentation externe sur nos comptages. Rappel :
+  `greenshades` est gelé par jugement utilisateur — 4f **documente** l'adéquation,
+  il ne rouvre la décision que sur demande explicite de l'utilisateur.
 
 ---
 
@@ -261,11 +274,11 @@ enclenché automatiquement par le succès du précédent : chacun demande un go 
 | 1 | planche 4 panneaux 1:10 000 produite **et regardée** ; verdict commité (même négatif) |
 | 2 | carte du biais + chiffres commités ; décision corrigé/pas-corrigé tracée |
 | 3 | planche A/B commitée ; verdict ; si positif, code propre + paramètre gelé |
-| 4 | chaque sujet a son verdict, renoncements compris ; 409 éventuel raccordé au plan 2 V5 ; 4b enclenché seulement sur go explicite |
+| 4 | chaque sujet a son verdict, renoncements compris ; propose409 éventuel raccordé au plan 2 V5 ; 4b/4e/4f enclenchés seulement sur go explicite |
 
 ---
 
-## Annexe — veille Cassini/mapant (résumé de la v1, sources vérifiées 2026-09-30)
+## Annexe — veilles Cassini/mapant/OCAD/vectorisation pro (sources vérifiées 2026-09-30 et 2026-10-01)
 
 F1 trois strates (0,1]/(1,4]/(4,30] comptées à 1 m, classification IGN végétation
 ignorée, sol = classe 2 (`lidar.rs`) · F2 undergrowth = canal low lissé gaussienne
@@ -287,6 +300,26 @@ frontières feuillus/résineux, « Extract Features » = vectorisation végétat
 mais « results should be treated with caution » selon l'éditeur · F12 OCAD « Check
 Legibility Space » : contrôle des tailles minimales ISOM 2017 par symbole comme aide
 à la généralisation ; les largeurs minimales ne sont pas contrôlées par OCAD.
+F13 KP = Karttapullautin, auteur Jarkko Ryyppä (« Jagge ») ; réglage pro conseillé
+(attackpoint.org, janv. 2026) : clip représentatif contenant tous les types de vert,
+`greenshades` à 3–4 valeurs + 99 pour sauter une nuance, éclaircissage sans effet sur
+la sortie ≥ 2 pts/m² · F14 « benchmark patches » (JWOC 2015, code privé de Jagge —
+absent du KP public, vérifié) : cercles à végétation connue → histogrammes LiDAR →
+étalonnage ; réimplémentable en externe sur nos comptages (sujet 4f) · F15 ISOM
+2017-2 §2.6 : généralisation en deux phases — sélective (dimensions mini décidées au
+relevé) et graphique (simplification, déplacement, exagération) ; « la lisibilité ne
+doit jamais être sacrifiée » ; frontières nettes entre végétations = points de repère
+du lecteur · F16 runnability = jugement : « there is no precise way of measuring
+runnability » (BKO) ; plages de vitesse IOF par classe (blanc ≈ 100 %, 411 ≈ 0–20 %)
+— conforte R1 ; traces GPS LivElox/3D Rerun téléchargeables (GPX) pour étalonnage
+informatif agrégé · F17 FFCO règlement cartographie (éd. 2020) : les données de base
+(LiDAR, MNT, orthophotos) ne sont pas couvertes par le droit d'auteur et sont
+librement réutilisables ; les cartes de CO doivent être déclarées (FFCO + BNF).
 Sources : github.com/NicoRio42/cassini (GPL-3), github.com/NicoRio42/mapant-scripts,
 mapant.fr/blog/cassini-pour-les-nuls, cassini-map.com/what-and-why, ocad.com/wiki
-(LiDAR_Point_Cloud_Manager, DEM_Import_Wizard, Map) — vérifiées 2026-09-30.
+(LiDAR_Point_Cloud_Manager, DEM_Import_Wizard, Map), omaps.worldofo.com (cartes
+Grimbosq déc. 2015, id 159467/159468 → doma go78.org), attackpoint.org (fils Jagge),
+orienteeringbc.ca/basemap-generation, whorienteers.net/Creating-Base-Maps,
+helpx.adobe.com (Image Trace), ffcorientation.fr (ISOM 2017-2 FR/EN, règlement carto
+2020), bko.org.uk (KYS-Vegetation.pdf), livelox.com/documentation, ocad.com/blog
+(interview J. Weckman) — vérifiées 2026-09-30 et 2026-10-01.
