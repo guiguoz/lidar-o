@@ -121,6 +121,10 @@ zones où le fond KP actuel manque de sous-bois ?*
    qui recouvre 70 % du vert existant peut parfaitement être utile s'il ajoute les
    bonnes petites structures là où elles manquent — aucun critère implicite de
    « nouveauté » (même logique que R1).
+   **Garde-fou no-data** (stratégie OCAD « show area with no data in red ») : les
+   cellules sans aucun retour dans aucune strate ne sont **pas** du découvert ; leur
+   surface est rapportée à côté de la planche et exclue de l'interprétation des
+   candidats (un trou de vol ne doit pas passer pour une clairière).
 5. **PORTE 1 = vous regardez.** Verdict dans `JOURNAL.md` + commit `docs/expe_journal.md`.
    - **NON** → stop définitif du plan sur cette piste ; note dans `bilan_v0.md`
      (« le canal undergrowth n'apporte rien sur nos données » est un résultat).
@@ -143,6 +147,11 @@ Implémentation de référence : `work/expe/undergrowth/expe_undergrowth.py`
    calculé **uniquement sur les cellules où `sans_voxeldownsize > 0`** (les cellules
    vides produiraient des ratios absurdes) ; médiane du ratio en recouvrement vs
    hors recouvrement, par strate.
+   **Mesure dérivée d'OCAD** (wiki LiDAR Point Cloud Manager) : si les tuiles IGN
+   portent des points LAS « overlap » (classe 12, inter-lignes de vol), part de ces
+   points en/hors recouvrement — second levier, indépendant du double-comptage de
+   retours : OCAD seuille ces points au lieu de sous-échantillonner. Deux biais
+   possibles, deux mesures, une seule planche.
 4. **PORTE 2 = vous regardez la carte du biais.**
    - biais négligeable → clos par une note (résultat négatif tracé) ;
    - biais réel → **correction expérimentale** (comptages corrigés dans `work/expe/`)
@@ -184,10 +193,14 @@ KP / `process_hag`, paramètre gelé dans `config.yaml`, planche de décision da
 Chaque sujet = sa planche, sa porte, son verdict. Ordre imposé. **Aucun sujet n'est
 enclenché automatiquement par le succès du précédent : chacun demande un go explicite.**
 
-- **4a fusion undergrowth → verts** : modes `none | merge | layer409` (sémantique
-  Cassini, noms ISOM). `merge` = ajout au canal medium **avant seuillage** (pas un
-  rehaussement de classe). `layer409` = couche .omap 409, **exclue de
-  `coverage_partition`** (409 se superpose par conception) — fait le pont avec le
+- **4a fusion undergrowth → verts** : modes `none | merge | propose409` (sémantique
+  Cassini). `merge` = ajout au canal medium **avant seuillage** (pas un rehaussement
+  de classe). **Pas de `layer409` validante :** ISOM 2017-2 n'a aucune surface
+  « undergrowth » (contrôle du gabarit : 409 = « walk, good visibility » ;
+  « Green 100% for undergrowth » n'est qu'une couleur) — or 407/409 portent un
+  jugement de visibilité, qui est un jugement de terrain. `propose409` = couche
+  séparée dessinée en 409 **pour revue**, réaffectée par le cartographe ; **exclue
+  de `coverage_partition`** (superposition par conception) — fait le pont avec le
   plan 2, tâche V5. Planche propre, porte 4a.
 - **4b seuil KP gaté par l'undergrowth** (piste planche D, ex-4d) : abaissement du
   premier seuil appliqué **seulement là où** le canal undergrowth = 1. **Ce n'est
@@ -201,6 +214,13 @@ enclenché automatiquement par le succès du précédent : chacun demande un go 
 - **4d comparaison mapant.fr** : **d'abord** lire les conditions d'utilisation du
   service de tuiles ; puis planche de diff sur Grimbosq = contrôle indépendant
   (LiDAR HD France grande échelle), jamais une dépendance du produit.
+- **4e croisement OCAD** (optionnel, go explicite, après 4d) : « Vegetation Base Map »
+  du LiDAR Point Cloud Manager (range undergrowth 0,1–1,0 m / vegetation 1,0–3,0 m,
+  seuil de points overlap) et carte d'intensité (frontières feuillus/résineux) en
+  planches de contrôle externe sur la fenêtre V0.4. OCAD est propriétaire : stratégies
+  lisibles sur le wiki public sans licence, planches comparatives seulement si licence
+  disponible. Contrôle indépendant, jamais une dépendance ; les défauts OCAD
+  (Steinhauserwald, canton de Zurich) sont des priors, pas des valeurs.
 
 ---
 
@@ -240,5 +260,14 @@ F7 `mapant-scripts/lidar_delete_overlap` écarte les tuiles en recouvrement → 
 recouvrement LiDAR HD est un problème connu de la production française · F8 lissage
 gaussien sur densités, pas médian sur indices · F9 famille mapant (fi/no/es/lu,
 gokartor.se) = KP, ch = OCAD : **Cassini est le seul moteur avec undergrowth**.
+F10 OCAD LiDAR Point Cloud Manager : range undergrowth (0,1–1,0 m) séparé de la
+végétation, seuil dédié aux points LAS overlap (inter-lignes de vol), garde-fou
+no-data en rouge, défauts calibrés par forêt (Steinhauserwald, Zurich) · F11 OCAD DEM
+Import Wizard : classes de hauteur de végétation configurables, carte d'intensité =
+frontières feuillus/résineux, « Extract Features » = vectorisation végétation native
+mais « results should be treated with caution » selon l'éditeur · F12 OCAD « Check
+Legibility Space » : contrôle des tailles minimales ISOM 2017 par symbole comme aide
+à la généralisation ; les largeurs minimales ne sont pas contrôlées par OCAD.
 Sources : github.com/NicoRio42/cassini (GPL-3), github.com/NicoRio42/mapant-scripts,
-mapant.fr/blog/cassini-pour-les-nuls, cassini-map.com/what-and-why.
+mapant.fr/blog/cassini-pour-les-nuls, cassini-map.com/what-and-why, ocad.com/wiki
+(LiDAR_Point_Cloud_Manager, DEM_Import_Wizard, Map) — vérifiées 2026-09-30.
