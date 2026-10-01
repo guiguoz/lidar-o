@@ -17,6 +17,7 @@
 | TEMPLATE OMAP | FONCTIONNEL |
 | VECTORISATION VÉGÉTATION | SUSPENDUE — _vege mbs2=16 mesuré, critère non atteint |
 | CANAL UNDERGROWTH low (Cassini C1–C4) | ABANDONNÉ — porte 1 NON 2026-10-01 (`docs/expe_journal.md`) |
+| CANAL SOUS-BOIS indicatif (fond de décalque) | OUVERT — phase 0 en attente (`docs/plan_canal_sousbois.md`) ; CLOS définitif si A ≈ C |
 | DOMAINE | FORÊTS NORMANDES CIBLÉES |
 
 ---
