@@ -177,6 +177,12 @@ Implémentation de référence : `work/expe/undergrowth/expe_undergrowth.py`
 > **Production intouchée :** ni `run_terrain.py`, ni `process_hag.py`, ni
 > `config.yaml`, ni `kp_raster.py`, ni `main.py`.
 
+> **PORTE OVL-1 (2026-10-01) : OUI — surdensité significative.** Juge : agent,
+> sur délégation explicite ; chiffres, lect ures et mécanisme (passes de vol
+> convergentes en bord de tuile, pas doublon inter-tuiles) dans
+> `docs/expe_journal.md`. Clause visuelle panneau 1 à confirmer au commit de
+> verdict. **Sujet correction non ouvert — go explicite requis.**
+
 ### Question unique de la porte
 
 > **Le recouvrement réel entre les deux dalles introduit-il une surdensité

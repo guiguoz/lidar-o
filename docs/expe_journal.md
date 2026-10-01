@@ -46,3 +46,40 @@ raster KP actuel. La piste est donc abandonnée sans optimisation supplémentair
 Mesures utiles conservées pour la suite : V0.6 (biais de recouvrement +50 % dans la
 bande), V0.7 (fenêtre effective mbs2=16 → 17 px → 7,20 m → 7 px @1 m/px), C3 = masque
 forestier par dilution, et la planche elle-même (référence de ce que le canal donne).
+
+## Porte OVL-1 — recouvrement de dalles (plan 1 §3) — 2026-10-01 : **OUI (surdensité significative)**
+
+**Juge :** agent, sur délégation explicite de l'utilisateur ; base = `overlap_stats.md`
++ planche `work/expe/planches/planche_overlap.png` décrite (bande ratio nettement
+visible au centre, atténuation vers les témoins). **Clause visuelle restante :**
+couture visible ou non sur le panneau 1 (production recadrée) — à confirmer au
+commit de verdict ; si absente, le verdict se requalifie en « surdensité
+significative en comptages, trace en classes produites à mesurer » (première
+question du sujet correction).
+
+**Chiffres (fenêtre O2, bande ~30 m centrée sur y=6887000, témoin > 50 m) :**
+| strate | A front/témoin | B/A front | B/A témoin | Δ | B front/témoin (dérivé) |
+|---|---|---|---|---|---|
+| low | 1,25× (5 vs 4 pts/m²) | 0,333 | 0,500 | −0,167 | 0,83× |
+| medium | 1,35× (27 vs 20) | 0,518 | 0,684 | −0,166 | 1,02× |
+| high | 1,85× (170 vs 92) | 0,492 | 0,682 | −0,190 | 1,33× |
+
+**Lectures :** (1) voxeldownsize n'est pas une déduplication mais un éclaircissement
+densité-dépendant : sur-corrige low (0,83), corrige medium (1,02), sous-corrige high
+(1,33) ; (2) hors recouvrement, voxeldownsize jette 32–50 % des points réels
+(B/A témoin) — impropre comme correction de production en l'état ; (3) Δ non nul =
+effet spécifique du double apport confirmé (contrôle nul valide) ; (4) mécanisme :
+dalles coupées nettement (chevauchement de points inter-tuiles ≈ 2 m), surdensité
+due aux **deux passes de vol convergentes incluses dans chaque dalle en bord de
+tuile** → défaut systématique le long de **chaque couture de dalles de la carte**,
+pas doublon inter-tuiles localisé.
+
+**Conséquences (§3.6) :** aucune correction dans cette phase ; sujet correction
+**non ouvert**, en attente de go explicite. Périmètre recommandé si go :
+(1) basculement de classes dans les bandes de couture sur toute la carte
+(proximité aux seuils — la production n'a pas de voxeldownsize et porte la
+surdensité pleine, mais 4→5 / 20→27 / 92→170 pts/m² sont loin des seuils : le
+basculement n'est pas garanti) ; (2) test PointSourceId / ScanDirectionFlag en
+bande (garder une seule passe = vraie déduplication) ; (3) planche candidat vs
+production. Plan 2 V2 : mesurer les coutures via carte de recouvrement de points
+(M1∧M2 / drapeaux de passe), pas via bbox nominales.

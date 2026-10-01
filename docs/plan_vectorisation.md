@@ -48,6 +48,11 @@
   séparé, hors de ce plan. Référence nouvelle : expérience **OVL** (plan 1 §3, porte
   OVL-1) — si cette porte ouvre un sujet de correction et qu'il est validé, V2 s'y
   raccorde ; d'ici là, V2 = mesure + décision d'accepter.
+  Mécanisme élucidé à la porte OVL-1 (2026-10-01) : les coutures viennent de
+  deux passes de vol convergentes incluses dans chaque dalle en bord de tuile
+  (chevauchement de points inter-tuiles ≈ 2 m), pas d'un doublon inter-tuiles →
+  la mesure V2 se base sur la carte de recouvrement de points (M1∧M2, drapeaux
+  de passe), jamais sur les bbox nominales.
 - Mesure autonome (sans P1) : diff de classes le long des joints de tuiles sur le
   raster mosaïqué, **avec contrôle nul** : même mesure sur des pseudo-joints (mêmes
   lignes décalées à l'intérieur d'une tuile) — sans contrôle nul, n'importe quelle
