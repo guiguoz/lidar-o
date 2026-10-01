@@ -28,7 +28,7 @@ promet rien sur la visibilité, un hachuré la promet.
 > pas la nature de ce qui les produit. **Le cartographe tranchera au terrain**,
 > comme il le fait déjà.
 
-**Le canal n'modifiera aucune classe de production non plus** : sa sortie est
+**Le canal ne modifiera aucune classe de production non plus** : sa sortie est
 indicative jusqu'à la porte de phase 2, et même après, seulement sur planche
 validée.
 
@@ -48,7 +48,7 @@ fond, là où le rendu actuel laisse du blanc.
 - **La phase 0 teste directement le motif tuant** , sur son terrain exact :
   le discriminant est le témoin négatif *dans le blanc forestier* (zone C).
   Gate 1 ne l'avait mesuré que qualitativement, et sur fen3_410.
-- **Priaires de veille** : Airelles (France) — lande praticable ≡ sous-bois en
+- **Précédent de veille** : Airelles (France) — lande praticable ≡ sous-bois en
   HAG [0,3 ; 3,0] (bilan_v0, §veille). La bande [0,2 ; 1,0] n'est pas prouvée
   immunisée ; c'est à la phase 0 de le dire.
 - **Si la phase 0 conclut A ≈ C : plan CLOS définitif, R8 sans appel**, note de
