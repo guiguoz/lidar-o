@@ -85,6 +85,17 @@ Livrable : `work/expe/phase0_notes.md`. Pas de porte : ce sont des prérequis.
   la Phase 1 a lieu mais l'interprétation de la planche en tiendra compte ; le
   diagnostic complet reste la Phase 2. Objectif : ne pas fabriquer artificiellement
   une partie du signal undergrowth avec un biais de recouvrement.
+- **V0.7 — équivalence spatiale `medianboxsize` ↔ mètres** (ajouté après exécution
+  Phase 0, 2026-10-01). Mesurer `res_m` au `.pgw` des `{dalle}_vege.png` de
+  production ; la fenêtre médiane **effective** produite par le code Rust est
+  `2 × (medianboxsize div 2) + 1` px : la division entière sur un paramètre pair
+  donne **+1 px** — `medianboxsize2 = 16` produit une fenêtre de **17 px** (pas
+  16), `medianboxsize = 9` reste 9 px. Mesuré sur Grimbosq : `res_m ≈ 0,4233 m/px`
+  (1:10 000 à 600 dpi) → mbs 9 → 9 px → **3,81 m** ; mbs2 16 → 17 px → **7,20 m**
+  (la production lisse à 7,20 m, pas 16 × 0,4233 = 6,77 m). Sur le comptage 1 m :
+  fenêtres médianes **3 px puis 7 px** (impairs les plus proches). Le paramètre de
+  production reste **9/16** (validé) : reproduire la fenêtre dérivée de 17 px n'est
+  pas « choisir 17 ». Utilisation → Phase 3.
 
 ---
 
@@ -176,19 +187,26 @@ Le critère « biais divisé par 2 » de la v1 est abandonné : arbitraire.
 ## 4. PHASE 3 — médian vs gaussien : même signal, mêmes seuils
 
 Seule variable = le lissage (R3). Représentation fixée = comptages de strates 1 m.
-**Équivalence spatiale à établir avant tout run :** mesurer `res_m` dans le `.pgw` des
-`{dalle}_vege.png` de production (déjà lu par `testa_medianboxsize2.py`) ; fenêtre du
-médian KP en mètres = `medianboxsize × res_m` ; sur le raster de comptage à 1 m, la
-fenêtre en px = cette valeur en mètres. **Ne pas recopier « 9 px / 16 px » tels quels**
-si `res_m ≠ 1` : ce seraient d'autres fenêtres spatiales, et la comparaison A/B ne
-reproduirait pas le lissage de production validé visuellement.
+**Équivalence spatiale — mesurée (V0.7, 2026-10-01) :** `res_m` au `.pgw` de
+production ≈ **0,4233 m/px** (1:10 000 à 600 dpi) ; fenêtre médiane effective Rust =
+`2 × (medianboxsize div 2) + 1` px — un paramètre pair donne **+1 px** :
+`medianboxsize2 = 16` produit **17 px** (pas 16), `mbs = 9` reste 9 px. En mètres :
+mbs 9 → **3,81 m** ; mbs2 16 → **7,20 m** (la production lisse à 7,20 m, pas
+6,77 m). Sur le raster de comptage à 1 m : **médian 3 px puis 7 px** (impairs les
+plus proches en mètres ; l'alternative 5 px pour 3,81 m est rapportée en sensibilité).
+Le paramètre de production reste **9/16** (validé) : reproduire la fenêtre dérivée
+n'est pas « choisir 17 » — `config.yaml` intouché. **Ne pas recopier « 9 px / 16 px »
+tels quels** sur le comptage 1 m : ce seraient d'autres fenêtres spatiales (9 m et
+16 m), et la comparaison A/B ne reproduirait pas le lissage de production validé
+visuellement.
 **Signal d'entrée gelé à l'issue de la Phase 2 :** comptage brut si aucune correction
 n'est retenue, comptage corrigé si une correction a été validée expérimentalement.
 A et B utilisent **exactement** ce même signal, et rien d'autre.
 
-- **A** = comptages + **médian** (fenêtres **en mètres** = medianboxsize 9 puis 16 ×
-  `res_m` mesuré au pgw, converties en px sur le comptage 1 m ; valeur de production
-  validée visuellement), appliquées aux classes construites depuis les comptages) ;
+- **A** = comptages + **médian** (fenêtres **3 px puis 7 px** sur le comptage 1 m,
+  dérivées de l'équivalence V0.7 mesurée : 9 px effectifs → 3,81 m puis 17 px
+  effectifs → 7,20 m à `res_m` ≈ 0,4233 ; paramètre de production mbs 9/16
+  intouché), appliquées aux classes construites depuis les comptages ;
 - **B** = mêmes comptages + **gaussienne** σ1 = 1 m (strate medium) / σ2 = 2 m (low) ;
 - **mêmes seuils** (pt/m²) appliqués ensuite à A et à B ;
 - planche A / B / FFCO (+ KP actuel pour mémoire), fenêtre V0.4, 1:10 000.
@@ -270,7 +288,7 @@ enclenché automatiquement par le succès du précédent : chacun demande un go 
 
 | Phase | Done |
 |---|---|
-| 0 | `phase0_notes.md` : sémantique greenshades, JSON strates, inventaire données + bbox planches |
+| 0 | `phase0_notes.md` : sémantique greenshades, JSON strates, inventaire données + bbox planches + équivalence medianboxsize↔mètres (V0.7) |
 | 1 | planche 4 panneaux 1:10 000 produite **et regardée** ; verdict commité (même négatif) |
 | 2 | carte du biais + chiffres commités ; décision corrigé/pas-corrigé tracée |
 | 3 | planche A/B commitée ; verdict ; si positif, code propre + paramètre gelé |
