@@ -185,7 +185,8 @@ Implémentation de référence : `work/expe/undergrowth/expe_undergrowth.py`
 > panneau 1 tranchée le 2026-10-01 : pas de couture visible dans la production
 > sur O2 → verdict requalifié « surdensité significative en comptages, trace en
 > classes à mesurer » ; mesure décisive = audit de basculement de classes sur
-> toutes les coutures (étape 1 du périmètre, sur go).
+> toutes les coutures (étape 1 du périmètre, sur go). **Sujet OVL clos au
+> 2026-10-01** : porte OVL-2 tranchée par le porteur, voir §3.7 et bilan_v0.
 
 ### Question unique de la porte
 
@@ -443,16 +444,22 @@ longueur, classes et sens ; planche. **Puis STOP.**
 - basculements alignés trouvés → ampleur et localisation rapportées ; les
   étapes 2 et 3 attendent un **SECOND GO** explicite.
 
-**PORTE OVL-2 (2026-10-01) : OUI** — basculements alignés existants (x449000
-excès 2,8× fragmenté piné au pixel ; y6887000 run 42 m 408→410 + tronçon du
-candidat O2 ; y6888000 propre = témoin interne). Verdict et lectures dans
-`docs/expe_journal.md`. Étapes 2–3 non ouvertes ; périmètre recommandé si
-second go : **étape 2 = discrimination de mécanisme** (portée du normalisateur
-KP par run/tuile via V0.1/source ; profil de saut de densité bande ±15–30 m vs
-toute la ligne ; croisement segments alignés × prédicteurs ; sens des bascules
-par couture — une descente signe l'échelle par tuile, jamais la surdensité) ;
-**étape 3 = planche expérimentale** échelle harmonisée par terrain vs
-production, proposition de modification de production sur porte dédiée seulement.
+**PORTE OVL-2 — verdict agent « OUI » (2026-10-01) RENVERSÉ le jour même par le
+porteur de porte : CLOS.** x449000 = limite de massif réel (transition de
+paysage sur toute la hauteur de la carte, sens oscillants 406↔non-veg autour du
+seuil le plus bas : ni surdensité, qui monterait, ni saut d'échelle fixe entre
+tuiles, qui serait unidirectionnel) ; candidat O2 = limite de parcelle
+(IQR 10 m, 32 % de colonnes alignées : le terrain croise la couture, ne la
+suit pas — un artefact de dalle serait aligné à ~100 %) ; y6888000 propre =
+témoin interne de l'audit. Résidu consigné en **observation** : run 42 m
+(408→410, sens montant) sur y6887000 — seul élément combinant bon sens et
+longueur cohérente, trop isolé sur une couture de 2 km pour ouvrir un correctif.
+Étapes 2–3 sans objet, non ouvertes ; aucune modification de production.
+Hypothèse agent « normalisateur KP calculé par tuile » morte **non testée**,
+consignée comme telle et non réfutée (si un liseré de couture réapparaît sur une
+autre emprise : répartition des sens des bascules par couture + portée du
+normalisateur, V0.1 / source KP). Sujet OVL **CLOS** ; note de clôture dans
+`docs/bilan_v0.md` ; arguments complets dans `docs/expe_journal.md`.
 
 ---
 
