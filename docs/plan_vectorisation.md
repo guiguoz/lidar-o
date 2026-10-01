@@ -42,6 +42,10 @@
   (porte 3 ou 4a/4b) : un raster amont modifié invalide les coupures gelées.
 
 ### V2 — Coutures inter-tuiles : mesurer, puis décider (correction = P1-Phase 3)
+- **Statut 2026-10-01 :** la source de correction (plan 1 Phase 3) est close par la
+  porte 1 NON. V2 reste exécutable en **mesure + décision d'accepter** (coutures
+  documentées dans `docs/bilan_v0.md`) ; une éventuelle correction devient un sujet
+  séparé, hors de ce plan.
 - Mesure autonome (sans P1) : diff de classes le long des joints de tuiles sur le
   raster mosaïqué, **avec contrôle nul** : même mesure sur des pseudo-joints (mêmes
   lignes décalées à l'intérieur d'une tuile) — sans contrôle nul, n'importe quelle
@@ -86,6 +90,9 @@
   `bilan_v0.md` ; aucun objet orphelin hors bbox.
 
 ### V5 — Couche sous-bois « propose409 » (dépend de P1-Phase 1 porte 1 + P1-Phase 4a)
+- **CLOSE (porte 1 NON, 2026-10-01) :** pas de canal undergrowth, donc pas de couche
+  `propose409`. Tâche conservée pour mémoire (sémantique ISOM figée, tag OOM,
+  exclusion de `coverage_partition`) si la piste est réouverte sur un autre canal.
 - **Sémantique ISOM figée par contrôle du gabarit :** ISOM 2017-2 n'a **aucune surface
   « undergrowth »** (vérifié dans `assets/ISOM 2017-2_10000.omap` : 409 = « Vegetation:
   walk, good visibility » ; « Green 100% for undergrowth » n'est qu'une couleur).

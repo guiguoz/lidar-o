@@ -16,6 +16,7 @@
 | WORKFLOW KP + FOND OCAD | RETENU |
 | TEMPLATE OMAP | FONCTIONNEL |
 | VECTORISATION VÉGÉTATION | SUSPENDUE — _vege mbs2=16 mesuré, critère non atteint |
+| CANAL UNDERGROWTH low (Cassini C1–C4) | ABANDONNÉ — porte 1 NON 2026-10-01 (`docs/expe_journal.md`) |
 | DOMAINE | FORÊTS NORMANDES CIBLÉES |
 
 ---
@@ -677,3 +678,20 @@ vers KP**, où les couches 406/408/410 étaient encore injectées dans le `.omap
 | 13 | Fenêtres verticales alternatives | [0,3–1,5 m] vs [0,3–3,0 m] | AUC détériore, couverture divise par 3 |
 | 14 | Agrégation spatiale 2 m/5 m/10 m | AUC global et conditionnel | Gain marginal (+0,004 global) ; plafond non levé |
 | 15 | Intensité de retour HAG[0,3:3,0 m] | AUC FN_406 vs blanc | AUC=0,364 (inversé=0,636) — gradient physiquement incohérent ; biais de sélection |
+
+---
+
+## Porte 1 — canal undergrowth (2026-10-01) : NON
+
+Sur fen3_410 (Grimbosq, 25 ha), les quatre variantes du canal low (C1–C4 : strates
+(0,3-1] / (0-1] / (0,3-1,3], gaussienne σ=2 m, seuils 0,5–1,0 pts/m²) ne font pas
+apparaître un sous-bois supplémentaire suffisamment structuré et cartographiquement
+crédible par rapport au raster KP actuel : C1 = texture de densité (petites taches,
+connexions fines) ; C2–C4 = vers un masque forestier général (59–76 % de la fenêtre) ;
+aucun motif convaincant « KP blanc ici / structure cohérente retrouvée là » ; C3
+(76,3 %) confirme que le levier « points très bas » n'isole pas proprement une classe
+de sous-bois. Piste abandonnée sans optimisation supplémentaire — résultat négatif
+propre : une famille de traitements éliminée avant tout contact avec la production.
+Biais connu écarté du verdict : +50 % strate low dans la bande ~30 m en bas de fenêtre
+(V0.6, recouvrement inter-tuiles). Verdict complet, chiffres et conséquences :
+`docs/expe_journal.md`.

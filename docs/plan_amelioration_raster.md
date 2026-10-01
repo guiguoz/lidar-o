@@ -9,6 +9,10 @@
 > comme telles.
 > **Production intouchée tant que la porte 1 n'est pas passée :** `config.yaml`,
 > `scripts/run_terrain.py`, `scripts/process_hag.py`, `src/kp_raster.py`, `main.py`.
+> **PORTE 1 (2026-10-01) : NON.** Piste undergrowth par le canal low (C1–C4) **close**
+> sur la fenêtre Grimbosq fen3_410 : verdict et chiffres dans `docs/expe_journal.md`.
+> Conséquences : Phases 2–3 non conduites sur cette piste ; sujets 4a/4b sans objet ;
+> Phase 4 conditionnée aux portes 1–3 — statut des sujets restants au journal.
 
 ---
 
@@ -155,6 +159,11 @@ Implémentation de référence : `work/expe/undergrowth/expe_undergrowth.py`
 
 ## 3. PHASE 2 — recouvrement LiDAR : mesurer, pas corriger
 
+> **Statut 2026-10-01 :** non conduite sur la piste undergrowth (porte 1 NON).
+> Réouvrable en **piste indépendante** (biais de production ; Plan 2 V2 en a besoin)
+> sur go explicite seulement. V0.6 a déjà produit le chiffre principal : +50 % sur
+> la strate low dans la bande ~30 m en bas de fenêtre.
+
 1. **Carte de recouvrement** : ∩ des emprises de dalles (noms/bbox des tuiles) →
    `overlap.tif` 0/1. Aucune modification de code.
 2. **Deux runs expérimentaux** : un sur l'ensemble des tuiles en recouvrement, un sur
@@ -185,6 +194,11 @@ Le critère « biais divisé par 2 » de la v1 est abandonné : arbitraire.
 ---
 
 ## 4. PHASE 3 — médian vs gaussien : même signal, mêmes seuils
+
+> **Statut 2026-10-01 :** non conduite sur la piste undergrowth (porte 1 NON).
+> Réouvrable en piste indépendante (lissage du raster de production, indépendant de
+> l'undergrowth) sur go explicite seulement ; l'équivalence V0.7 (médian 3 px puis
+> 7 px sur comptage 1 m) reste acquise si elle est réouverte.
 
 Seule variable = le lissage (R3). Représentation fixée = comptages de strates 1 m.
 **Équivalence spatiale — mesurée (V0.7, 2026-10-01) :** `res_m` au `.pgw` de
@@ -226,10 +240,14 @@ KP / `process_hag`, paramètre gelé dans `config.yaml`, planche de décision da
 
 ## 5. PHASE 4 — seulement si les portes 1–3 sont passées ; un sujet à la fois
 
+> **Statut 2026-10-01 :** porte 1 NON ⇒ 4a et 4b **sans objet** (undergrowth) ;
+> 4c/4d/4e/4f formellement bloqués par la règle de portes « 1–3 ». Toute réouverture
+> = révision du présent plan sur go explicite.
+
 Chaque sujet = sa planche, sa porte, son verdict. Ordre imposé. **Aucun sujet n'est
 enclenché automatiquement par le succès du précédent : chacun demande un go explicite.**
 
-- **4a fusion undergrowth → verts** : modes `none | merge | propose409` (sémantique
+- **4a fusion undergrowth → verts — SANS OBJET (porte 1 NON)** : modes `none | merge | propose409` (sémantique
   Cassini). `merge` = ajout au canal medium **avant seuillage** (pas un rehaussement
   de classe). **Pas de `layer409` validante :** ISOM 2017-2 n'a aucune surface
   « undergrowth » (contrôle du gabarit : 409 = « walk, good visibility » ;
@@ -238,7 +256,7 @@ enclenché automatiquement par le succès du précédent : chacun demande un go 
   séparée dessinée en 409 **pour revue**, réaffectée par le cartographe ; **exclue
   de `coverage_partition`** (superposition par conception) — fait le pont avec le
   plan 2, tâche V5. Planche propre, porte 4a.
-- **4b seuil KP gaté par l'undergrowth** (piste planche D, ex-4d) : abaissement du
+- **4b seuil KP gaté par l'undergrowth — SANS OBJET (porte 1 NON)** (piste planche D, ex-4d) : abaissement du
   premier seuil appliqué **seulement là où** le canal undergrowth = 1. **Ce n'est
   pas une suite logique de 4a** : hypothèse supplémentaire, enclenchée seulement sur
   décision explicite après la porte 4a ; planche propre, porte propre.
@@ -269,6 +287,8 @@ enclenché automatiquement par le succès du précédent : chacun demande un go 
   public** (vérifié par grep) → implémentation externe sur nos comptages. Rappel :
   `greenshades` est gelé par jugement utilisateur — 4f **documente** l'adéquation,
   il ne rouvre la décision que sur demande explicite de l'utilisateur.
+  Composante undergrowth **close** (porte 1 NON) ; la composante `greenshades` reste
+  optionnelle sur go explicite.
 
 ---
 
@@ -289,7 +309,7 @@ enclenché automatiquement par le succès du précédent : chacun demande un go 
 | Phase | Done |
 |---|---|
 | 0 | `phase0_notes.md` : sémantique greenshades, JSON strates, inventaire données + bbox planches + équivalence medianboxsize↔mètres (V0.7) |
-| 1 | planche 4 panneaux 1:10 000 produite **et regardée** ; verdict commité (même négatif) |
+| 1 | planche 4 panneaux 1:10 000 produite **et regardée** ; verdict commité (même négatif) — **PORTE 1 NON 2026-10-01, close** (`docs/expe_journal.md`) |
 | 2 | carte du biais + chiffres commités ; décision corrigé/pas-corrigé tracée |
 | 3 | planche A/B commitée ; verdict ; si positif, code propre + paramètre gelé |
 | 4 | chaque sujet a son verdict, renoncements compris ; propose409 éventuel raccordé au plan 2 V5 ; 4b/4e/4f enclenchés seulement sur go explicite |
