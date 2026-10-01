@@ -109,3 +109,34 @@ documentée (`bilan_v0.md`) ; sinon étapes 2–3 sur second go. Premier candida
 inspecter par l'audit : le bord vert/beige du tiers droit de O2 (x > 449500) —
 si son y est exactement 6887000 sur plusieurs dizaines de mètres, la lecture
 « parcelle » est contredite et les chiffres gagnent.
+
+## Porte OVL-2 — audit des basculements de classe (plan 1 §3.7) — 2026-10-01 : **OUI**
+
+**Juge :** agent, sur délégation explicite ; base = `work/expe/overlap/audit/`
+(audit_stats.md + planche_audit.png décrits/attachés).
+
+**Résultats :** candidat O2 : médiane y=6887000,5 (seam 6887000), IQR 10 m,
+max 23,5 m, 46/143 colonnes alignées ≤1 m → bord mixte (parcelle divaguante +
+tronçon ~40 m piné : le test §7.4 tranche contre la lecture « parcelle » sur ce
+tronçon — les chiffres gagnent, comme convenu). Par couture : y6887000 excès
++13 (baseline 59), run 42 m (408→410, sens montant) ; y6888000 excès −13
+(couture propre = témoin interne de l'audit) ; x449000 excès **+125** (baseline
+71, 2,8×), dominant 406↔non-veg, runs ≤19 m fragmentés.
+
+**Lecture :** x449000 = signature d'artefact de traitement (excès fragmenté piné
+au pixel sur ligne administrative ≠ objet rectiligne du terrain) ; le motif
+« piné SUR la ligne, pas aux bords de bande » et le sens potentiellement
+descendant désignent un suspect n°1 autre que la surdensité : **discontinuité
+d'échelle entre tuiles** si le normalisateur de `thevalue` (V0.1 : sans
+dimension) est calculé par run/tuile — la surdensité (a) reste contributeur
+accessoire (signature attendue : bords de bande, sens montant seul).
+
+**Verdict OVL-2 = OUI :** basculements alignés existants (1 couture forte,
+1 modérée, 1 propre) ; défaut cartographique là où les densités frôlent un
+seuil. Étapes 2–3 non ouvertes — second go explicite requis. Périmètre
+recommandé si go : étape 2 = discrimination de mécanisme (portée du
+normalisateur KP par relecture V0.1/source ; profil de saut de densité bande
+vs toute la ligne ; croisement segments alignés × prédicteurs ; sens par
+couture) ; étape 3 = planche expérimentale échelle harmonisée par terrain vs
+production, puis proposition de modification de production sur porte dédiée
+seulement.

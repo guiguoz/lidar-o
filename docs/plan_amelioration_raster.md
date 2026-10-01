@@ -443,6 +443,17 @@ longueur, classes et sens ; planche. **Puis STOP.**
 - basculements alignés trouvés → ampleur et localisation rapportées ; les
   étapes 2 et 3 attendent un **SECOND GO** explicite.
 
+**PORTE OVL-2 (2026-10-01) : OUI** — basculements alignés existants (x449000
+excès 2,8× fragmenté piné au pixel ; y6887000 run 42 m 408→410 + tronçon du
+candidat O2 ; y6888000 propre = témoin interne). Verdict et lectures dans
+`docs/expe_journal.md`. Étapes 2–3 non ouvertes ; périmètre recommandé si
+second go : **étape 2 = discrimination de mécanisme** (portée du normalisateur
+KP par run/tuile via V0.1/source ; profil de saut de densité bande ±15–30 m vs
+toute la ligne ; croisement segments alignés × prédicteurs ; sens des bascules
+par couture — une descente signe l'échelle par tuile, jamais la surdensité) ;
+**étape 3 = planche expérimentale** échelle harmonisée par terrain vs
+production, proposition de modification de production sur porte dédiée seulement.
+
 ---
 
 ## 4. PHASE 3 — médian vs gaussien : même signal, mêmes seuils
