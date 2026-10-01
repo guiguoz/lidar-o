@@ -4,7 +4,8 @@
 > est remplacée : trop ambitieuse, elle mélangeait diagnostic, amélioration et
 > modification de production, et laissait `qa.py` décider à la place du cartographe.
 > **Brief destiné à Claude Code (ou tout exécutant).** Autonome.
-> **La veille mapant.fr/Cassini (faits F1–F9) reste valable : résumée en annexe.**
+> **Veille mapant.fr/Cassini/OCAD en annexe :** F1–F6, F8 et F10–F12 sont des relevés
+> de source (fichier/ligne) ; F7 et F9 sont des **inférences**, marquées comme telles.
 > **Production intouchée tant que la porte 1 n'est pas passée :** `config.yaml`,
 > `scripts/run_terrain.py`, `scripts/process_hag.py`, `src/kp_raster.py`, `main.py`.
 
@@ -16,10 +17,11 @@
 |---|---|
 | R1 | **Une porte = votre jugement sur une planche 1:10 000**, même format que `docs/images/vege_mbs2_comparaison.png`. `qa.py` / rappel FFCO = mesures **informatives** rapportées à côté de la planche, jamais un critère de porte (un rappel peut éliminer un raster visuellement utile, ou récompenser un signal qui couvre beaucoup mais mal). |
 | R2 | **Expérimentation ≠ production.** Code, configs, rasters, planches d'essai → `work/expe/` (gitignoré). Un commit n'intervient que pour (a) un **verdict** (doc), (b) du **code propre après porte passée**, avec le paramètre gelé et la planche de décision copiée dans `docs/images/`. Pas de commit par essai : les branches abandonnées ne doivent pas polluer l'historique. |
-| R3 | **Une seule variable par expérience.** Tester un lissage = mêmes comptages, mêmes seuils, seul le lissage change. |
+| R3 | **Une seule variable par comparaison contrôlée — Phases 2 à 4.** Tester un lissage = mêmes comptages, mêmes seuils, seul le lissage change. La **Phase 1 n'est pas** une expérience à variable unique : c'est un **screening de quatre hypothèses indépendantes** (C1–C4) soumises à une même porte visuelle ; R3 ne s'y applique pas. |
 | R4 | **Verdicts négatifs tracés aussi** : `work/expe/JOURNAL.md` (persiste dans l'espace de travail) + commit doc `docs/expe_journal.md` à chaque porte. C'est la protection contre la régression « décision perdue six semaines plus tard ». |
 | R5 | **Pas de branche git d'expérimentation** : la session Arena est fixée à `arena/01a0f111-lidar-o`. L'isolation est obtenue par le répertoire `work/expe/` + **aucun import du code de production** + pipelines PDAL expérimentaux dans `work/expe/pipelines/` (JSON propres, jamais ceux de `run_terrain.py`). |
 | R6 | Les seuils expérimentaux vivent dans `work/expe/configs/*.yaml`. `config.yaml` de production ne reçoit un paramètre **qu'après** porte passée et commit de code propre. |
+| R7 | **Une hypothèse n'est jamais un fait.** Tout énoncé portant sur *nos* données (Grimbosq, tuiles IGN, biais, sous-bois) est une hypothèse à mesurer ; seuls les énoncés sur les logiciels tiers (KP, Cassini, OCAD) sont des relevés de source, cités avec fichier/ligne. Aucune phrase du plan ne préjuge du résultat d'une porte. |
 
 Arborescence expérimentale :
 
@@ -90,6 +92,9 @@ Livrable : `work/expe/phase0_notes.md`. Pas de porte : ce sont des prérequis.
 **Question unique de la porte :** *est-ce que ce canal fait apparaître visiblement les
 zones où le fond KP actuel manque de sous-bois ?*
 
+C1–C4 sont **quatre hypothèses indépendantes testées en parallèle** (screening), pas
+les niveaux d'un facteur : R3 s'applique aux Phases 2–4, pas ici.
+
 1. **Strates** : `pdal pipeline work/expe/pipelines/strata_cassini.json` sur
    **toutes les tuiles LiDAR couvrant la fenêtre gelée** (V0.4) → comptages 1 m
    uint8 dans `work/expe/rasters/`, mosaïqués sur la fenêtre. **Règle de
@@ -140,9 +145,14 @@ Implémentation de référence : `work/expe/undergrowth/expe_undergrowth.py`
 
 1. **Carte de recouvrement** : ∩ des emprises de dalles (noms/bbox des tuiles) →
    `overlap.tif` 0/1. Aucune modification de code.
-2. **Deux runs expérimentaux** sur une tuile en recouvrement + une tuile témoin :
-   comptages de strates **avec** et **sans** `voxeldownsize(0,5, first)`
+2. **Deux runs expérimentaux** : un sur l'ensemble des tuiles en recouvrement, un sur
+   une tuile témoin ; comptages de strates **avec** et **sans** `voxeldownsize(0,5, first)`
    (deux JSON dans `work/expe/pipelines/`).
+   **Les tuiles en recouvrement sont chargées ensemble** : un seul pipeline PDAL listant
+   les N fichiers (`readers.las` accepte plusieurs entrées), sur l'union des emprises
+   qui se chevauchent. C'est la seule manière de mesurer l'effet réel du recouvrement :
+   un run par tuile isolée ne voit jamais les points comptés deux fois. La tuile témoin
+   reste chargée seule.
 3. **Carte du biais** + chiffres : `ratio = avec_voxeldownsize / sans_voxeldownsize`,
    calculé **uniquement sur les cellules où `sans_voxeldownsize > 0`** (les cellules
    vides produiraient des ratios absurdes) ; médiane du ratio en recouvrement vs
@@ -165,12 +175,19 @@ Le critère « biais divisé par 2 » de la v1 est abandonné : arbitraire.
 ## 4. PHASE 3 — médian vs gaussien : même signal, mêmes seuils
 
 Seule variable = le lissage (R3). Représentation fixée = comptages de strates 1 m.
+**Équivalence spatiale à établir avant tout run :** mesurer `res_m` dans le `.pgw` des
+`{dalle}_vege.png` de production (déjà lu par `testa_medianboxsize2.py`) ; fenêtre du
+médian KP en mètres = `medianboxsize × res_m` ; sur le raster de comptage à 1 m, la
+fenêtre en px = cette valeur en mètres. **Ne pas recopier « 9 px / 16 px » tels quels**
+si `res_m ≠ 1` : ce seraient d'autres fenêtres spatiales, et la comparaison A/B ne
+reproduirait pas le lissage de production validé visuellement.
 **Signal d'entrée gelé à l'issue de la Phase 2 :** comptage brut si aucune correction
 n'est retenue, comptage corrigé si une correction a été validée expérimentalement.
 A et B utilisent **exactement** ce même signal, et rien d'autre.
 
-- **A** = comptages + **médian** (fenêtres équivalentes aux medianboxsize KP **9 puis 16 px** (valeur de production validée visuellement),
-  appliquées aux classes construites depuis les comptages) ;
+- **A** = comptages + **médian** (fenêtres **en mètres** = medianboxsize 9 puis 16 ×
+  `res_m` mesuré au pgw, converties en px sur le comptage 1 m ; valeur de production
+  validée visuellement), appliquées aux classes construites depuis les comptages) ;
 - **B** = mêmes comptages + **gaussienne** σ1 = 1 m (strate medium) / σ2 = 2 m (low) ;
 - **mêmes seuils** (pt/m²) appliqués ensuite à A et à B ;
 - planche A / B / FFCO (+ KP actuel pour mémoire), fenêtre V0.4, 1:10 000.
@@ -229,7 +246,7 @@ enclenché automatiquement par le succès du précédent : chacun demande un go 
 - Aucun critère `qa.py` comme porte (R1).
 - Aucun commit par essai ; aucun paramètre dans `config.yaml` avant porte (R2, R6).
 - Aucune modification de `run_terrain.py` / `process_hag.py` / `kp_raster.py` /
-  `main.py` / `config.yaml` avant porte passée (R4 de la revue).
+  `main.py` / `config.yaml` avant porte passée (R2, R6).
 - Aucune branche git d'expérimentation (R5).
 - Pas de ML/scoring (avenant 02 §0) ; pas de copie de code Cassini (GPL-3.0) :
   réimplémentation clean-room des formules, ou image Docker `nicorio42/cassini`
@@ -256,10 +273,12 @@ rayon 4, seuil pt/m², modes merge/406/409 (`vegetation.rs`) · F3 verts = gauss
 rayon 2 sur la strate medium, seuils 0,2/1,0/2,0 pt/m² (blog) · F4 blanc = MIN du canal
 high sur cercle 5×5 > yellow_threshold · F5 `voxeldownsize` 0,5 m mode first avant
 comptage · F6 VRT tuile+voisines buffer 200 m avant lissage → sans couture ·
-F7 `mapant-scripts/lidar_delete_overlap` écarte les tuiles en recouvrement → le
-recouvrement LiDAR HD est un problème connu de la production française · F8 lissage
-gaussien sur densités, pas médian sur indices · F9 famille mapant (fi/no/es/lu,
-gokartor.se) = KP, ch = OCAD : **Cassini est le seul moteur avec undergrowth**.
+F7 `mapant-scripts/lidar_delete_overlap` met de côté des tuiles de zones de
+recouvrement (relevé) ; **inférence, non vérifiée sur nos tuiles** : que le recouvrement
+y soit un biais effectif · F8 lissage gaussien sur densités, pas médian sur indices ·
+F9 famille mapant (fi/no/es/lu, gokartor.se) = KP, ch = OCAD (relevé cassini-map.com) ;
+parmi ces moteurs **open source**, Cassini est le seul avec un rendu undergrowth —
+OCAD, propriétaire, en a un aussi (F10).
 F10 OCAD LiDAR Point Cloud Manager : range undergrowth (0,1–1,0 m) séparé de la
 végétation, seuil dédié aux points LAS overlap (inter-lignes de vol), garde-fou
 no-data en rouge, défauts calibrés par forêt (Steinhauserwald, Zurich) · F11 OCAD DEM
