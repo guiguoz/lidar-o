@@ -83,3 +83,29 @@ basculement n'est pas garanti) ; (2) test PointSourceId / ScanDirectionFlag en
 bande (garder une seule passe = vraie déduplication) ; (3) planche candidat vs
 production. Plan 2 V2 : mesurer les coutures via carte de recouvrement de points
 (M1∧M2 / drapeaux de passe), pas via bbox nominales.
+
+### Clause visuelle OVL-1 (panneau 1) — 2026-10-01 : **NON, pas de couture visible dans la production sur O2**
+
+Juge : agent, sur planche `planche_overlap.png` attachée en chat (le fichier n'est
+pas persisté dans le sandbox). Lecture : panneaux 2 et 4 montrent la bande
+(surdensité, ratio bas) ; panneau 3 lavé partout = confirmation visuelle de
+B/A témoin 0,50–0,68 ; panneau 1 : verts continus à travers y=6887000 sur les
+deux tiers gauches, aucun liseré tonal aligné ; tiers droit : bord vert/beige
+dans la bande lu comme limite de parcelle (bord rectiligne, rangs de plantation
+au panneau 2, et contresens physique : une surdensité verdirait la bande, ne
+l'ouvrirait pas).
+
+**Verdict requalifié comme prévu : surdensité significative en comptages (OUI),
+trace en classes produites non visible sur O2.** La carte produite aujourd'hui
+ne montre pas sa couture *ici*. La mesure qui décide = audit de basculement de
+classes sur toutes les coutures (étape 1 du périmètre correction), car O2 est
+une fenêtre aux comptages loin des seuils ; une couture traversant une densité
+proche d'un seuil basculerait (30 m à 1:10 000 = 3 mm visibles).
+
+**Recommandation tracée :** ouvrir l'étape 1 seule (audit map-wide des
+basculements dans les bandes M1∧M2, aucun code de correction), porte propre ;
+si aucun basculement aligné → recouvrement clos en caractéristique de production
+documentée (`bilan_v0.md`) ; sinon étapes 2–3 sur second go. Premier candidat à
+inspecter par l'audit : le bord vert/beige du tiers droit de O2 (x > 449500) —
+si son y est exactement 6887000 sur plusieurs dizaines de mètres, la lecture
+« parcelle » est contredite et les chiffres gagnent.

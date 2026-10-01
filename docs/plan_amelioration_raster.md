@@ -181,7 +181,11 @@ Implémentation de référence : `work/expe/undergrowth/expe_undergrowth.py`
 > sur délégation explicite ; chiffres, lectures et mécanisme (passes de vol
 > convergentes en bord de tuile, pas doublon inter-tuiles) dans
 > `docs/expe_journal.md`. Clause visuelle panneau 1 à confirmer au commit de
-> verdict. **Sujet correction non ouvert — go explicite requis.**
+> verdict. **Sujet correction non ouvert — go explicite requis.** Clause visuelle
+> panneau 1 tranchée le 2026-10-01 : pas de couture visible dans la production
+> sur O2 → verdict requalifié « surdensité significative en comptages, trace en
+> classes à mesurer » ; mesure décisive = audit de basculement de classes sur
+> toutes les coutures (étape 1 du périmètre, sur go).
 
 ### Question unique de la porte
 
