@@ -140,3 +140,35 @@ vs toute la ligne ; croisement segments alignés × prédicteurs ; sens par
 couture) ; étape 3 = planche expérimentale échelle harmonisée par terrain vs
 production, puis proposition de modification de production sur porte dédiée
 seulement.
+
+## Porte OVL-2 — verdict du porteurer (2026-10-01) : **CLOS**, run 42 m consigné en observation
+
+Mon verdict agent « OUI » du jour même est **renversé** par le porteur de porte,
+sur planche 1:10 000 et chiffres d'audit. Ses quatre arguments, consignés :
+
+1. **x449000 = limite de massif, pas artefact.** La vue d'ensemble montre que la
+   ligne sépare deux paysages (massif compact à l'ouest, tissu fragmenté bâti /
+   parcelles à l'est) sur toute la hauteur de la carte, bien au-delà de toute
+   bande de couture ; un artefact de bord de dalle est un liseré local.
+2. **Sens du basculement.** `406 ↔ non-veg` = oscillations dans les deux sens
+   autour du seuil le plus bas ; une surdensité classerait vers le haut
+   (408/410), un saut d'échelle fixe entre tuiles serait unidirectionnel. Ni
+   l'un ni l'autre : limite réelle qui longe et croise la coupe.
+3. **Candidat O2 écarté par ses propres chiffres.** IQR 10 m, 32 % de colonnes
+   alignées au mètre : un artefact de dalle serait aligné à ~100 % (ligne droite
+   par construction) ; cette dispersion décrit une structure du terrain qui
+   croise la couture. Lecture « limite de parcelle » maintenue, contresens
+   physique non contredit.
+4. **Résidu unique : run 42 m sur y=6887000, 408→410, sens montant** — seul
+   élément combinant bon sens et longueur cohérente ; isolé sur une couture de
+   2 km → consigné en **observation**, pas en défaut ; n'ouvre pas de correctif.
+
+**Conséquences :** sujet OVL clos sans modification de production ; étapes 2–3
+sans objet, non ouvertes. Mon hypothèse (b) « normalisateur KP par tuile »
+meurt **non testée**, consignée comme telle et non réfutée : si un liseré de
+couture réapparaît sur une autre emprise, premiers tests = répartition des sens
+des bascules par couture + portée du normalisateur (V0.1 / source KP). La note
+V2 demeure : mesurer les coutures par recouvrement de points (M1∧M2 / drapeaux
+de passe), jamais par bbox nominal. Planche audit : `work/expe/overlap/audit/
+planche_audit.png` (copie `docs/images/` à la charge de l'exécuteur, commit de
+verdict = celui-ci).

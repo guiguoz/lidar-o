@@ -695,3 +695,18 @@ propre : une famille de traitements éliminée avant tout contact avec la produc
 Biais connu écarté du verdict : +50 % strate low dans la bande ~30 m en bas de fenêtre
 (V0.6, recouvrement inter-tuiles). Verdict complet, chiffres et conséquences :
 `docs/expe_journal.md`.
+
+## Recouvrement / coutures de tuiles (OVL) — **CLOS au 2026-10-01**
+
+Surdensité de points mesurée aux bords de tuiles (OVL-1 : ratios front/témoin
+1,25 / 1,35 / 1,85 selon strate ; mécanisme = deux passes de vol convergentes
+incluses dans chaque tuile au bord, défaut systématique de toute couture),
+**sans effet cartographique constaté sur l'emprise de Grimbosq** : l'audit des
+basculements de classe (OVL-2) ne trouve aucun défaut aligné sur couture —
+x449000 = limite de massif réel, candidat O2 = limite de parcelle (dispersion
+IQR 10 m) — hors un run de 42 m (408→410, sens montant) sur y=6887000, consigné
+en observation. voxeldownsize disqualifié comme correcteur (surcorrige le bas,
+souscorrige le haut, supprime 32–50 % des points réels hors recouvrement).
+Aucune modification de production issue de cette piste. Pour tout travail
+futur : mesurer les coutures par recouvrement de points (M1∧M2 / drapeaux de
+passe), jamais par bbox nominal.
