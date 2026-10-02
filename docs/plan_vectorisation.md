@@ -32,6 +32,20 @@
 | Démo sans données + figure 3 panneaux + `.omap` contrôlé | `scripts/diag/demo_vectorisation_kp.py`, `docs/images/demo_vectorisation_kp.png` |
 | Bugs pré-existants corrigés : SyntaxError `run_engine._build_ini`, double remapping de ton `_merge_vege_tiles` | commits |
 
+**Lisibilité (confusion signalée le 2026-10-02) :** les commits de ce tableau
+(dont `47e01eb`) vivent sur la branche `arena/01a0f111-lidar-o`, **non fusionnée
+dans `main`** : un checkout de `main` ne montre ni `src/kp_raster.py` ni ces
+commits. Le plan cible la branche de session.
+
+**Vérifications de revue (2026-10-02) :** constantes de palette KP vérifiées
+ligne par ligne contre `src/palette.rs` (karttapullautin/karttapullautin, clone
+du 2026-10-02) : Yellow2 = (255, 219, 166) indice 3 ✓ ; GREEN_SHADE_PALETTE_OFFSET
+= 16 → premier vert indice 16 ✓. Bug mosaic (offset source non calculé quand la
+bbox rogne la tuile à l'ouest/nord) **corrigé** avec test de régression
+(échec avant correctif, succès après) ; structure `shade_to_isom` déjà documentée
+en commentaire dans `config.yaml`, pointeur ajouté dans la docstring de
+`build_class_raster`.
+
 ## 2. Tâches restantes, dans l'ordre
 
 ### V1 — Prouver la fidélité raster → classes → vecteurs
