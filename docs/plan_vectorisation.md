@@ -70,7 +70,9 @@ Le mapping étant many-to-one, il est sous-déterminé : son placement actuel es
 **gelé comme définition du décodage** (motif : ordre des greenshades = ordre de
 pénétrabilité), identique sur tous les terrains. V1 le prouve exact ; **V1 n'y
 touche pas**. Tout replacement futur = sujet séparé à porte propre (planche),
-hors de ce plan.
+hors de ce plan — sauf la procédure encadrée V1.5–V1.6 ci-dessous
+(variantes ciblées déclenchées par une observation de planche nommée,
+porte = planche), qui fait partie de V1.
 
 **Préalable au correctif mosaic (`cbcf761`, 2026-10-02) :** smoke test sur une
 bbox réelle coupant une frontière de tuile, exécuté avant V1 ; sans lui le
@@ -174,6 +176,70 @@ work/expe/vectorisation/
 ```
 
 (`work/` gitignoré, convention du repo.)
+
+### Décomposition opérationnelle — consigne exécuteur (2026-10-02)
+
+**V1.1 — bilan zéro du raster source (Grimbosq, PNG figé).** Lire la table
+**effective** du run (config.yaml), ne jamais supposer une table illustrative.
+Table effective au commit (à re-vérifier dans le rapport) :
+
+```text
+bit  RGB             pixels    classe effective
+2    (160,254,160)   76 364    blanc   (2: 0 — choix de la table gelée)
+3    (144,246,144)   38 794    406
+4    (128,239,128)   27 169    406
+5    (112,231,112)   33 370    408
+6    (96,224,96)      8 752    408
+7    (80,217,80)         54    410
+8    —                  0      410 (teinte non atteinte sur la dalle)
+```
+
+Rapporter aussi : total pixels source ; pixels blancs / non classés ; pixels
+406 / 408 / 410 ; pixels hors emprise ; % raster par teinte. C'est le bilan zéro.
+
+**V1.2 — première vectorisation à table gelée.** shade_to_isom → raster
+406/408/410 → partition 410 > 408 > 406 → polygonisation unique → dissolve par
+classe → contrôle topologique → `.omap`. Aucune simplification supplémentaire :
+résultat de référence, pas optimisé.
+
+**V1.3 — deux mesures séparées.**
+- A. *Conservation du contenu* (fidélité du vectoriseur) : rasteriser les
+  polygones sur la même grille (convention de bord documentée), comparer raster
+  classifié avant vectorisation vs reconstruit : pixels identiques, différents,
+  changements de classe, perdus, ajoutés. **Deux registres** : pixels écartés
+  par choix de table (2: 0, nommés en amont) vs perdus par la vectorisation
+  (doivent être 0). Le vectoriseur ne modifie pas la décision shade_to_isom.
+- B. *Géométrie produite* (sans simplification) : nombre de polygones, aire
+  médiane, p95 des aires, micro-polygones, sommets, sommets/m de frontière,
+  longueur totale des frontières, slivers, overlaps, gaps. Overlaps = 0 et
+  slivers artificiels = 0 : **porte V2 satisfaite ici**, round-trip identique.
+
+**V1.4 — planche cartographique 1:10 000, même emprise.** Panneau A :
+vegetation.png KP original ; B : raster 406/408/410 issu de la table ; C :
+vecteurs après topologie ; D : vecteurs dans OOM avec fond KP à 50 %. Le
+jugement humain est le critère principal (R1) : grandes masses, transitions,
+limites de végétation, trous, petits îlots, quantité de détail, cohérence avec
+le raster KP, facilité de reprise dans OOM.
+
+**V1.5 — pas de recherche de seuils.** V1 d'abord avec la table actuelle.
+**V1.5 ne s'ouvre que sur relecture humaine de la planche V1.4** apportant des
+observations nommées ; alors seulement, variantes ciblées (V1-B coupures
+décalées, V1-C autre répartition des shades), chacune répondant à une
+observation cartographique précise (« le 406 commence trop tôt », « le 408 est
+pratiquement absent », « les petites zones 410 sont trop nombreuses »). Pas de
+recherche automatique de combinaisons. Chaque variante doit aussi passer le
+round-trip 0 pixel différent à son propre décodage ; qa_targets (19,3 / 6,9 /
+8,0 %) restent descriptifs.
+
+**V1.6 — gel explicite.** Par variante : table → couverture par classe →
+géométrie → observation cartographique. Pas de score global. Issue : table
+gelée (identique tous terrains, contrôle de palette V7), motif au commit,
+alternatives rejetées au rapport. Le gel clôt la part interprétative de V1 ;
+la porte round-trip reste à décodage fixé.
+
+**⛔ STOP après rapport V1.6** (`work/expe/vectorisation/`) : aucun commit avant
+relecture ; pas de V3 avant table gelée et planche regardée. Livrable demandé
+cette fois : V1.1–V1.4 ; V1.5–V1.6 seulement après relecture de la planche.
 
 ---
 
@@ -602,6 +668,25 @@ paramètres effectivement validés
 
 Le README ne mentionne une recommandation de configuration que si elle découle
 d'un résultat réel documenté.
+
+### Chemin confirmé et clôtures (consigne exécuteur, 2026-10-02)
+
+```text
+✅ raster KP choisi · palette vérifiée (palette.rs + formule + pixels du run)
+✅ mosaic corrigé (cbcf761) · tests · smoke test bbox sur coupe
+🔵 V1.1–V1.6 (décomposition ci-dessus)
+🟢 V2 — polygonisation topologique : invariants mesurés en V1.3B ;
+     documenter et clore si overlaps = 0, slivers = 0, round-trip identique
+🟢 coutures inter-tuiles — aucun développement nouveau : clôture OVL
+     2026-10-02 ; consolidation au protocole en V8
+🟠 V3 — simplification de couverture, après V1 (sinon on optimise la mauvaise
+     chose)
+🟣 V4 — validation OOM, keep_template true / false
+```
+
+**Référence source figée :** le PNG KP de Grimbosq et ses paramètres de
+production ne sont pas modifiés pendant la séquence V1–V4 ; aucun re-run KP sur
+ce terrain. V7 (second terrain) produit son propre run selon ses propres règles.
 
 ---
 
