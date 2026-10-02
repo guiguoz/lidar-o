@@ -198,3 +198,44 @@ médiane/p90, ≥5 pts/cellule garanti en A) ; corridor M1∧M2 (ou ±30 m) excl
 toute zone car x=448000 est une coupe et la surdensité OVL gonfle la strate
 basse exactement là ; zone C = seule mesure décisive, ratios et distributions
 rapportés, décision à la relecture sans seuil numérique préfixé.
+
+## Porte Phase 0 (plan canal sous-bois) — 2026-10-02 : **A ≈ C, plan CLOS définitif (R8 sans appel)**
+
+**Juge :** utilisateur, sur les chiffres de `work/expe/sousbois/phase0.md`
+(dalle 0448_6888, corridors ±30 m exclus, 0 % de corridor dans toutes les
+zones). A = FFCO 406 ∩ KP blanc 23,01 ha · B = FFCO 408/410 ∩ KP vert 2,82 ha ·
+C = forêt praticable ∩ KP blanc 43,10 ha · D = terrain ouvert ∩ KP blanc
+6,39 ha.
+
+**Chiffres décisifs :** B1 [0,2 ; 1,0] : occ 1 m A 0,062 ≤ C 0,071 ≤ D 0,076,
+médianes 4 m nulles des deux côtés, p90 C > A. B2/B3 : occ A/C 1,17 / 1,27
+(trop faible pour fonder un seuil), médianes 0,125 vs 0,062 pt/m² = bruit de
+comptage à cette échelle, p90 inversé (C ≥ A). Témoin positif : B dépasse A d'un
+facteur 4 à 3 sur les trois bandes → le protocole détecte ce qu'il y a à
+détecter ; le nul n'est pas une panne. Distributions HAG : même forme dans les
+quatre zones, creux [0,30 ; 0,75) = 4,9 % des retours de A contre 8,3 % (C) et
+10,3 % (D) — sommes sur [0,30 ; 0,90) : 6,8 / 11,0 / 12,5 %, même ordre : la
+cible est la plus pauvre dans l'intervalle même où l'on cherchait. Test des
+aires seuillées (B3) : le canal s'allumerait sur 7,1 ha de C contre 4,8 ha de
+A et 0,95 ha de D → masque trompeur, pire que rien.
+
+**Verdict utilisateur, verbatim :** « Trois mesures indépendantes, même
+conclusion. R8 sans appel. »
+
+**Les trois antécédents l'avaient laissé attendre** : Gate 1 (C3 = 76,3 % de
+fen3_410, masque forestier), exp 1.10 (AUC 0,5113 en bande basse, proche du
+hasard), diagnostic HAG par classe (strate basse non isolante). La phase 0 a
+mesuré ce qu'ils annonçaient, sur l'objet exact (A vs C).
+
+**Observation consignée, non élucidée, sans rouvrir :** densité des antécédents
+0,366 pt/m² sur A (9,68 ha) vs λ ≈ 0,06 pt/m² en phase 0 (occ 0,062) — six fois
+moins. Hypothèse : l'A des antécédents, collé à la coupe x=448000, incluait la
+bande de surdensité OVL ; le rapport de la correction n°4 du go (part de
+corridor, recalcul sur A masqué) n'a pas été relayé. Sans effet sur le verdict :
+A et C sont mesurés dans la même passe, avec les mêmes masques.
+
+**Conséquences :** plan `docs/plan_canal_sousbois.md` CLOS définitif ; note de
+clôture dans `docs/bilan_v0.md` ; aucune modification de production issue de la
+piste ; rien à repêcher (R8 sans appel). Côté exécuteur : coller le verdict
+dans `work/expe/JOURNAL.md` ; pas de planche produite en phase 0, rien à copier
+en `docs/images/`.
