@@ -71,8 +71,12 @@ fond, là où le rendu actuel laisse du blanc.
 >
 > **Passe exécutée le 2026-10-02 : ANTÉCÉDENTS INSUFFISANTS → la phase 0
 > conserve son intérêt (cas B : densité 0,366 pt/m² non nulle en A).** Verdict
-> et chiffres dans `docs/expe_journal.md`. Phase 0 ouverte sur go explicite,
-> avec les contraintes ci-dessous intégrées à §1.
+> et chiffres dans `docs/expe_journal.md`. **Go explicite donné le 2026-10-02**,
+> après quatre corrections à `antecedents.md` : arithmétique 42,3 % (pas 37 %) ;
+> interdiction de qualifier 0,366 de faible avant comparaison à C ; zones B–D
+> sur la dalle 0448_6888 (même emprise d'acquisition que A) ; part de A dans le
+> corridor M1∧M2 rapportée, recalcul sur A masqué si >10 %. Contraintes §1
+> ci-dessous intégrales.
 
 ### 1. Gate 1 — reprendre précisément les résultats existants
 
