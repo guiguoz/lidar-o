@@ -46,6 +46,11 @@ bbox rogne la tuile à l'ouest/nord) **corrigé** avec test de régression
 en commentaire dans `config.yaml`, pointeur ajouté dans la docstring de
 `build_class_raster`.
 
+**Confirmation indépendante sur run réel (Grimbosq, 2026-10-02) :** Yellow2
+(255, 219, 166) = 112 620 px ; verts i=0..5 = `kp_green_rgb(11, 160)` exacts
+(76 364 / 38 794 / 27 169 / 33 370 / 8 752 / 54 px) ; teinte i=6 absente de la
+dalle (greenshades[6] = 4,0 pts/m² non atteinte).
+
 ## 2. Tâches restantes, dans l'ordre
 
 ### V1 — Prouver la fidélité raster → classes → vecteurs
@@ -66,6 +71,10 @@ Le mapping étant many-to-one, il est sous-déterminé : son placement actuel es
 pénétrabilité), identique sur tous les terrains. V1 le prouve exact ; **V1 n'y
 touche pas**. Tout replacement futur = sujet séparé à porte propre (planche),
 hors de ce plan.
+
+**Préalable au correctif mosaic (`cbcf761`, 2026-10-02) :** smoke test sur une
+bbox réelle coupant une frontière de tuile, exécuté avant V1 ; sans lui le
+correctif n'est pas réputé valide.
 
 Le travail de V1 n'est donc **pas de calibrer ces correspondances sur la
 couverture des cartes de référence**. Il consiste à démontrer que le décodage
@@ -98,6 +107,9 @@ pixels différents
 pixels 406/408/410 perdus
 pixels ajoutés
 surface différente
+pixels de chaque teinte source et leur mapping
+    (teinte 2 → 0 = choix de table gelé : section « choix de table »,
+     pas une perte de round-trip)
 ```
 
 **Convention :** rasterisation sur la même grille, même règle de bord de pixel
@@ -115,6 +127,16 @@ La cible est :
 à condition que la vectorisation soit effectuée sans simplification ni filtrage
 des micro-polygones.
 
+**Le choix de table n'est pas une perte de round-trip.** Le mapping gelé
+écarte la teinte la plus claire (`2: 0`, reste blanc) : ces pixels existent
+dans le PNG et leur disparition est une **décision de calibration**, pas un
+défaut de fidélité. Le rapport les nomme comme tels (comptage par teinte,
+mapping, statut de choix) dans une section distincte du round-trip ;
+« 0 pixel différent » compare raster catégoriel → vecteur → raster **à
+décodage fixé**. « pixels 406/408/410 perdus » se lit donc en deux parts :
+écartés par choix de table (amont, nommés) vs perdus par la vectorisation
+(doivent être 0).
+
 Si une différence apparaît, l'expérience s'arrête : on corrige la brique de
 polygonisation avant d'aller plus loin.
 
@@ -126,6 +148,9 @@ définissent pas la correspondance des classes.
 
 Ne pas créer de `shade_to_isom` dépendant du terrain : le décodage est
 identique sur tous les terrains (contrôle de palette en V7).
+
+Ne pas réviser le `2: 0` dans V1 : ce choix est gelé comme le reste de la
+table ; le modifier = sujet séparé à porte propre.
 
 ### Sorties
 
