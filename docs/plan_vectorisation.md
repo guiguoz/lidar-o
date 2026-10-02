@@ -31,20 +31,42 @@
 
 ## 2. Tâches restantes, dans l'ordre
 
-### V1 — Calibrer `shade_to_isom` sur données réelles (bloquant pour tout le reste)
-- Sur `out_kp_grimbosq/` (ou le terrain dont les dalles sont présentes) :
-  `python -m src.kp_raster report out_kp_<terrain>` ; placer les coupures pour
-  retrouver les cumuls `qa_targets` (19,3 / 6,9 / 8,0 %) ; geler la table dans
-  `config.yaml` **par terrain** (structure `terrains.<nom>.shade_to_isom` à créer si
-  absente).
-- **Acceptation :** table gelée + commit **et planche 1:10 000** (raster KP vs classes
-  vectorisées) **regardée par un humain** ; couverture à ± 3 points des `qa_targets` =
-  mesure informative (cohérence R1 du plan 1 : les chiffres expliquent, l'œil décide).
-  Le `report` du terrain suivant part de cette table comme prior.
-- **Ordonnancement :** V1 est **refaite** après toute modification **de production**
-  future (sujet nouveau à porte) : un raster amont modifié invalide les coupures
-  gelées. Au 2026-10-02, le plan 1 est clos sans modification de production : les
-  coupures, une fois gelées, restent valides.
+### V1 — Porte de fidélité du décodage, et encadrement du seul choix d'interprétation (bloquant pour tout le reste)
+- **Ce que dit le code (2026-10-02) :** le KP de production (`vege_bit`) sort
+  **7 teintes actives** (valeurs bit 2 à 8, greenshades par défaut dont entrées 99
+  inactives), pas 3 classes : les DN 85/170/255 sont la *sortie* du pont, après
+  `shade_to_isom`. Le décodage est donc **sous-déterminé** (7 teintes → 3 classes) :
+  placer les coupures est inévitable. Ce qui change ici est leur **statut**.
+- **Vectorisation fidèle = ne pas plier le décodage vers une référence externe.**
+  Placer les coupures « pour retrouver les cumuls qa_targets » ferait de la
+  couverture FFCO une cible qui réinterprète le raster source : interdit. La config
+  l'écrivait déjà (« ces coupures sont un POINT DE DÉPART, pas une calibration ») ;
+  l'ancien V1 avait dérivé de sa propre config, ce V1 les réaligne.
+- **Étape 1 — palette et déterminisme**, sur la sortie KP de production du terrain :
+  - **exactement 3 teintes (+ fond) :** décodage = bijection par rang (ordre vérifié
+    contre KP : greenshades ascendant = pénétrabilité décroissante) ; table gelée
+    **identique tous terrains** ; rien à calibrer, qa_targets purement informatif.
+  - **plus de 3 teintes (cas de production) :** placer les coupures est un **choix
+    d'interprétation**, documenté comme tel : regroupement contigu par rang de
+    teinte (obligatoire), placement informé par (i) la couverture FFCO en **prior**
+    (qa_targets 19,3 / 6,9 / 8,0 % ; ± 3 points = commentaire), (ii) les benchmark
+    patches S7 si un mapper en a arpenté, (iii) la planche 1:10 000 (raster KP vs
+    classes décodées). Au moins un placement alternatif rapporté à côté.
+    **Porte = planche regardée par un humain.** Table gelée **par terrain** dans
+    `config.yaml` (`terrains.<nom>.shade_to_isom`), motif du choix au commit.
+- **Étape 2 — round-trip (la fidélité même) :** raster classifié **avant
+  généralisation** → polygones de la partition → rasterisé à 1 m → accord pixel par
+  classe avec le raster classifié source, effets de bord comptés à part ; cible
+  ≥ 99,9 %, en dessous = bug de pont ou de partition à corriger avant de continuer.
+  **Après** généralisation : perte rapportée séparément (pixels modifiés par aires
+  mini et simplification) — la généralisation est la seule modification de contenu
+  légitime ; mesurée, jamais cachée.
+- **Acceptation :** déterminisme documenté ; choix d'interprétation avec motif +
+  alternatif + planche regardée ; tables round-trip et perte de généralisation ;
+  qa_targets en commentaire. Commit de table séparé de tout autre changement.
+- **Ordonnancement :** refaite après toute modification **de production** (palette).
+  Terrain nouveau : contrôle de palette d'abord — palette identique ⇒ table
+  transférée, couvertures rapportées en informatif ; palette différente ⇒ étape 1.
 
 ### V2 — Coutures inter-tuiles : mesurer puis décider (mesure faite à OVL-2 ; décision = accepter)
 - **Statut 2026-10-02 :** sujet OVL **CLOS** (porte OVL-1 OUI en comptages, puis
@@ -80,22 +102,34 @@
 - **Acceptation :** chiffre dans `docs/bilan_v0.md` ; décision tracée (corriger /
   accepter) avec la mesure.
 
-### V3 — `coverage_simplify` : simplifier la couverture entière (frontières partagées)
-- GEOS ≥ 3.12 est déjà exigé par le Dockerfile ; shapely 2.1 expose
-  `coverage_simplify`. Test : remplacer DP+Chaikin par (DP léger → coverage_simplify →
-  Chaikin) sur le corpus de calibration ; comparer sommets, médiane mm², % < 1 mm²,
-  et **chevauchements résiduels** (doit rester 0).
-- **Variante « coins » (S1, Illustrator) :** Chaikin arrondit les angles ; les traceurs
-  pro les préservent (slider « Corners »). Comparer deux variantes : Chaikin actuel vs
-  simplification **préservant les coins** (DP seul avec epsilon, ou Chaikin à coins
-  verrouillés — angles nets conservés). Distribution des angles de coin avant/après
-  dans la table d'acceptation.
-- **Acceptation :** table avant/après sur corpus : sommets, médiane mm² et % < 1 mm²
-  ISOM, **chevauchements (doivent rester 0) et lacunes inter-classes** (slivers blancs
-  entre 406/408/410 : Chaikin par polygone après coverage_simplify casse les frontières
-  partagées ; la partition répare les chevauchements, pas les lacunes) — lacunes ≤
-  baseline mesurée. Adoption seulement si sommets −30 % sous ces contraintes ; sinon
-  abandon documenté.
+### V3 — Simplification topologiquement sûre : la couverture comme un tout
+- **Principe ouvrant :** une frontière partagée se traite **une fois**. Toute
+  opération par polygone après une étape couverture est interdite : l'ancienne
+  chaîne (coverage_simplify puis Chaikin par polygone) cassait exactement les
+  frontières partagées que coverage_simplify préserve — la partition répare les
+  chevauchements, **pas les lacunes**. Le protocole antérieur avait identifié ce
+  piège ; ce V3 en fait une contrainte de conception.
+- **Trois bras sur le corpus de calibration :**
+  - **T0 — baseline actuelle** (DP + Chaikin par polygone) : mesurer chevauchements
+    et lacunes inter-classes (attendu : lacunes > 0) — coût de référence de
+    l'approche non-couverture.
+  - **T1 — DP léger → `coverage_simplify` seul** (GEOS ≥ 3.12, shapely 2.1 ; la
+    couverture est traitée comme un ensemble) : topologie sûre par construction ;
+    comportement des coins = celui de DP ; distribution des angles de coin
+    avant/après.
+  - **T2 — lissage sur arêtes partagées :** extraire le graphe de frontières de la
+    couverture (arêtes partagées uniques + nœuds), Chaikin appliqué **une fois par
+    arête** — variante coins verrouillés (S1 : nœuds de coin verrouillés, arcs
+    lissés) —, polygones réassemblés par reconstruction nœuds/arêtes : chaque arête
+    lissée une fois, topologie sûre par construction.
+- **Métriques par bras :** sommets, médiane mm² et % < 1 mm² ISOM,
+  **chevauchements (0 exigé)**, **lacunes inter-classes (0 exigé pour T1 et T2)**,
+  distribution des angles de coin, temps de traitement.
+- **Acceptation :** T1 ou T2 adopté seulement si sommets −30 % vs T0 **et**
+  chevauchements = 0 **et** lacunes = 0 ; choix T1/T2 sur qualité des coins et
+  planche 1:10 000 ; sinon abandon documenté. Test de topologie dans
+  `tests/test_vegetation.py` : aires d'intersection deux à deux = 0 et somme des
+  aires = aire de la couverture, sur sorties T1/T2.
 
 ### V4 — Vérification OOM bout en bout
 - Ouvrir `output/<terrain>.omap` dans OpenOrienteering Mapper : objets sélectionnables
@@ -109,7 +143,7 @@
 - **Acceptation :** capture ou description précise des 3 calques verts + note dans
   `bilan_v0.md` ; aucun objet orphelin hors bbox.
 
-### V5 — Couche sous-bois « propose409 » (dépend de P1-Phase 1 porte 1 + P1-Phase 4a)
+### V5 — Couche sous-bois « propose409 » (section pour mémoire — dépendances P1 mortes)
 - **CLOSE deux fois : porte 1 NON (2026-10-01) puis phase 0 du canal sous-bois
   A ≈ C (2026-10-02, R8 sans appel).** Pas de canal undergrowth, donc pas de couche
   `propose409`, et pas d'« autre canal » sur lequel la rouvrir : sujet définitivement
@@ -148,8 +182,8 @@
   d'épreuves sur Grimbosq existent (LivElox / 3D Rerun) **et** avec l'accord des
   organisateurs, calculer l'allure agrégée par classe de vert (blanc / 406 / 408 /
   410) et la confronter aux plages de runnability IOF (≈ 100 % / slow running /
-  walk / fight / 0–20 %) : calibrage informatif des coupures de V1 par bandes de
-  vitesse. Rapporté à côté de la planche ; **jamais une porte** — la runnability
+  walk / fight / 0–20 %) : calibrage informatif des coupures (cas sous-déterminé de V1) par bandes
+  de vitesse. Rapporté à côté de la planche ; **jamais une porte** — la runnability
   reste un jugement de cartographe (BKO : « there is no precise way of measuring
   runnability »). Données personnelles : statistiques agrégées uniquement, aucune
   trace republiée.
@@ -232,6 +266,6 @@ dépendances, jamais portes.**
 | S2 | **ISOM 2017-2 §2.6** : la généralisation a deux phases — *sélective* (choisir ce qu'on représente ; dimensions mini adoptées dès le relevé) et *graphique* (simplification, déplacement, exagération). « La lisibilité ne doit jamais être sacrifiée pour représenter un excès de détails » ; la cohérence entre cartes est une qualité première ; **les frontières nettes entre types de végétation sont des points de repère du lecteur** | ISOM 2017-2, PDF bilingue FFCO (mars 2022) ; baoc.org | Vocabulaire et critères de V6 ; V3/V4 : la topologie (0 chevauchement, 0 lacune, frontières partagées) est une exigence ISOM, pas seulement une propreté interne |
 | S3 | **Carte pro du même terrain** : Grimbosq la Motte, 6 déc. 2015 — « One-man relais RDE » et « WE RDE court-long » (CO Pédestre / Orientation Caennaise ; collection Axel Pannier). JPG **sans tracés** téléchargeable ; worldofo ne publie **aucun fichier vectoriel** | omaps.worldofo.com id 159467/159468 → doma go78.org | V6 : panneau de référence supplémentaire (géoréférencement 3 points) ; comparaison visuelle uniquement, pas de statistiques de polygones |
 | S4 | **OCAD contrôle les dimensions mini IOF pendant le dessin** (indicateur vert/rouge + % trop petit), en plus de Check Legibility Space en fin de carte ; le mapper du WOC 2025 (Janne Weckman, ~50 km² dont 20 km² WOC) l'utilise en contrôle final | ocad.com/blog (tag ISOM 2017 ; interview Weckman) | V6 (tailles mini déjà intégrées) ; référence pour l'édition manuelle dans OOM : « dessiner assez grand ou omettre » |
-| S5 | **LivElox / 3D Rerun** : traces GPS téléchargeables (GPX), allures par patte ; runnability IOF = plages de vitesse (blanc ≈ 100 %, 406 slow running, 408 walk, 410 fight, 411 impassable ≈ 0–20 %) mais « there is no precise way of measuring runnability — c'est un jugement du cartographe » | livelox.com/documentation ; bko.org.uk KYS-Vegetation.pdf | V5 : allure agrégée par classe de vert = étalonnage **informatif** des bandes de vitesse (accord organisateurs requis ; données personnelles : agrégats seulement) ; confirme R1 |
+| S5 | **LivElox / 3D Rerun** : traces GPS téléchargeables (GPX), allures par patte ; runnability IOF = plages de vitesse (blanc ≈ 100 %, 406 slow running, 408 walk, 410 fight, 411 impassable ≈ 0–20 %) mais « there is no precise way of measuring runnability — c'est un jugement du cartographe » | livelox.com/documentation ; bko.org.uk KYS-Vegetation.pdf | V6 : allure agrégée par classe de vert = étalonnage **informatif** des bandes de vitesse, informant les coupures du cas sous-déterminé de V1 (accord organisateurs requis ; données personnelles : agrégats seulement) ; confirme R1 |
 | S6 | **OOM pro workflow** : `Edit > Find` par tag d'objet → sélection groupée → `Convert to object` (utilisé p. ex. pour réaffecter les courbes importées de Karttapullautin) | attackpoint.org (Jagge) | V5 : taguer les objets `propose409` à l'écriture pour permettre la réaffectation groupée dans OOM |
-| S7 | **Karttapullautin = KP, notre propre outil** (auteur Jarkko Ryyppä, « Jagge ») : réglage conseillé — clip représentatif contenant tous les types de vert, `greenshades` à 3–4 valeurs + `99` pour sauter une nuance, éclaircissage sans effet ≥ 2 pts/m² ; **« benchmark patches »** (JWOC 2015) : cercles à végétation connue → histogrammes LiDAR → étalonnage — code privé, **absent du KP public** (vérifié par grep) | attackpoint.org ; orienteeringbc.ca ; whorienteers.net | Pas un comparateur (c'est notre moteur) : les « benchmark patches » (cercles à végétation connue → histogrammes → étalonnage) redirigés vers **V1** en raffinement optionnel si un mapper arpente des patchs tests ; le plan 1, ancien destinataire des conseils, est clos au 2026-10-02 |
+| S7 | **Karttapullautin = KP, notre propre outil** (auteur Jarkko Ryyppä, « Jagge ») : réglage conseillé — clip représentatif contenant tous les types de vert, `greenshades` à 3–4 valeurs + `99` pour sauter une nuance, éclaircissage sans effet ≥ 2 pts/m² ; **« benchmark patches »** (JWOC 2015) : cercles à végétation connue → histogrammes LiDAR → étalonnage — code privé, **absent du KP public** (vérifié par grep) | attackpoint.org ; orienteeringbc.ca ; whorienteers.net | Pas un comparateur (c'est notre moteur) : les « benchmark patches » (cercles à végétation connue → histogrammes → étalonnage) redirigés vers **V1** (cas sous-déterminé) en raffinement optionnel si un mapper arpente des patchs tests ; le plan 1, ancien destinataire des conseils, est clos au 2026-10-02 |
