@@ -17,7 +17,7 @@
 | TEMPLATE OMAP | FONCTIONNEL |
 | VECTORISATION VÉGÉTATION | SUSPENDUE — _vege mbs2=16 mesuré, critère non atteint |
 | CANAL UNDERGROWTH low (Cassini C1–C4) | ABANDONNÉ — porte 1 NON 2026-10-01 (`docs/expe_journal.md`) |
-| CANAL SOUS-BOIS indicatif (fond de décalque) | OUVERT — antécédents INSUFFISANTS 2026-10-02 (0,366 pt/m² en A, cas B) ; phase 0 sur go (`docs/plan_canal_sousbois.md`) ; CLOS définitif si A ≈ C |
+| CANAL SOUS-BOIS indicatif (fond de décalque) | **CLOS** — phase 0 2026-10-02 : A ≈ C, R8 sans appel (`docs/expe_journal.md`) |
 | DOMAINE | FORÊTS NORMANDES CIBLÉES |
 
 ---
@@ -711,3 +711,21 @@ souscorrige le haut, supprime 32–50 % des points réels hors recouvrement).
 Aucune modification de production issue de cette piste. Pour tout travail
 futur : mesurer les coutures par recouvrement de points (M1∧M2 / drapeaux de
 passe), jamais par bbox nominal.
+
+## Canal de sous-bois indicatif — **CLOS au 2026-10-02**
+
+Phase 0 mesurée (dalle 0448_6888, corridors de couture exclus) : sur la bande
+visée [0,2 ; 1,0] m, la cible A (FFCO 406 ∩ KP blanc) est **en dessous** du
+témoin négatif C (forêt praticable ∩ KP blanc) et du terrain ouvert D en
+cellules occupées, médianes nulles des deux côtés ; sur [0,3 ; 1,5] et
+[0,2 ; 2,0] m, ratios A/C de 1,17 et 1,27 trop faibles pour fonder un seuil,
+p90 inversé. Le témoin positif B (3–4× au-dessus de A) valide le protocole.
+Distributions HAG de même forme dans les quatre zones ; la cible est la plus
+pauvre dans le creux [0,30 ; 0,75] m (4,9 % contre 8,3 % et 10,3 %). Seuillé
+sur ces bandes, le canal se serait allumé sur 7,1 ha de C contre 4,8 ha de A :
+masque trompeur. **Les trois antécédents l'avaient laissé attendre** : Gate 1
+(masque forestier), exp 1.10 (AUC bande basse proche du hasard), diagnostic HAG
+par classe. Observation consignée sans rouvrir : densité antécédents 0,366
+pt/m² vs ~0,06 en phase 0 (A des antécédents probablement gonflé par la bande
+de surdensité de la coupe x=448000). R8 sans appel : aucune modification de
+production, rien à repêcher.

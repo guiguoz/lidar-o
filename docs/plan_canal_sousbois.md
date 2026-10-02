@@ -1,7 +1,7 @@
 # Plan — Canal de sous-bois
 
-> **Statut : passe antécédents (§0 ter) en cours de transmission, avant toute
-> phase 0.** Plan jugé et réécrit par l'agent le 2026-10-01 (version soumise par
+> **Statut : CLOS DÉFINITIF au 2026-10-02** — phase 0 : A ≈ C, verdict
+> utilisateur, R8 sans appel.** Plan jugé et réécrit par l'agent le 2026-10-01
 > l'utilisateur conservée dans le commit de création).
 >
 > **Objectif** : ajouter au fond de décalque une information que le rendu actuel
@@ -52,8 +52,8 @@ fond, là où le rendu actuel laisse du blanc.
 - **Précédent de veille** : Airelles (France) — lande praticable ≡ sous-bois en
   HAG [0,3 ; 3,0] (bilan_v0, §veille). La bande [0,2 ; 1,0] n'est pas prouvée
   immunisée ; c'est à la phase 0 de le dire.
-- **Si la phase 0 conclut A ≈ C : plan CLOS définitif, R8 sans appel**, note de
-  clôture dans `docs/bilan_v0.md`.
+- **La phase 0 a conclu A ≈ C le 2026-10-02 : plan CLOS définitif, R8 sans appel**, note de
+  clôture dans `docs/bilan_v0.md`. **Clause appliquée.**
 
 ---
 
@@ -77,6 +77,11 @@ fond, là où le rendu actuel laisse du blanc.
 > sur la dalle 0448_6888 (même emprise d'acquisition que A) ; part de A dans le
 > corridor M1∧M2 rapportée, recalcul sur A masqué si >10 %. Contraintes §1
 > ci-dessous intégrales.
+>
+> **Phase 0 exécutée le 2026-10-02 (dalle 0448_6888, corridors exclus) :
+> A ≈ C → plan CLOS DÉFINITIF, R8 sans appel** (verdict utilisateur). Chiffres
+> et arguments dans `docs/expe_journal.md` ; note de clôture dans
+> `docs/bilan_v0.md`.
 
 ### 1. Gate 1 — reprendre précisément les résultats existants
 
