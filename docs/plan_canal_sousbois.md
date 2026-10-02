@@ -1,7 +1,8 @@
 # Plan — Canal de sous-bois
 
-> **Statut : phase 0 en attente.** Plan jugé et réécrit par l'agent le 2026-10-01
-> (version soumise par l'utilisateur conservée dans le commit de création).
+> **Statut : passe antécédents (§0 ter) en cours de transmission, avant toute
+> phase 0.** Plan jugé et réécrit par l'agent le 2026-10-01 (version soumise par
+> l'utilisateur conservée dans le commit de création).
 >
 > **Objectif** : ajouter au fond de décalque une information que le rendu actuel
 > n'a pas — où se trouve la végétation basse.
@@ -53,6 +54,131 @@ fond, là où le rendu actuel laisse du blanc.
   immunisée ; c'est à la phase 0 de le dire.
 - **Si la phase 0 conclut A ≈ C : plan CLOS définitif, R8 sans appel**, note de
   clôture dans `docs/bilan_v0.md`.
+
+---
+
+## 0 ter. Passe préalable — antécédents (consigne exécuteur, avant toute phase 0)
+
+> **Passe documentaire et mesure ciblée préalable.** Objectif : déterminer si
+> la phase 0 apporte une information réellement nouvelle, ou si les diagnostics
+> déjà réalisés permettent déjà de conclure.
+>
+> **Aucune nouvelle expérimentation exploratoire.** Un seul calcul nouveau est
+> autorisé (§0 ter.3.2), uniquement si le chiffre n'existe pas déjà.
+>
+> **Aucune modification de production. Aucun développement. Aucun commit avant
+> relecture humaine.**
+
+### 1. Gate 1 — reprendre précisément les résultats existants
+
+Le plan ne cite que C3 (HAG (0 ; 1], σ 2 m, t = 1,0 → 76,3 % de fen3_410) :
+insuffisant pour vérifier la portée de la Porte 1. Retrouver dans les journaux
+et rapports existants les quatre candidats C1–C4 ; pour chacun, relever
+exactement, **sans rien recalculer** :
+
+```
+identifiant · bande HAG · sigma · seuil · surface / pourcentage produit
+fenêtre utilisée · résultat visuel / constat principal
+raison du non-renvoi · date du test · verdict Porte 1
+```
+
+Point de départ connu (`docs/expe_journal.md`) : couvertures fen3_410 =
+C1 38,5 % · C2 59,5 % · C3 76,3 % · C4 67,0 %. Pour C3, rechercher le même
+indicateur sur les autres fenêtres si la mesure a déjà été faite.
+
+### 2. Expérience 1.10 — contre-indice déjà disponible
+
+Retrouver et documenter : AUC conditionnelle n≥3 — W1 [0,3 ; 1,5] = 0,5113 ·
+WC [1,5 ; 3,0] = 0,5456 · W3 [0,3 ; 3,0] = 0,5461. Avec sa limite de portée :
+elle mesure la séparation entre classes de végétation, **pas** la détection du
+sous-bois dans le blanc du rendu. Indice défavorable supplémentaire (la bande
+haute ne s'est pas révélée moins discriminante que la basse ; niveaux proches
+du hasard), écho terrain dans la veille (Airelles : lande praticable ≡
+sous-bois en HAG [0,3 ; 3,0]). **Ne pas en tirer une conclusion plus forte que
+ce qu'elle mesure.**
+
+### 3. fen1_406 — mesure ciblée susceptible de rendre la phase 0 inutile
+
+**3.1 Chercher d'abord le résultat existant** — dans `diag_hag_classes.json` et
+diagnostics associés : classe 2 = 0,80 % des points au-dessus de 0,2 m ;
+classe 3 = 31,40 % au-dessus de 0,2 m. Insuffisant seul : il manque le nombre
+absolu de retours, donc la densité en pts/m².
+
+Chercher aussi, et c'est la recherche décisive : **toute comparaison déjà
+mesurée, sur une bande basse, entre « FFCO 406 ∩ rendu blanc » et « forestier
+blanc ∩ rendu blanc »** (ou équivalent A vs C). Si elle existe, la rapporter :
+c'est le seul antécédent qui puisse rendre la phase 0 sans objet sur pièce.
+Le constat visuel de Gate 1 (« nulle part KP blanc + canal retrouve une
+structure cohérente », sur fen3_410) est cité verbatim avec sa limite : visuel,
+une fenêtre, pas une comparaison A vs C mesurée.
+
+**3.2 Si le chiffre de densité n'existe pas**, unique calcul autorisé, sur
+zone A = FFCO 406 ∩ rendu blanc **dans** fen1_406 :
+
+```
+nombre de retours HAG ∈ [0,2 ; 1,0] m (toutes classes) · surface de A
+    → densité en pts/m² rapportée à la surface de A, PAS à la fenêtre
+      (la fenêtre entière en contexte : elle n'est végétale qu'à 45,9 %)
+carreaux traversés par A (leçon OVL : effets inter-tuiles)
+part des points de classe 2 (sol) dans la bande = plancher de bruit
+si directement disponibles dans la même passe : nombre total de retours
+    dans A · part des retours dans la bande · part des cellules de A
+    contenant au moins un retour dans la bande
+```
+
+Ne pas lancer la phase 0. Aucun lissage, aucun seuillage, aucune nouvelle
+campagne de fenêtres.
+
+### 4. Ce que cette passe permet réellement de conclure
+
+```
+CAS A    retours [0,2 ; 1,0] = 0 dans A
+         → aucune information dans cette bande sur cette cible
+         → phase 0 sans objet POUR CETTE BANDE ; plan clos seulement si
+           aucune autre bande disponible ne justifie une hypothèse distincte
+           (1.10 ≈ hasard = indice défavorable, pas une absence)
+
+CAS A bis  comparaison A vs C déjà mesurée trouvée en archive
+         → phase 0 sans objet sur son objet même · rapporter et STOP
+
+CAS B    densité non nulle
+         → le signal physique existe dans A ; cela ne prouve PAS qu'il
+           discrimine le sous-bois du blanc forestier
+         → la phase 0 conserve son intérêt : elle doit encore mesurer A contre C
+
+CAS C    densité très faible
+         → NE PAS inventer de seuil de clôture
+         → rapporter densité, nombre total, part de cellules occupées, et
+           taille de cellule impliquant ≥ 5 pts/cellule (prior de faisabilité
+           pour la phase 0 : rapporté, pas décidé) · puis arrêter
+```
+
+**La faible densité ne suffit pas à conclure « rien à détecter » sans critère
+de détectabilité explicite.**
+
+### 5. Synthèse demandée — trois questions et une conclusion
+
+```
+Gate 1     que produisaient réellement C1–C4 ? pourquoi la Porte 1 a-t-elle été NON ?
+1.10       que montre réellement le résultat 1.10 ? quelle est sa limite de portée ?
+fen1_406   quelle est la densité réelle de retours HAG [0,2 ; 1,0] m dans A ?
+```
+
+Puis une seule conclusion : **ANTÉCÉDENTS SUFFISANTS → phase 0 sans objet** ou
+**ANTÉCÉDENTS INSUFFISANTS → phase 0 conserve son intérêt**. Décision justifiée
+par les données, sans ajouter d'hypothèse nouvelle.
+
+### 6. Où documenter — ⛔ STOP
+
+Préparer uniquement `work/expe/sousbois/antecedents.md` (chiffres Gate 1 ;
+résultat 1.10 ; mesure fen1_406 ; conclusion sur la nécessité de la phase 0).
+Ne pas modifier `docs/plan_canal_sousbois.md` (référence normative, commit
+`de29415`) ni `docs/bilan_v0.md` avant validation humaine ; et après, seulement
+si la phase 0 devient réellement sans objet.
+
+Après `antecedents.md` : **STOP.** Ne pas lancer la phase 0. Ne pas produire de
+nouveau canal. Ne pas modifier la production. Ne pas optimiser seuil, sigma ou
+bande. Ne pas committer avant relecture humaine.
 
 ---
 
