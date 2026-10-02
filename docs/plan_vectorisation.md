@@ -74,7 +74,18 @@ hors de ce plan.
 
 **Préalable au correctif mosaic (`cbcf761`, 2026-10-02) :** smoke test sur une
 bbox réelle coupant une frontière de tuile, exécuté avant V1 ; sans lui le
-correctif n'est pas réputé valide.
+correctif n'est pas réputé valide. **Préalable satisfait le 2026-10-02 :**
+canvas 400×400 m, frontière x=449000 à la colonne 200, tuile 0448_6888 clippée
+depuis `col_src=800` ; 24/24 tests côté exécuteur. **V1 ouverte dans l'ordre
+du plan.**
+
+**Réconciliation exécuteur / repo (2026-10-02) :** les copies côté exécuteur
+(`src/kp_raster.py`, `tests/test_kp_raster.py` à 24 tests, `config.yaml`) doivent
+être diffées contre les commits repo `cbcf761` + `2677371` : les régressions
+supplémentaires de l'exécuteur (ouest / nord séparées) ont vocation à rentrer
+dans les tests du repo, et le bloc `shade_to_isom` doit être identique des deux
+côtés (le repo le possédait déjà, table gelée et note `2: 0` comprises).
+Le repo reste la source de vérité.
 
 Le travail de V1 n'est donc **pas de calibrer ces correspondances sur la
 couverture des cartes de référence**. Il consiste à démontrer que le décodage
