@@ -57,6 +57,9 @@ KP_NO_DATA = 0
 KP_YELLOW = 1
 KP_FIRST_GREEN = 2
 
+# Espace distinct des DN de sortie : 255 signifie ici « label KP non reconnu »,
+# jamais écrit dans le raster classifié (build_class_raster lève avant).
+# L'identité numérique avec ISOM_TO_DN[410] = 255 est une coïncidence.
 # Sentinel interne : pixel présent dans le PNG mais absent de la palette attendue.
 _UNMATCHED = 255
 
@@ -341,6 +344,12 @@ def mosaic(tiles: Iterable[Tile], bbox: tuple[float, float, float, float] | None
         lab = t.labels
         if scale > 1:
             lab = np.repeat(np.repeat(lab, scale, axis=0), scale, axis=1)
+        # Offset SOURCE : la part de la tuile hors canvas (bbox qui rogne à
+        # l'ouest ou au nord) doit être sautée côté source aussi, sinon le
+        # contenu est décalé d'autant de pixels que la tuile déborde.
+        col_src = int(round((max(west, t.west) - t.west) / res_m * scale))
+        row_src = int(round((t.north - min(north, t.north)) / res_m * scale))
+        lab = lab[row_src:, col_src:]
         h, w = lab.shape
         h = min(h, height - row)
         w = min(w, width - col)
@@ -397,6 +406,10 @@ def build_class_raster(
 
     Produit exactement le même contrat que `scripts/process_hag.py` :
     uint8, DN 85/170/255, 0 = pas de végétation, CRS du terrain.
+
+    Attend en config `karttapullautin.vectorization.shade_to_isom` (valeur bit
+    KP 2–8 → 0/406/408/410, table gelée, identique tous terrains) ; exemple
+    commenté dans `config.yaml`.
     """
     out_kp = pathlib.Path(out_kp)
     out_tif = pathlib.Path(out_tif)

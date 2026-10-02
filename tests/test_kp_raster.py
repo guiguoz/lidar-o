@@ -206,6 +206,24 @@ def test_mosaique_recadree_sur_la_bbox_du_terrain(tmp_path, labels_forest):
     assert labels.shape == (40, 40)
 
 
+def test_mosaique_bbox_clipee_contenu_non_decale(tmp_path):
+    """Bbox rognant la tuile à l'ouest ET au nord : le contenu doit suivre.
+
+    Régression : l'offset source dans la tuile n'était pas calculé — le canvas
+    recevait `lab[:h, :w]` au lieu de `lab[row_src:, col_src:]`, donc un contenu
+    décalé d'autant de pixels que la tuile déborde du canvas. Le test voisin
+    `test_mosaique_recadree_sur_la_bbox_du_terrain` ne regardait que la forme.
+    """
+    lab = ((np.arange(40 * 40).reshape(40, 40) // 7) % 6 + KP_FIRST_GREEN
+           ).astype(np.uint8)
+    _write_bit_tile(tmp_path / "dalle_vege_bit.png", lab, 448000.0, 6889000.0)
+    labels, res, west, north = mosaic(load_tiles(tmp_path),
+                                      bbox=(448013.0, 6888960.0, 448033.0, 6888987.0))
+    assert (res, west, north) == (1.0, 448013.0, 6888987.0)
+    assert labels.shape == (27, 20)       # 6888987-6888960 x 448033-448013
+    np.testing.assert_array_equal(labels, lab[13:40, 13:33])
+
+
 def test_bbox_disjointe_est_une_erreur(tmp_path, labels_forest):
     """Garde-fou du bug de Port-en-Bessin : dalles et bbox qui ne se croisent pas."""
     _write_bit_tile(tmp_path / "dalle_vege_bit.png", labels_forest, 448000.0, 6889000.0)
