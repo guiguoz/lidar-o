@@ -5,7 +5,7 @@
 > ses preuves et ses limites) — ce plan n'en répète pas le contenu, il ordonne **ce qui
 > reste à faire** après le commit `47e01eb` (2026-09-30).
 > **Indépendance :** ce plan est exécutable **sans** le plan 1
-expériences à portes).
+> (`docs/plan_amelioration_raster.md`) ; les tâches dépendantes sont marquées « P1-Phase n » (plan 1 v2, expériences à portes).
 > **Au 2026-10-02, le plan 1 est clos sans modification de production** (undergrowth,
 > OVL, sous-bois) : les dépendances P1-Phase citées ci-dessous sont des branches
 > mortes, conservées pour mémoire.
@@ -115,6 +115,7 @@ expériences à portes).
   `propose409`, et pas d'« autre canal » sur lequel la rouvrir : sujet définitivement
   clos. Section conservée pour mémoire uniquement (sémantique ISOM figée, tag OOM,
   exclusion de `coverage_partition`).
+- **Sémantique ISOM figée par contrôle du gabarit :** ISOM 2017-2 n'a **aucune surface
   « undergrowth »** (vérifié dans `assets/ISOM 2017-2_10000.omap` : 409 = « Vegetation:
   walk, good visibility » ; « Green 100% for undergrowth » n'est qu'une couleur).
   Un sous-bois qui ralentit la course se classe déjà par la vitesse (406/408/410) ;
@@ -233,4 +234,4 @@ dépendances, jamais portes.**
 | S4 | **OCAD contrôle les dimensions mini IOF pendant le dessin** (indicateur vert/rouge + % trop petit), en plus de Check Legibility Space en fin de carte ; le mapper du WOC 2025 (Janne Weckman, ~50 km² dont 20 km² WOC) l'utilise en contrôle final | ocad.com/blog (tag ISOM 2017 ; interview Weckman) | V6 (tailles mini déjà intégrées) ; référence pour l'édition manuelle dans OOM : « dessiner assez grand ou omettre » |
 | S5 | **LivElox / 3D Rerun** : traces GPS téléchargeables (GPX), allures par patte ; runnability IOF = plages de vitesse (blanc ≈ 100 %, 406 slow running, 408 walk, 410 fight, 411 impassable ≈ 0–20 %) mais « there is no precise way of measuring runnability — c'est un jugement du cartographe » | livelox.com/documentation ; bko.org.uk KYS-Vegetation.pdf | V5 : allure agrégée par classe de vert = étalonnage **informatif** des bandes de vitesse (accord organisateurs requis ; données personnelles : agrégats seulement) ; confirme R1 |
 | S6 | **OOM pro workflow** : `Edit > Find` par tag d'objet → sélection groupée → `Convert to object` (utilisé p. ex. pour réaffecter les courbes importées de Karttapullautin) | attackpoint.org (Jagge) | V5 : taguer les objets `propose409` à l'écriture pour permettre la réaffectation groupée dans OOM |
-Pas un comparateur (c'est notre moteur) : les « benchmark patches » (cercles à végétation connue → histogrammes → étalonnage) redirigés vers **V1** en raffinement optionnel si un mapper arpente des patchs tests ; le plan 1, ancien destinataire des conseils, est clos au 2026-10-02
+| S7 | **Karttapullautin = KP, notre propre outil** (auteur Jarkko Ryyppä, « Jagge ») : réglage conseillé — clip représentatif contenant tous les types de vert, `greenshades` à 3–4 valeurs + `99` pour sauter une nuance, éclaircissage sans effet ≥ 2 pts/m² ; **« benchmark patches »** (JWOC 2015) : cercles à végétation connue → histogrammes LiDAR → étalonnage — code privé, **absent du KP public** (vérifié par grep) | attackpoint.org ; orienteeringbc.ca ; whorienteers.net | Pas un comparateur (c'est notre moteur) : les « benchmark patches » (cercles à végétation connue → histogrammes → étalonnage) redirigés vers **V1** en raffinement optionnel si un mapper arpente des patchs tests ; le plan 1, ancien destinataire des conseils, est clos au 2026-10-02 |
