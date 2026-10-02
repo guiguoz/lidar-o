@@ -5,7 +5,10 @@
 > ses preuves et ses limites) — ce plan n'en répète pas le contenu, il ordonne **ce qui
 > reste à faire** après le commit `47e01eb` (2026-09-30).
 > **Indépendance :** ce plan est exécutable **sans** le plan 1
-> (`docs/plan_amelioration_raster.md`) ; les tâches dépendantes sont marquées « P1-Phase n » (plan 1 v2, expériences à portes).
+expériences à portes).
+> **Au 2026-10-02, le plan 1 est clos sans modification de production** (undergrowth,
+> OVL, sous-bois) : les dépendances P1-Phase citées ci-dessous sont des branches
+> mortes, conservées pour mémoire.
 > **Interdit :** nouveau vectoriseur (CoVe/potrace/graphe de frontières — écartés,
 > protocole §3), ML/scoring, modification des étapes 1–9 du moteur sans mesure corpus.
 > **Veille vectorisation pro (Illustrator, cartes O réelles, ISOM, OCAD, LivElox) : §5** —
@@ -38,22 +41,30 @@
   vectorisées) **regardée par un humain** ; couverture à ± 3 points des `qa_targets` =
   mesure informative (cohérence R1 du plan 1 : les chiffres expliquent, l'œil décide).
   Le `report` du terrain suivant part de cette table comme prior.
-- **Ordonnancement :** V1 est **refaite** après toute modification validée par le plan 1
-  (porte 3 ou 4a/4b) : un raster amont modifié invalide les coupures gelées.
+- **Ordonnancement :** V1 est **refaite** après toute modification **de production**
+  future (sujet nouveau à porte) : un raster amont modifié invalide les coupures
+  gelées. Au 2026-10-02, le plan 1 est clos sans modification de production : les
+  coupures, une fois gelées, restent valides.
 
-### V2 — Coutures inter-tuiles : mesurer, puis décider (correction = P1-Phase 3)
-- **Statut 2026-10-01 :** la source de correction (plan 1 Phase 3) est close par la
-  porte 1 NON. V2 reste exécutable en **mesure + décision d'accepter** (coutures
-  documentées dans `docs/bilan_v0.md`) ; une éventuelle correction devient un sujet
-  séparé, hors de ce plan. Référence nouvelle : expérience **OVL** (plan 1 §3, porte
-  OVL-1) — si cette porte ouvre un sujet de correction et qu'il est validé, V2 s'y
-  raccorde ; d'ici là, V2 = mesure + décision d'accepter.
+### V2 — Coutures inter-tuiles : mesurer puis décider (mesure faite à OVL-2 ; décision = accepter)
+- **Statut 2026-10-02 :** sujet OVL **CLOS** (porte OVL-1 OUI en comptages, puis
+  audit OVL-2 et clôture : surdensité de passes convergentes en bord de tuile,
+  **sans effet cartographique sur l'emprise de Grimbosq**, voxeldownsize disqualifié ;
+  note de clôture dans `docs/bilan_v0.md`). Aucun sujet de correction ouvert ni à
+  raccorder : V2 = **décision d'accepter, documentée**. L'audit de basculements de
+  classes le long des coutures avec contrôle nul — la mesure de V2 — **a déjà été
+  fait à OVL-2** (transitions par couture vs baseline : y6887000 +13, y6888000 −13,
+  x449000 +125 expliqué en limite géographique ; run 42 m 408→410 consigné en
+  observation). Reste pour V2 : vérifier que décision et chiffres sont bien dans
+  `docs/bilan_v0.md` (ils y sont, note de clôture OVL), et l'éventuelle mesure
+  informative ci-dessous.
   Mécanisme élucidé à la porte OVL-1 (2026-10-01) : les coutures viennent de
   deux passes de vol convergentes incluses dans chaque dalle en bord de tuile
   (chevauchement de points inter-tuiles ≈ 2 m), pas d'un doublon inter-tuiles →
   la mesure V2 se base sur la carte de recouvrement de points (M1∧M2, drapeaux
   de passe), jamais sur les bbox nominales.
-- Mesure autonome (sans P1) : diff de classes le long des joints de tuiles sur le
+- Mesure autonome (sans P1), **pour mémoire / autres emprises** (faite sur
+  Grimbosq à OVL-2) : diff de classes le long des joints de tuiles sur le
   raster mosaïqué, **avec contrôle nul** : même mesure sur des pseudo-joints (mêmes
   lignes décalées à l'intérieur d'une tuile) — sans contrôle nul, n'importe quelle
   texture du couvert passerait pour une couture. Publier % discordants joints −
@@ -62,8 +73,10 @@
   IGN portent des points LAS « overlap » (classe 12, inter-lignes de vol) et leur part
   en/joint de recouvrement — levier indépendant du double-comptage de retours
   (voxeldownsize) : OCAD seuille ces points au lieu de sous-échantillonner.
-- Si > 1 % : appliquer la correction issue du plan 1 (Phase 3, lissage après mosaïque) **avant** de
-  re-mesurer la partition plane.
+- Si une mesure future (autre emprise) montre un effet de classe le long des
+  coutures au-delà de ce qu'OVL-2 a audité : **sujet séparé à porte propre**, hors
+  de ce plan. La correction Phase 3 n'existe plus (porte 1 NON, voxeldownsize
+  disqualifié, OVL CLOS).
 - **Acceptation :** chiffre dans `docs/bilan_v0.md` ; décision tracée (corriger /
   accepter) avec la mesure.
 
@@ -97,10 +110,11 @@
   `bilan_v0.md` ; aucun objet orphelin hors bbox.
 
 ### V5 — Couche sous-bois « propose409 » (dépend de P1-Phase 1 porte 1 + P1-Phase 4a)
-- **CLOSE (porte 1 NON, 2026-10-01) :** pas de canal undergrowth, donc pas de couche
-  `propose409`. Tâche conservée pour mémoire (sémantique ISOM figée, tag OOM,
-  exclusion de `coverage_partition`) si la piste est réouverte sur un autre canal.
-- **Sémantique ISOM figée par contrôle du gabarit :** ISOM 2017-2 n'a **aucune surface
+- **CLOSE deux fois : porte 1 NON (2026-10-01) puis phase 0 du canal sous-bois
+  A ≈ C (2026-10-02, R8 sans appel).** Pas de canal undergrowth, donc pas de couche
+  `propose409`, et pas d'« autre canal » sur lequel la rouvrir : sujet définitivement
+  clos. Section conservée pour mémoire uniquement (sémantique ISOM figée, tag OOM,
+  exclusion de `coverage_partition`).
   « undergrowth »** (vérifié dans `assets/ISOM 2017-2_10000.omap` : 409 = « Vegetation:
   walk, good visibility » ; « Green 100% for undergrowth » n'est qu'une couleur).
   Un sous-bois qui ralentit la course se classe déjà par la vitesse (406/408/410) ;
@@ -115,20 +129,29 @@
   `coverage_partition`** (superposition par conception), documenté.
   Taguer chaque objet `propose409` (tag OOM) à l'écriture : réaffectation groupée
   possible via `Edit > Find` (tag) → `Convert to object` (S6, workflow pro OOM).
-- **Étalonnage informatif par allures GPS (S5) :** si des traces GPX d'épreuves sur
-  Grimbosq existent (LivElox / 3D Rerun) **et** avec l'accord des organisateurs,
-  calculer l'allure agrégée par classe de vert (blanc / 406 / 408 / 410) et la
-  confronter aux plages de runnability IOF (≈ 100 % / slow running / walk /
-  fight / 0–20 %). Rapporté à côté de la planche ; **jamais une porte** — la
-  runnability reste un jugement de cartographe (BKO : « there is no precise way of
-  measuring runnability »). Données personnelles : statistiques agrégées uniquement,
-  aucune trace republiée.
+- **Étalonnage informatif par allures GPS (S5) : déplacé à V6** (sur les classes
+  406/408/410) — propose409 étant définitivement clos, son ancien support ici n'a
+  plus d'objet.
 - **Acceptation :** `.omap` avec 4 calques verts dont un marqué « pour revue » ;
   planche OOM ; décision humaine finale sur le devenir de chaque objet 409.
 
 ### V6 — QA comparée des deux sources
 - Même terrain, `vegetation.source: kp` puis `pdal` : table `qa.py` (rappel 406/408/410,
   n objets, médiane mm², chevauchements) + planche 3 panneaux **regardée** (R1).
+- **Source `pdal` = chaîne abandonnée dans le livrable (bilan).** Si elle tourne
+  encore, la comparaison kp-vs-pdal reste informative en contrôle d'héritage ;
+  sinon, V6 se replie sur QA kp + comparateurs (carte pro S3, OCAD optionnel,
+  tailles ISOM), et l'objet 4 de la definition of done devient une recommandation
+  kp par type de terrain, pdal cité comme chaîne abandonnée.
+- **Étalonnage informatif par allures GPS (S5, ex-V5) :** si des traces GPX
+  d'épreuves sur Grimbosq existent (LivElox / 3D Rerun) **et** avec l'accord des
+  organisateurs, calculer l'allure agrégée par classe de vert (blanc / 406 / 408 /
+  410) et la confronter aux plages de runnability IOF (≈ 100 % / slow running /
+  walk / fight / 0–20 %) : calibrage informatif des coupures de V1 par bandes de
+  vitesse. Rapporté à côté de la planche ; **jamais une porte** — la runnability
+  reste un jugement de cartographe (BKO : « there is no precise way of measuring
+  runnability »). Données personnelles : statistiques agrégées uniquement, aucune
+  trace republiée.
 - **Planche de référence pro (S3) :** la carte de Grimbosq de décembre 2015 (CO
   Pédestre / Orientation Caennaise, doma go78.org via omaps.worldofo.com —
   versions **sans tracés** disponibles) géoréférencée (3 points) en panneau
@@ -152,7 +175,9 @@
   terrain (feuillus/resineux, densité de vol) dans `docs/portabilite.md`.
 
 ### V7 — Portabilité : deuxième terrain
-- Répéter V1 sur un second terrain (kilemaed ou kuti, selon dalles disponibles) ;
+- Répéter V1 sur un second terrain **normand de préférence** (domaine ciblé,
+  bilan) ; kuti ou kilemaed seulement en sensibilité **explicitement hors domaine**
+  (veille : Kilemaed lande sémantiquement discordante, Airelles hors domaine) ;
   mesurer la dérive de la table `shade_to_isom` ; en déduire une règle de transposition
   (ou son impossibilité) dans `docs/portabilite.md`.
 - **Acceptation :** rappel FFCO ou contrôle visuel documenté sur le terrain 2, sur
@@ -187,9 +212,11 @@
 ## 4. Definition of done du plan
 
 1. Table `shade_to_isom` gelée sur ≥ 2 terrains, rappels publiés.
-2. Chev. = 0 et coutures documentées sur données réelles.
+2. Chev. = 0 sur données réelles ; coutures documentées et décision acceptée
+   (audit OVL-2 + clôture bilan, 2026-10-02).
 3. `.omap` vérifié dans OOM avec et sans template.
-4. Recommandation kp-vs-pdal écrite par type de terrain.
+4. Recommandation kp écrite par type de terrain (pdal : chaîne abandonnée,
+   comparaison informative si elle tourne).
 5. Le protocole (`protocole_vectorisation_kp.md`) ne contient plus aucun chiffre
    synthétique non remplacé ou explicitement marqué « démo ».
 
@@ -206,4 +233,4 @@ dépendances, jamais portes.**
 | S4 | **OCAD contrôle les dimensions mini IOF pendant le dessin** (indicateur vert/rouge + % trop petit), en plus de Check Legibility Space en fin de carte ; le mapper du WOC 2025 (Janne Weckman, ~50 km² dont 20 km² WOC) l'utilise en contrôle final | ocad.com/blog (tag ISOM 2017 ; interview Weckman) | V6 (tailles mini déjà intégrées) ; référence pour l'édition manuelle dans OOM : « dessiner assez grand ou omettre » |
 | S5 | **LivElox / 3D Rerun** : traces GPS téléchargeables (GPX), allures par patte ; runnability IOF = plages de vitesse (blanc ≈ 100 %, 406 slow running, 408 walk, 410 fight, 411 impassable ≈ 0–20 %) mais « there is no precise way of measuring runnability — c'est un jugement du cartographe » | livelox.com/documentation ; bko.org.uk KYS-Vegetation.pdf | V5 : allure agrégée par classe de vert = étalonnage **informatif** des bandes de vitesse (accord organisateurs requis ; données personnelles : agrégats seulement) ; confirme R1 |
 | S6 | **OOM pro workflow** : `Edit > Find` par tag d'objet → sélection groupée → `Convert to object` (utilisé p. ex. pour réaffecter les courbes importées de Karttapullautin) | attackpoint.org (Jagge) | V5 : taguer les objets `propose409` à l'écriture pour permettre la réaffectation groupée dans OOM |
-| S7 | **Karttapullautin = KP, notre propre outil** (auteur Jarkko Ryyppä, « Jagge ») : réglage conseillé — clip représentatif contenant tous les types de vert, `greenshades` à 3–4 valeurs + `99` pour sauter une nuance, éclaircissage sans effet ≥ 2 pts/m² ; **« benchmark patches »** (JWOC 2015) : cercles à végétation connue → histogrammes LiDAR → étalonnage — code privé, **absent du KP public** (vérifié par grep) | attackpoint.org ; orienteeringbc.ca ; whorienteers.net | Pas un comparateur (c'est notre moteur) : conseils vers le plan 1 (sujet 4f benchmark patches ; annexe F13–F14) |
+Pas un comparateur (c'est notre moteur) : les « benchmark patches » (cercles à végétation connue → histogrammes → étalonnage) redirigés vers **V1** en raffinement optionnel si un mapper arpente des patchs tests ; le plan 1, ancien destinataire des conseils, est clos au 2026-10-02
