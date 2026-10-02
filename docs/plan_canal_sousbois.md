@@ -68,6 +68,11 @@ fond, là où le rendu actuel laisse du blanc.
 >
 > **Aucune modification de production. Aucun développement. Aucun commit avant
 > relecture humaine.**
+>
+> **Passe exécutée le 2026-10-02 : ANTÉCÉDENTS INSUFFISANTS → la phase 0
+> conserve son intérêt (cas B : densité 0,366 pt/m² non nulle en A).** Verdict
+> et chiffres dans `docs/expe_journal.md`. Phase 0 ouverte sur go explicite,
+> avec les contraintes ci-dessous intégrées à §1.
 
 ### 1. Gate 1 — reprendre précisément les résultats existants
 
@@ -194,6 +199,27 @@ fen1_406 contient 45,9 % de végétation selon la carte FFCO
 ```
 
 > **Si le signal n'est pas dans les données, aucun canal ne le fera apparaître.**
+
+### Contraintes issues des antécédents (2026-10-02) — à respecter en phase 0
+
+```
+emprise    tuile 0447_6888 manquante → zone A = moitié est de fen1_406
+           (9,68 ha) ; zones B, C, D en x ≥ 448000
+
+coutures   x=448000 EST une coupe : la bande de surdensité OVL (passes
+           convergentes, ±~30 m) gonfle la strate basse exactement là
+           → exclure de TOUTE zone le corridor M1∧M2 (overlap_map.tif),
+             ou ±30 m à défaut ; rapporter les coutures traversant chaque zone
+
+granularité  0,366 pt/m² en A = comptage clairsemé à 1 m (médiane cellule vide)
+           → rapporter à DEUX granularités : 1 m (part de cellules occupées)
+             et 4 m (médiane / p90 en pts/m² ; 16 m² garantit ≥5 pts/cellule
+             en A à la densité mesurée)
+
+décision   zone C = seule mesure décisive ; ratios par bande + distributions
+           + parts de cellules occupées rapportés ; décision à la relecture,
+           aucun seuil numérique préfixé
+```
 
 ### Les zones — toutes dans le même carreau que A si possible
 

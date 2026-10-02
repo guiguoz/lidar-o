@@ -172,3 +172,29 @@ V2 demeure : mesurer les coutures par recouvrement de points (M1∧M2 / drapeaux
 de passe), jamais par bbox nominal. Planche audit : `work/expe/overlap/audit/
 planche_audit.png` (copie `docs/images/` à la charge de l'exécuteur, commit de
 verdict = celui-ci).
+
+## Passe antécédents (plan canal sous-bois §0 ter) — 2026-10-02 : **ANTÉCÉDENTS INSUFFISANTS, phase 0 conserve son intérêt**
+
+**Base :** `work/expe/sousbois/antecedents.md` (machine exécutant), relayé.
+- **Gate 1 :** C1–C4 tous sur fen3_410, σ 2 m ; couvertures 38,5 / 59,5 / 76,3 /
+  67,0 % ; Porte 1 NON = masques trop larges. La Porte 1 ne mesure pas le
+  contraste A vs C : la phase 0 pose une question différente.
+- **Exp 1.10 :** AUC conditionnelle n≥3 — W1 [0,3 ; 1,5] 0,5113 · WC [1,5 ; 3,0]
+  0,5456 · W3 [0,3 ; 3,0] 0,5461. Indice défavorable (la bande basse ne
+  discrimine pas mieux que la haute), portée limitée : séparation des classes
+  FFCO, pas détection du sous-bois dans le blanc KP.
+- **fen1_406 :** densité HAG [0,2 ; 1,0] m en zone A (FFCO 406 ∩ KP blanc,
+  **9,68 ha disponibles**) = **0,366 pt/m²** → signal non nul → **cas B** →
+  phase 0 utile. Signal sous le seuil C1 (1,0 pt/m²) déjà jugé trop diffus en
+  Phase 1 → la question de spécificité (zone C) devient encore plus critique.
+- **Contrainte structurelle :** tuile 0447_6888 manquante → zone A = moitié est
+  de fen1_406 ; zones B, C, D à placer en x ≥ 448000.
+
+**Conclusion relayée :** ANTÉCÉDENTS INSUFFISANTS → phase 0 conserve son
+intérêt. Cas B correctement appliqué : aucun seuil de clôture inventé.
+**Contraintes de design dérivées, intégrées au plan §1 le 2026-10-02 :**
+comptages à deux granularités (1 m = part de cellules occupées ; 4 m =
+médiane/p90, ≥5 pts/cellule garanti en A) ; corridor M1∧M2 (ou ±30 m) exclu de
+toute zone car x=448000 est une coupe et la surdensité OVL gonfle la strate
+basse exactement là ; zone C = seule mesure décisive, ratios et distributions
+rapportés, décision à la relecture sans seuil numérique préfixé.
