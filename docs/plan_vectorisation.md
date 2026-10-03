@@ -355,7 +355,41 @@ D — la variante exécutée (Chaikin par polygone après C) est la
     C trop anguleux — auquel cas ouvert comme variante ciblée.
 ```
 
-Le verdict C retenu / abandons reste un go du tenant de porte sur planche.
+### Défaut de porte et clôture V3 (directive tenant de porte, 2026-10-03)
+
+La porte initiale « lacunes = 0 » mélange deux phénomènes : topologie
+inter-classes et conservation d'aire. Elle est insuffisamment discriminante
+pour une simplification de couverture — aucune simplification ne conserve
+l'aire exactement, la porte telle qu'écrite exigeait RAW.
+
+**Elle n'est pas redéfinie après coup pour faire passer C.** La porte de
+registre reste telle qu'écrite ; le bras C ne la satisfait pas littéralement
+(1 320 m² mesurés comme lacunes). Le verdict C repose sur :
+
+```text
+(1) la décomposition chiffrée des 1 320 m² (clôture ci-dessous)
+(2) la réserve documentaire (aire non lossless, topologie cohérente)
+(3) la planche 1 relue par le tenant de porte (2026-10-03 : suffisante,
+    la planche 2 n'est pas indispensable à la décision)
+```
+
+Clôture V3 — purement numérique, depuis les fichiers existants (aucune
+planche, aucune vectorisation nouvelle) : C vs RAW, par classe 406/408/410 :
+surface RAW, surface C, perdue, ajoutée, perte nette, perte nette %,
+small features supprimées (nombre + surface cumulée), slivers créés (nombre +
+surface, séparément). Réconciliation : perte nette = features supprimées +
+recul de frontière − avance de frontière (± slivers) ; tout résidu est nommé.
+Réponse chiffrée : les 1 320 m² viennent-ils des features supprimées, du
+déplacement des frontières, des deux, ou d'autre chose ?
+
+Rapport : conserver la ligne « C cov_simp — FAIL (porte de registre telle
+qu'écrite) », ajouter dessous le bloc précis (topologie inter-classes PASS ;
+fidélité d'aire INFORMATIVE ; simplification RETENUE ; tolérance 2 m ; réserve
+documentaire). Ne pas effacer l'historique.
+
+Si la décomposition confirme (pas de trou topologique, perte géométrique
+volontaire) : verdict = « coverage_simplify, tolérance 2 m, retenu comme
+méthode de simplification de la couverture », avec réserve. Commit = verdict.
 
 La variable étudiée est uniquement la simplification.
 
@@ -409,11 +443,6 @@ La simplification n'est retenue que si :
 
 ```text
 topologie conservée (chevauchements = 0, lacunes = 0)
-   — lacunes = vides inter-classes et trous enclosed (topologie) ; la
-   conservation d'aire absolue n'est PAS une porte de V3 : aucune
-   simplification ne conserve l'aire exactement, en faire une porte
-   reviendrait à exiger RAW. Aire = mesure (ha/% par classe vs A) +
-   coût de généralisation rapporté, jugés sur planche.
 +
 round-trip suffisamment fidèle (perte de généralisation rapportée,
 aucun seuil caché)
@@ -475,6 +504,25 @@ La seconde vérifie que les vecteurs sont réellement autonomes.
 
 **Ce n'est pas une décision sur l'utilisation du template :** le template reste
 le fond de décalque retenu du workflow actuel.
+
+### Consigne exécuteur V4 (2026-10-03)
+
+Input : `v3_arm_c.gpkg` **tel quel** → writer `.omap` existant. Pas de
+re-simplification, pas de filtrage (le résidu micro fait partie de l'objet :
+c'est ce que le mapper édite), pas de travail symbole nouveau. Deux fichiers :
+`keep_template = true` / `false`.
+
+Répartition : côté exécuteur, contrôles structurels sans OOM (liste du mode
+dégradé : XML, comptes par symbole, bbox = emprise V1, géoréférencement vs
+grille source, round-trip raster depuis le `.omap`, taille, temps) ; côté
+tenant de porte, l'ouverture OOM des deux fichiers (liste ci-dessus) plus le
+test d'éditabilité : sélectionner un objet 406, déplacer un sommet, annuler —
+l'objet reste éditable. `keep_template = false` = le test réel : vecteurs
+seuls, végétation exploitable autonome.
+
+⛔ STOP + rapport ; verdict V4 = commit. Défaut bloquant = liste d'issues, pas
+de commit de contournement. Interdits : `config.yaml`, symboles,
+simplification, commit exécuteur.
 
 ### Mode dégradé
 
