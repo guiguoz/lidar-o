@@ -335,6 +335,28 @@ D — C + lissage seulement si ce lissage agit sur la couverture entière
 En C et D : aucun DP/Chaikin par polygone greffé afterwards — une arête
 partagée se traite une fois.
 
+### État des bras (mesures exécuteur, 2026-10-03 — v3_report.md chez l'exécuteur)
+
+```text
+B — DP+Chaikin par polygone : ÉLIMINÉ porte dure (chevauchements 623,
+    solde d'aire −23 166 m², 564+36 slivers, Hausdorff p95 3.4 m env.)
+    — confirme la prédiction du plan : DP par polygone recrée les
+    divergences de frontières
+C — coverage_simplify 2 m, couverture combinée : chevauchements 0, vides
+    inter-classes 0, solde d'aire −1 320 m² (0.2 % des surfaces 406-410),
+    Hausdorff p95 1.8/1.7/1.5 m, sommets −77/−75/−72 % (objectif
+    observationnel −30 % atteint), 395+17 slivers (définition et compte
+    au bras A : complément demandé)
+D — la variante exécutée (Chaikin par polygone après C) est la
+    combinaison INTERDITE : produite comme démonstration négative
+    (solde −6 050 m², 408 effacé sur planche), elle confirme la règle.
+    Le D prévu (lissage couverture-wide, graphe de frontières) n'est pas
+    produit : abandonné-documenté, sauf si la relecture de planche juge
+    C trop anguleux — auquel cas ouvert comme variante ciblée.
+```
+
+Le verdict C retenu / abandons reste un go du tenant de porte sur planche.
+
 La variable étudiée est uniquement la simplification.
 
 `coverage_simplify` est la référence topologique.
@@ -387,6 +409,11 @@ La simplification n'est retenue que si :
 
 ```text
 topologie conservée (chevauchements = 0, lacunes = 0)
+   — lacunes = vides inter-classes et trous enclosed (topologie) ; la
+   conservation d'aire absolue n'est PAS une porte de V3 : aucune
+   simplification ne conserve l'aire exactement, en faire une porte
+   reviendrait à exiger RAW. Aire = mesure (ha/% par classe vs A) +
+   coût de généralisation rapporté, jugés sur planche.
 +
 round-trip suffisamment fidèle (perte de généralisation rapportée,
 aucun seuil caché)
