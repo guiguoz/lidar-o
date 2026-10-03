@@ -241,6 +241,22 @@ la porte round-trip reste à décodage fixé.
 relecture ; pas de V3 avant table gelée et planche regardée. Livrable demandé
 cette fois : V1.1–V1.4 ; V1.5–V1.6 seulement après relecture de la planche.
 
+### Verdict V1 (tenant de porte, 2026-10-03)
+
+```text
+V1.4 : ACCEPTÉE — relecture de v1_plate.png : aucune observation de
+       classification nommée
+Round-trip raster → vecteur : lossless (registre B = 0 px ; ligne complète
+       identiques / différents / perdus / ajoutés consolidée au rapport de
+       clôture, work/expe/vectorisation/)
+V1.5 : CLOSE — aucune observation déclenchée
+V1.6 : table shade_to_isom GELÉE, identique tous terrains
+```
+
+V1 est close. Le commit documentaire = le présent amendement ; le rapport
+exécuteur reste dans `work/expe/` (gitignoré), l'exécuteur ne commite pas
+(repo = source de vérité, réconciliation en cours).
+
 ---
 
 ### V2 — Polygonisation topologiquement fidèle
@@ -303,13 +319,21 @@ que V2 a supprimées. **Une arête partagée se traite une fois.**
 Comparer :
 
 ```text
-A — géométrie brute (sortie de V2)
-B — coverage_simplify (GEOS ≥ 3.12, shapely 2.1 ; couverture traitée comme un tout)
-C — B + lissage seulement si ce lissage agit sur la couverture entière
+A — géométrie brute (sortie de V1/V2, vectorized_raw.gpkg) = baseline V3-RAW
+B — référence sortante : DP + Chaikin du pipeline actuel (par polygone) —
+    mesurée pour comparaison, pas candidate de production
+C — coverage_simplify (GEOS ≥ 3.12, shapely 2.1) : couverture = polygones des
+    TROIS classes passés ensemble (arêtes partagées inter-classes comprises),
+    sinon les gaps ≠ 0 par construction
+D — C + lissage seulement si ce lissage agit sur la couverture entière
     et conserve les arêtes partagées — candidat : Chaikin appliqué une fois
     par arête partagée (graphe de frontières, nœuds/arêtes), variante
-    coins verrouillés (S1) en sous-variante
+    coins verrouillés (S1) en sous-variante, testée seulement si
+    couverture-wide, sinon abandonnée-documentée
 ```
+
+En C et D : aucun DP/Chaikin par polygone greffé afterwards — une arête
+partagée se traite une fois.
 
 La variable étudiée est uniquement la simplification.
 
@@ -345,8 +369,15 @@ distribution des angles
 chevauchements
 lacunes / slivers
 perte de généralisation (pixels différents vs raster catégoriel avant
-simplification, rapportée par bras)
+simplification, rapportée par bras) — mesurée par round-trip grille V1 :
+identiques / différents / perdus / ajoutés par classe
+déplacement de frontière vs A : p95 et max (m) par classe
+aire par classe (ha, %) vs A
+micro-polygones (< 100 m²)
 ```
+
+Planche zoom : même fenêtre pour tous les bras (bbox au rapport), choisie sur
+une zone où le 406 est fragmenté.
 
 ### Acceptation
 
@@ -367,6 +398,15 @@ réduction géométrique réellement utile à l'édition
 regardée par un humain (R1).** Le gain de sommets est une mesure informative.
 Le critère « −30 % » de la version précédente reste comme **objectif
 expérimental à observer**, pas comme condition unique de validation.
+Micro-polygones : disparus ou résidu acceptable lu sur planche. Si aucun bras
+ne les élimine : élimination documentée (seuil de surface + agrégation à la
+classe adjacente) comme second pas de V3, rapporté séparément — jamais en
+silence.
+
+⛔ STOP après rapport + planches : le choix de la méthode (+ paramètres) est un
+go du tenant de porte sur planche regardée (R1) ; commit = ce verdict.
+L'exécuteur ne commite pas ; `config.yaml` du repo non modifié pendant V3.
+
 Test de topologie dans `tests/test_vegetation.py` : couverture à frontières
 partagées, intersections deux à deux = 0, somme des aires = aire de la
 couverture.
