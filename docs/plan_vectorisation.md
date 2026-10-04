@@ -598,6 +598,38 @@ d'usage OOM → correctif writer/export avec test de régression, sans revenir
 sur V1 ni V3. Verdict V4 = commit (côté repo) ; ensuite le chemin reprend :
 V5 close mémoire, V6 contrôle comparatif, V7 second terrain, V8 doc.
 
+### Verdict V4 (tenant de porte, 2026-10-04)
+
+V4 PASS. Ouverture OOM attestée par le tenant de porte sur les deux
+variantes (with/without template) : ouverture, géoréférencement, sélection
+406/408/410, modification d'objet, sauvegarde + réouverture, éditabilité.
+Planche V4.6 lue : vecteurs seuls = végétation exploitable (R1).
+Contrôles structurels : XML valide, comptes 1340/409/18, aucun sym_?, bbox
+dans l'emprise V1, round-trip depuis le .omap = coût du bras C exactement
+(le writer n'ajoute aucune perte propre), géoréférencement correct.
+
+```text
+PLAN 2 — état après verdicts (2026-10-04)
+V1 PASS  — round-trip raster → vecteur lossless, table shade_to_isom gelée
+V2 CLOSE — polygonisation topologique : overlaps 0, slivers artificiels 0,
+           round-trip identique (mesuré en V1.3B)
+           (coutures inter-tuiles : clôture OVL 2026-10-02 documentée ;
+            pas de tâche V2 propre)
+V3 PASS  — coverage_simplify 2 m retenu (commit 22f21e4)
+V4 PASS  — OMAP éditable dans OOM (commit portant ce bloc)
+```
+
+Conclusion technique (Definition of Done) :
+
+> Le raster KP retenu peut être transformé en végétation 406/408/410 éditable
+> dans OOM, avec conservation exacte de la classification avant
+> simplification, simplification de couverture à 2 m sans rupture
+> topologique inter-classes, puis export OMAP vérifié dans OOM.
+
+Prochaine étape, non expérimentale : consolidation de PLAN 2 (V5 close
+mémoire, V6 contrôle comparatif, V7 second terrain, V8 doc), puis
+intégration propre de la chaîne au pipeline Lidar'O.
+
 ### Règles de commit (rappel exécuteur, 2026-10-04)
 
 - `work/expe/` n'entre jamais en git : scripts d'expérience, rapports et
@@ -613,9 +645,9 @@ V5 close mémoire, V6 contrôle comparatif, V7 second terrain, V8 doc.
   toute copie locale non commitée chez l'exécuteur est une divergence à
   résorber par diff, pas un commit à créer. Seul delta de valeur identifié :
   le découpage ouest/nord en 24 tests, à intégrer côté repo après diff.
-- Verdict V4 : commit posé quand le tableau V4.5 rempli (ou attestation
-  explicite du tenant de porte pour l'ouverture OOM des deux variantes)
-  sera au registre ; fichiers du commit = amendement de plan, rien d'autre.
+- Verdict V4 : attestation du tenant de porte reçue le 2026-10-04
+  (ouverture OOM des deux variantes, planche lue) ; verdict commité,
+  fichiers = amendement de plan, rien d'autre.
 
 **Definition of Done.** « Le raster KP choisi peut être transformé en
 végétation 406/408/410 vectorielle éditable dans OOM : polygonisation sans
