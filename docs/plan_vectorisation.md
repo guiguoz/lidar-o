@@ -598,6 +598,25 @@ d'usage OOM → correctif writer/export avec test de régression, sans revenir
 sur V1 ni V3. Verdict V4 = commit (côté repo) ; ensuite le chemin reprend :
 V5 close mémoire, V6 contrôle comparatif, V7 second terrain, V8 doc.
 
+### Règles de commit (rappel exécuteur, 2026-10-04)
+
+- `work/expe/` n'entre jamais en git : scripts d'expérience, rapports et
+  artefacts binaires (gpkg, omap, png, tif) restent externes. Les verdicts
+  vivent dans les messages de commit et le plan ; la reproductibilité vit
+  dans `tools/` et `tests/`.
+- L'exécuteur ne commite pas et ne pousse pas : les commits de verdict sont
+  posés côté repo (branche arena), source de vérité.
+- Verdict V3 commité : `22f21e4` (2026-10-04). Ne pas doubler ce verdict par
+  un second commit ailleurs.
+- Les fichiers V1 (`src/kp_raster.py`, `tests/test_kp_raster.py`,
+  `config.yaml`) SONT déjà commités côté repo (`cbcf761` et amendements) :
+  toute copie locale non commitée chez l'exécuteur est une divergence à
+  résorber par diff, pas un commit à créer. Seul delta de valeur identifié :
+  le découpage ouest/nord en 24 tests, à intégrer côté repo après diff.
+- Verdict V4 : commit posé quand le tableau V4.5 rempli (ou attestation
+  explicite du tenant de porte pour l'ouverture OOM des deux variantes)
+  sera au registre ; fichiers du commit = amendement de plan, rien d'autre.
+
 **Definition of Done.** « Le raster KP choisi peut être transformé en
 végétation 406/408/410 vectorielle éditable dans OOM : polygonisation sans
 perte (preuve V1), puis simplification de couverture à 2 m conservant la
