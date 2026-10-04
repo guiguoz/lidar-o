@@ -387,9 +387,28 @@ qu'écrite) », ajouter dessous le bloc précis (topologie inter-classes PASS ;
 fidélité d'aire INFORMATIVE ; simplification RETENUE ; tolérance 2 m ; réserve
 documentaire). Ne pas effacer l'historique.
 
-Si la décomposition confirme (pas de trou topologique, perte géométrique
-volontaire) : verdict = « coverage_simplify, tolérance 2 m, retenu comme
-méthode de simplification de la couverture », avec réserve. Commit = verdict.
+### Verdict V3 (tenant de porte, 2026-10-03)
+
+Décomposition confirmée (v3_report.md l. 52–100) : polygones supprimés = 0,
+comptes A = C (1340/409/18), réponse (2) déplacement des frontières
+uniquement ; résidu vect−rast 121 m² nommé (discrétisation grille 1 m).
+Slivers 395+17 = polygones préexistants allongés, non créés. Porte de
+registre « lacunes = 0 » non satisfaite littéralement : défaut documenté,
+pas redéfinie après coup.
+
+```text
+V3 CLOSE — coverage_simplify 2 m retenu comme méthode de simplification
+de couverture.
+Réserves documentaires : aire non lossless (solde net 1 199 m² raster /
+1 320 m² vecteur, déplacement de frontières) ; micro-polygones conservés
+intégralement = résidu du fond vectorisé, hors périmètre plan 2 (décision
+tenant de porte 2026-10-03 : dimensions minimales ISOM engagent le levé
+et la carte finale ; pas de V3bis) ; B éliminé porte dure ;
+D abandonné-documenté.
+```
+
+Le rapport V3 porte ce verdict et corrige le vocabulaire qui laissait
+entendre une suppression de micro-features. Commit = le présent amendement.
 
 La variable étudiée est uniquement la simplification.
 
@@ -505,24 +524,83 @@ La seconde vérifie que les vecteurs sont réellement autonomes.
 **Ce n'est pas une décision sur l'utilisation du template :** le template reste
 le fond de décalque retenu du workflow actuel.
 
-### Consigne exécuteur V4 (2026-10-03)
+### Consigne exécuteur V4 (2026-10-03, v2)
 
-Input : `v3_arm_c.gpkg` **tel quel** → writer `.omap` existant. Pas de
-re-simplification, pas de filtrage (le résidu micro fait partie de l'objet :
-c'est ce que le mapper édite), pas de travail symbole nouveau. Deux fichiers :
-`keep_template = true` / `false`.
+**V4.0 — contrôle OMAP reproductible (première action).** L'exécuteur
+transmet le script `_ctrl_object_counts` corrigé ; le repo l'intègre en
+`tools/` et commite (l'exécuteur ne commite pas). Le contrôle : lit
+uniquement le bloc `<objects>` ; vérifie attribut `count` = nombre de fils ;
+compte par code ISOM (correspondance symbole → code via `<symbols>` du
+fichier) ; ignore les `<object>` des définitions de palette/symboles ;
+signale les objets du bloc de carte sans symbole connu ; s'exécute
+directement sur les artefacts V4. Tests : (a) régression synthétique
+**always-on** — XML .omap minimal avec `<object>` dans les définitions de
+symboles, le contrôle ne compte que le bloc de carte (c'est la régression du
+bug sym_?) ; (b) golden-skip sur artefacts V4 si présents (1340/409/18, aucun
+sym_?). Objectif : chiffres du verdict V4 reproductibles depuis le repo.
 
-Répartition : côté exécuteur, contrôles structurels sans OOM (liste du mode
-dégradé : XML, comptes par symbole, bbox = emprise V1, géoréférencement vs
-grille source, round-trip raster depuis le `.omap`, taille, temps) ; côté
-tenant de porte, l'ouverture OOM des deux fichiers (liste ci-dessus) plus le
-test d'éditabilité : sélectionner un objet 406, déplacer un sommet, annuler —
-l'objet reste éditable. `keep_template = false` = le test réel : vecteurs
-seuls, végétation exploitable autonome.
+**V4.1 — génération des deux OMAP.** Chaîne : vegetation.png → shade_to_isom
+gelé → polygonisation lossless → coverage_simplify 2 m → topologie → OMAP.
+Variante 1 : template vegetation.png conservé, affiché à 50 %. Variante 2 :
+`keep_template = false`. Aucun autre paramètre de production modifié. Si les
+artefacts existants satisfont déjà ce cahier des charges (opacité 50 %
+comprise), les réutiliser sans régénérer ; sinon régénérer (writer 0,14 s).
 
-⛔ STOP + rapport ; verdict V4 = commit. Défaut bloquant = liste d'issues, pas
-de commit de contournement. Interdits : `config.yaml`, symboles,
-simplification, commit exécuteur.
+**V4.2 — contrôle structurel (tools/, deux variantes).** Objets : seuls
+406/408/410, comptes = sorties V3 (1340/409/18), aucun sym_?, aucun objet
+végétation parasite, aucun objet template hérité comme objet de carte.
+Géométrie : emprise = emprise V1 ; SRS/géoréférencement vs grille source ;
+aucun objet hors emprise ; overlaps = 0 ; géométries valides (shapely avant
+écriture). Template (variante 1) : raster présent, géoréférencé, opacité 50 %,
+présent à l'ouverture. **Round-trip raster grille V1 depuis chaque .omap :
+identiques/perdus/ajoutés par classe = exactement le coût du bras C
+(12 081/11 152 ; 3 918/3 643 ; 105/110) — le writer n'ajoute aucune perte
+propre.**
+
+**V4.3 — test OOM (tenant de porte, fichiers réels).** Ouverture →
+géoréférencement sur fond → 406/408/410 sélectionnables → modification d'un
+objet (déplacer un sommet) → sauvegarde → réouverture du fichier sauvegardé
+et re-compte via tools/ → objet toujours éditable. XML valide ne suffit pas :
+les objets doivent être utilisables comme objets de carte.
+
+**V4.4 — test « vecteurs seuls » (tenant de porte + tools/).** Variante 2 :
+406/408/410, aucun fond image, zéro objet hérité ; ouverture,
+géoréférencement, sélection, comptes, emprise, aucun parasite. La lecture
+« vecteurs seuls = représentation exploitable de la végétation » est un
+jugement du tenant de porte sur planche V4.6 panneau B (R1).
+
+**V4.5 — tableau de validation unique** (avec template / sans template) :
+OMAP valide ; OOM ouvre ; 406 = 1340 ; 408 = 409 ; 410 = 18 ; objets
+parasites ; géoréférencement ; hors emprise ; overlaps ; round-trip = coût
+bras C ; sélection OOM ; modification d'objet ; sauvegarde + réouverture ;
+taille fichier ; temps d'ouverture. Pas de score global.
+
+**V4.6 — planche de vérification 1:10 000.** A — KP vegetation.png ;
+B — OMAP vecteurs seuls ; C — OMAP vecteurs + template 50 %. On ne choisit
+plus : on vérifie que les objets OMAP correspondent à la végétation KP et
+sont utilisables comme base d'édition. Décision cartographique raster gelée.
+
+**Hors périmètre V4 :** modifier shade_to_isom, paramètres KP, résolution,
+coverage_simplify = 2 m ; supprimer les petits 406 ; réouvrir l'undergrowth ;
+tester Potrace ou une nouvelle méthode ; optimiser le nombre d'objets ;
+commiter côté exécuteur. V4 valide le pipeline retenu, pas une recherche.
+
+**Verdict attendu.** V4 PASS ssi : vecteurs corrects + OMAP valide + OOM
+ouvre + objets sélectionnables/modifiables/sauvegardables + géoréférencement
+correct + sans template = végétation complète + avec template = rendu
+correct. V4 FAIL uniquement sur problème réel d'export, de géométrie OMAP ou
+d'usage OOM → correctif writer/export avec test de régression, sans revenir
+sur V1 ni V3. Verdict V4 = commit (côté repo) ; ensuite le chemin reprend :
+V5 close mémoire, V6 contrôle comparatif, V7 second terrain, V8 doc.
+
+**Definition of Done.** « Le raster KP choisi peut être transformé en
+végétation 406/408/410 vectorielle éditable dans OOM : polygonisation sans
+perte (preuve V1), puis simplification de couverture à 2 m conservant la
+topologie inter-classes et les comptes de polygones, avec perte d'aire
+documentée (déplacement de frontières) et résidu micro nommé hors
+périmètre. » Alors seulement la chaîne complète est : KP → vegetation.png →
+shade_to_isom → 406/408/410 → polygonisation → coverage_simplify 2 m →
+topologie → OMAP → OOM.
 
 ### Mode dégradé
 
