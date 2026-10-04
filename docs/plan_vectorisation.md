@@ -408,7 +408,12 @@ D abandonné-documenté.
 ```
 
 Le rapport V3 porte ce verdict et corrige le vocabulaire qui laissait
-entendre une suppression de micro-features. Commit = le présent amendement.
+entendre une suppression de micro-features.
+
+Commit de verdict V3 (2026-10-04) : le commit portant ce bloc est le verdict
+définitif ; « no polygon removed or added » en est la pièce essentielle —
+c'est lui qui corrige l'interprétation initiale de V3. Aucune modification
+de méthode, aucune relance d'expérience après ce commit.
 
 La variable étudiée est uniquement la simplification.
 
