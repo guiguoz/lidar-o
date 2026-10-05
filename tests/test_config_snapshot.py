@@ -41,6 +41,11 @@ def _base_cfg(**overrides) -> dict:
                 "medianboxsize2": 16,
                 "template_opacity_pct": 50,
             },
+            "vectorization": {
+                "shade_to_isom": {2: 0, 3: 406, 4: 406, 5: 408, 6: 408, 7: 410, 8: 410},
+                "coverage_simplify_m": 2.0,
+                "keep_template": True,
+            },
         },
     }
     for path, value in overrides.items():
@@ -129,6 +134,49 @@ def test_check_no_diff_on_same_config(tmp_path: pathlib.Path) -> None:
     write_config_snapshot(cfg, tmp_path)
     diffs = check_config_snapshot(cfg, tmp_path / "run_metadata.json")
     assert diffs == []
+
+
+# ── P2 : vectorisation KP — garde-fou §3 PLAN 3 ─────────────────────────────
+
+def test_shade_to_isom_zero_no_false_drift(tmp_path: pathlib.Path) -> None:
+    """shade_to_isom[2]=0 (valeur falsy) ne déclenche aucune fausse dérive (§3 PLAN 3)."""
+    cfg = _base_cfg()
+    write_config_snapshot(cfg, tmp_path)
+    diffs = check_config_snapshot(cfg, tmp_path / "run_metadata.json")
+    assert diffs == [], f"Fausse dérive sur valeur 0 : {diffs}"
+
+
+def test_shade_to_isom_change_detected(tmp_path: pathlib.Path) -> None:
+    """Un changement dans shade_to_isom est nommément signalé."""
+    cfg_ref = _base_cfg()
+    write_config_snapshot(cfg_ref, tmp_path)
+
+    cfg_new = _base_cfg()
+    cfg_new["karttapullautin"]["vectorization"]["shade_to_isom"][2] = 406
+    diffs = check_config_snapshot(cfg_new, tmp_path / "run_metadata.json")
+    assert any("kp_shade_to_isom" in d for d in diffs), diffs
+
+
+def test_snapshot_captures_coverage_simplify_m(tmp_path: pathlib.Path) -> None:
+    """Un changement de coverage_simplify_m produit deux snapshots distincts."""
+    cfg_a = _base_cfg(**{"karttapullautin.vectorization.coverage_simplify_m": 2.0})
+    cfg_b = _base_cfg(**{"karttapullautin.vectorization.coverage_simplify_m": 4.0})
+    dir_a = tmp_path / "a"; dir_a.mkdir()
+    dir_b = tmp_path / "b"; dir_b.mkdir()
+    write_config_snapshot(cfg_a, dir_a)
+    write_config_snapshot(cfg_b, dir_b)
+    assert _read_snapshot(dir_a)["kp_coverage_simplify_m"] == 2.0
+    assert _read_snapshot(dir_b)["kp_coverage_simplify_m"] == 4.0
+
+
+def test_snapshot_captures_keep_template(tmp_path: pathlib.Path) -> None:
+    """Un changement de keep_template est signalé par check_config_snapshot."""
+    cfg_ref = _base_cfg()
+    write_config_snapshot(cfg_ref, tmp_path)
+
+    cfg_new = _base_cfg(**{"karttapullautin.vectorization.keep_template": False})
+    diffs = check_config_snapshot(cfg_new, tmp_path / "run_metadata.json")
+    assert any("kp_keep_template" in d for d in diffs), diffs
 
 
 def test_snapshot_contains_git_hash(tmp_path: pathlib.Path) -> None:

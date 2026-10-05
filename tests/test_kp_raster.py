@@ -20,11 +20,14 @@ import pytest
 
 from src.kp_raster import (
     KP_FIRST_GREEN,
+    KP_INDEX_FIRST_GREEN,
+    KP_INDEX_YELLOW,
     KP_NO_DATA,
     KP_YELLOW,
     Tile,
     _UNMATCHED,
     _labels_from_gray,
+    _labels_from_index,
     _labels_from_rgb,
     kp_green_rgb,
     mosaic,
@@ -142,6 +145,26 @@ def test_labels_from_rgb_unknown_color_sets_unmatched(caplog):
         labels, unmatched = _labels_from_rgb(rgb_img, params, pathlib.Path("t.png"))
     assert unmatched == 1
     assert labels[0, 0] == _UNMATCHED
+
+
+# ── _labels_from_index ───────────────────────────────────────────────────────
+
+def test_labels_from_index_green_yellow_unknown():
+    """PNG indexé : indices de palette → labels corrects ; undergrowth (5) = inconnu."""
+    params = {"n_shades": 3, "lightgreentone": 160}
+    # Indices : 0=fond, KP_INDEX_YELLOW=3, 16=vert0, 17=vert1, 5=undergrowth (inconnu)
+    arr = np.array(
+        [[0, KP_INDEX_YELLOW, KP_INDEX_FIRST_GREEN,
+          KP_INDEX_FIRST_GREEN + 1, 5]],
+        dtype=np.uint8,
+    )
+    labels, unmatched = _labels_from_index(arr, params)
+    assert labels[0, 0] == KP_NO_DATA
+    assert labels[0, 1] == KP_YELLOW
+    assert labels[0, 2] == KP_FIRST_GREEN
+    assert labels[0, 3] == KP_FIRST_GREEN + 1
+    assert labels[0, 4] == KP_NO_DATA
+    assert unmatched == 1
 
 
 # ── mosaic ────────────────────────────────────────────────────────────────────
