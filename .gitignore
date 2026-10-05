@@ -17,7 +17,10 @@ Port en Bessin/
 debug/
 debug_*/
 temp/
-work/
+work/*
+!work/expe/
+work/expe/*
+!work/expe/vectorisation/
 
 # Rasters LiDAR lourds (expériences)
 *.tif
@@ -37,12 +40,14 @@ comparatif.png
 !docs/images/*.png
 !docs/images/*.jpg
 !experiments/**/*.png
+!work/expe/vectorisation/*.png
 
 # Données terrain (non versionnées — trop lourdes ou manuelles)
 data/bdtopo/
 data/*_bdtopo.gpkg
 data/osm_landuse_*.json
 *.gpkg
+!work/expe/vectorisation/*.gpkg
 airelles.json
 out_kp/
 out_kp*/
