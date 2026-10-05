@@ -12,7 +12,7 @@
 | Axe | État |
 |---|---|
 | DIAGNOSTIC HAG simple | ÉTABLI — TERMINÉ |
-| CLASSIFICATION 406/408/410 | ABANDONNÉE DANS LE LIVRABLE ACTUEL |
+| CLASSIFICATION 406/408/410 | SUSPENDUE (branche HAG) — REPRISE via vectorisation KP (PLAN 3) |
 | WORKFLOW KP + FOND OCAD | RETENU |
 | TEMPLATE OMAP | FONCTIONNEL |
 | VECTORISATION VÉGÉTATION | SUSPENDUE — _vege mbs2=16 mesuré, critère non atteint |
@@ -437,9 +437,10 @@ vectoriel Lidar'O  (courbes, falaises, points relief)
 OCAD / OOM — tracé et modification des limites de végétation
 ```
 
-La végétation 406/408/410 **n'est plus produite comme couche automatique dans l'OMAP**.
-Elle n'est pas supprimée du code — `src/vegetation.py` et les seuils existent toujours —
-mais elle n'est pas intégrée au livrable cartographique actuel.
+**Mise à jour 2026-10 (PLAN 3)** : la végétation 406/408/410 **est de nouveau produite automatiquement
+dans l'OMAP**, via la chaîne KP vectorisée (`step_vegetation_kp` → `vegetation_kp.gpkg`).
+La chaîne HAG (`src/vegetation.py`, seuils density_hag) reste dans le code mais n'alimente plus
+le livrable principal — elle sert de fallback QA si `vegetation_kp.gpkg` est absent.
 
 ---
 
@@ -449,7 +450,7 @@ La vectorisation automatique de la végétation reste un objectif, mais l'approc
 `density_hag → seuil → polygonisation` n'a pas produit de contours suffisamment utiles
 (fragmentation extrême : 12 310 composantes de 4 m en moyenne à 2 m de résolution).
 
-### 12.1 Piste non testée — vectorisation du rendu KP
+### 12.1 Vectorisation du rendu KP — implémentée (PLAN 3)
 
 ```
 vegetation KP  (vegetation.png ou _vege.png par dalle)
@@ -487,9 +488,11 @@ qualité cartographique des polygones résultants n'a pas été évaluée.
 La variante `_vege` + `medianboxsize2=16` ne fournit pas une matière première suffisamment
 favorable pour lancer une expérience de vectorisation.
 
-La piste « vectoriser un rendu KP » reste ouverte mais n'est pas relancée. Elle pourra être
-réévaluée avec une autre représentation ou une autre méthode de segmentation. Aucune nouvelle
-campagne de réglage n'est engagée à ce stade.
+**Mise à jour 2026-10 (PLAN 3)** : la piste a été relancée et implémentée via `coverage_simplify`
+(tolérance 2 m, validée V3 bras C). La chaîne complète est dans `step_vegetation_kp` (`main.py`)
+et documentée dans `docs/pipeline_vegetation_kp.md`. Le critère de frontières pixel §12.1 ne
+s'applique pas à cette approche : `coverage_simplify` opère sur la topologie des polygones, pas
+sur une segmentation pixel-à-pixel.
 
 ### 12.2 Piste lissage géométrique des contours
 
@@ -639,8 +642,9 @@ a été héritée d'une session antérieure. Elle décrivait un état du pipelin
 vers KP**, où les couches 406/408/410 étaient encore injectées dans le `.omap`. Depuis le pivot
 (`main.py:510-511`) :
 
-- le `.omap` ne contient plus de couches vectorielles 406/408/410 ;
-- les valeurs 1511/767/497 sont introuvables dans l'intégralité du dépôt ;
+- au moment de rédaction (pré-PLAN 3), le `.omap` ne contenait plus de couches vectorielles 406/408/410 ;
+- depuis PLAN 3 (2026-10), elles sont de nouveau présentes via `vegetation_kp.gpkg` ;
+- les valeurs 1511/767/497 restent introuvables dans l'intégralité du dépôt ;
 - 942/611/465 sont les comptes corrects **après clip au hull FFCO** (323,8 ha), produits par
   `report_hull_metrics()` — c'est la bonne métrique de comparaison avec le référentiel FFCO.
 

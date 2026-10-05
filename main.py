@@ -212,12 +212,14 @@ def step_vegetation_kp(terrain: str, cfg: dict, force: bool) -> None:
         ]
 
     if not png_files:
-        log.warning(
-            "vegetation_kp : aucun *_vege*.png dans %s — étape ignorée "
-            "(lancer relief d'abord ou vérifier vege_bitmode dans pullauta.ini)",
-            out_kp.name if out_kp.exists() else f"out_kp_{terrain}/",
+        if not out_kp.exists():
+            # KP jamais lancé : skip silencieux — pas d'anomalie
+            log.info("vegetation_kp : %s absent — étape ignorée (KP non lancé)", f"out_kp_{terrain}/")
+            return
+        raise RuntimeError(
+            f"vegetation_kp : {out_kp.name}/ existe mais aucun *_vege*.png trouvé — "
+            "vérifier vege_bitmode dans pullauta.ini ou relancer step_relief."
         )
-        return
 
     if not force and veg_kp_gpkg.exists():
         ref_mtime = _newest_mtime(*png_files)
@@ -687,7 +689,14 @@ def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
                 )
         all_layers += veg_layers_clipped
     else:
-        log.warning("assemble : vegetation_kp.gpkg absent — végétation omise du .omap")
+        # Si out_kp/ existe, KP a tourné et vegetation_kp doit être présent — état anormal.
+        # Sinon, KP n'a jamais été lancé : carte sans végétation vectorielle est attendue.
+        if (ROOT / f"out_kp_{terrain}").exists():
+            raise RuntimeError(
+                f"assemble : out_kp_{terrain}/ présent mais vegetation_kp.gpkg absent — "
+                "relancer step_vegetation_kp (--from-step vegetation_kp) avant step_assemble."
+            )
+        log.info("assemble : vegetation_kp.gpkg absent (KP non lancé) — végétation omise du .omap")
 
     fill: list = []
     if bdtopo_gpkg is not None:
