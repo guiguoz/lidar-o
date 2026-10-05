@@ -36,10 +36,10 @@ FOR THE MAPPER TO DO
 ## What Lidar'O does not produce
 
 ```
-no 406 / 408 / 410 layers in the .omap output
-    → classification is computed and saved to vegetation_masked.gpkg
-      but excluded from the .omap; unreliable on the tested terrain
-      (AUC ≤ 0.54 on Grimbosq); vegetation is provided as KP background only
+no reliable 406 / 408 / 410 layers in all conditions
+    → KP-vectorized layers (vegetation_kp.gpkg) are injected into the .omap
+      via coverage_simplify (2 m tolerance) from KP classification
+      but accuracy is limited on the Grimbosq test terrain
 
 no cliffs or rock features
     → cliff2 and cliff3 are disabled: 745 spurious features of 2.9 m observed
@@ -135,12 +135,12 @@ INFO  Assemblé : output/ma_foret.omap (18 couches)
 ```
 
 Open `output/ma_foret.omap` in OpenOrienteering Mapper. You should see:
-- A KP vegetation raster (green shading, 50 % opacity) as a tracing background
+- KP-vectorized vegetation (406/408/410) — generated from Karttapullautin PNG outputs
+- A KP vegetation raster (green shading, 50 % opacity, `keep_template: true`) — optional tracing background
 - Roads, tracks, buildings and water from BD TOPO (black/blue/brown symbols)
 - Contour lines from Karttapullautin (brown) — only if KP is installed
 
-Classification layers (406/408/410) are saved to `output/vegetation_masked.gpkg` but not included
-in the .omap — use the KP background as a tracing aid and draw vegetation boundaries manually.
+406/408/410 layers are saved to `output/vegetation_kp.gpkg` and injected into the .omap.
 See [docs/bilan_v0.md](docs/bilan_v0.md) for the evaluation results.
 
 If the map appears blank or offset from the background, check that `declination` in the georef file has the correct sign (negative west of the CRS central meridian, positive east).
@@ -203,7 +203,7 @@ lidar-o/
 |--------|-------------|
 | `--tiles-dir DIR` | Directory containing `.copc.laz` tiles |
 | `--skip-pdal` | Skip PDAL (only if `density_hag_classified.tif` already exists from a previous run) |
-| `--from-step STEP` | Resume from: `fetch`, `pdal`, `process_hag`, `relief`, `vegetation`, `mask`, `assemble`, `qa` |
+| `--from-step STEP` | Resume from: `fetch`, `pdal`, `process_hag`, `relief`, `vegetation_kp`, `vegetation`, `mask`, `assemble`, `qa` |
 | `--force` | Ignore freshness checks and rerun all steps |
 
 ---

@@ -36,10 +36,10 @@ FOND DE TRACÉ
 ## Ce que Lidar'O ne produit pas
 
 ```
-pas de couches 406 / 408 / 410 dans le .omap
-    → la classification est calculée et sauvée dans vegetation_masked.gpkg
-      mais exclue du .omap ; non fiable sur le terrain testé
-      (AUC ≤ 0,54 sur Grimbosq) ; la végétation fournie est le fond KP
+pas de couches 406 / 408 / 410 fiables dans toutes les conditions
+    → les couches KP vectorisées (vegetation_kp.gpkg) sont injectées dans le .omap
+      à partir de la classification KP (coverage_simplify 2 m)
+      mais la précision reste limitée sur le terrain de test Grimbosq
 
 pas de falaises ni de rochers
     → cliff2 et cliff3 sont désactivés : 745 traits de 2,9 m observés sur
@@ -172,7 +172,7 @@ Options :
 |--------|-------------|
 | `--tiles-dir DIR` | Répertoire des dalles `.copc.laz` |
 | `--skip-pdal` | Saute PDAL (uniquement si `density_hag_classified.tif` existe d'un run précédent) |
-| `--from-step STEP` | Reprend à : `fetch`, `pdal`, `process_hag`, `vegetation`, `mask`, `assemble`, `qa` |
+| `--from-step STEP` | Reprend à : `fetch`, `pdal`, `process_hag`, `relief`, `vegetation_kp`, `vegetation`, `mask`, `assemble`, `qa` |
 | `--force` | Ignore les vérifications de fraîcheur et relance toutes les étapes |
 
 Sortie : `output/{terrain}.omap`
@@ -242,7 +242,9 @@ Temps par étape (6 dalles, ~6 km², laptop récent) :
 | `fetch` | Découpe la BD TOPO sur l'emprise | < 1 min |
 | `pdal` | Rasterise la densité HAG depuis le LiDAR | 20–35 min |
 | `process_hag` | Normalise et classifie le raster (3 classes) | 1–2 min |
-| `vegetation` | Moteur de généralisation (dissolve → lissage → coupes) | 3–5 min |
+| `relief` | Karttapullautin batch → courbes de niveau (optionnel) | 5–15 min |
+| `vegetation_kp` | PNG KP → 406/408/410 vectorisés (coverage_simplify 2 m) | < 1 min |
+| `vegetation` | Moteur de généralisation HAG (dissolve → lissage → coupes) | 3–5 min |
 | `mask` | Supprime routes, bâtiments, terres agricoles | 1–2 min |
 | `assemble` | Fusionne toutes les couches en un .omap | < 1 min |
 | `qa` | Affiche les métriques de recall (si carte de référence déclarée) | < 1 min |
@@ -264,12 +266,12 @@ INFO  410 : n=465  cov=82%  …
 > Ces valeurs varient si le profil ou les seuils changent.
 
 Ouvrir `output/grimbosq.omap` dans OpenOrienteering Mapper. Les couches attendues :
-- Fond végétation KP (aplats verts, 50 % d'opacité) — à utiliser comme décalque
+- Végétation KP vectorisée (406/408/410) — couches générées depuis les PNG Karttapullautin
+- Fond végétation KP (aplats verts, 50 % d'opacité, `keep_template: true`) — décalque optionnel
 - Routes, chemins, bâtiments et cours d'eau depuis la BD TOPO (symboles noirs/bleus/marron)
 - Courbes de niveau de Karttapullautin (marron) — uniquement si `out_kp/` était présent
 
-Les couches de classification (406/408/410) sont sauvées dans `output/vegetation_masked.gpkg`
-mais non injectées dans le .omap — utiliser le fond KP comme décalque et tracer manuellement.
+Les couches 406/408/410 sont sauvées dans `output/vegetation_kp.gpkg` et injectées dans le .omap.
 Voir [docs/bilan_v0.md](docs/bilan_v0.md) pour les résultats d'évaluation.
 
 Si la carte apparaît vide ou décalée par rapport au fond de carte, vérifier que le signe de `declination` dans le fichier georef est correct.
@@ -278,8 +280,8 @@ Si la carte apparaît vide ou décalée par rapport au fond de carte, vérifier 
 
 ## Performances de classification — mesures sur Grimbosq
 
-> Ces chiffres décrivent la **couche de classification HAG** — qui **n'est pas le livrable principal**.
-> Le livrable recommandé est le fond végétation KP utilisé comme décalque.
+> Ces chiffres décrivent la **couche de classification HAG** — utilisée en fallback si `vegetation_kp.gpkg` est absent.
+> Le livrable principal est la végétation KP vectorisée (406/408/410) injectée dans le .omap.
 >
 > Mesuré sur un seul terrain (Grimbosq, Calvados, France) contre une carte FFCO non redistribuable,
 > sur emprise commune (hull 324 ha). Non garantis ailleurs.
