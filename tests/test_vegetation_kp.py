@@ -212,3 +212,53 @@ def test_keep_template_default_is_true(tmp_path: pathlib.Path) -> None:
         m._build_img_templates(out_kp, kp_cfg, tmp_path / "out.omap")
 
     mock_merge.assert_called_once()
+
+
+# ── Erreurs bloquantes : source KP absente ───────────────────────────────────
+
+def test_step_vegetation_kp_raises_if_outKp_present_no_png(tmp_path: pathlib.Path) -> None:
+    """out_kp/ présent mais aucun *_vege*.png → RuntimeError (état anormal)."""
+    from unittest.mock import patch
+    import main as m
+
+    out_kp = tmp_path / "out_kp_test"
+    out_kp.mkdir()  # répertoire présent, vide (pas de PNG)
+
+    with patch.object(m, "ROOT", tmp_path), \
+         patch.object(m, "OUTPUT", tmp_path / "output"):
+        with pytest.raises(RuntimeError, match="vege_bitmode"):
+            m.step_vegetation_kp("test", {}, force=True)
+
+
+def test_step_vegetation_kp_silent_if_outKp_absent(
+    tmp_path: pathlib.Path, caplog
+) -> None:
+    """out_kp/ absent → log.info + return, aucune exception (KP non lancé)."""
+    import logging
+    from unittest.mock import patch
+    import main as m
+
+    with patch.object(m, "ROOT", tmp_path), \
+         patch.object(m, "OUTPUT", tmp_path / "output"):
+        with caplog.at_level(logging.INFO, logger="main"):
+            m.step_vegetation_kp("test", {}, force=True)  # ne doit pas lever
+
+    assert "KP non lancé" in caplog.text
+
+
+def test_step_assemble_raises_if_outKp_present_no_gpkg(tmp_path: pathlib.Path) -> None:
+    """out_kp/ présent mais vegetation_kp.gpkg absent → RuntimeError dans step_assemble."""
+    from unittest.mock import patch
+    import main as m
+
+    out_kp = tmp_path / "out_kp_test"
+    out_kp.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    # vegetation_kp.gpkg intentionnellement absent
+
+    with patch.object(m, "ROOT", tmp_path), \
+         patch.object(m, "OUTPUT", output_dir), \
+         patch.object(m, "DATA", tmp_path / "data"):
+        with pytest.raises(RuntimeError, match="vegetation_kp.gpkg absent"):
+            m.step_assemble("test", {}, force=True)
