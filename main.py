@@ -20,6 +20,7 @@ Sous-commandes :
   2  pdal          — LiDAR → output/density_hag.tif + total_count.tif
   3  process_hag   — classify → output/density_hag_classified.tif
   3b relief        — Karttapullautin batch → out_kp_{terrain}/*.dxf (optionnel, KP absent = ignoré)
+  3c vegetation_kp — PNG KP → source_kp_classified.tif → vegetation_kp.gpkg (coverage_simplify 2 m)
   4  vegetation    — run_pipeline → output/vegetation.gpkg
   5  mask          — masque anthropique → output/vegetation_masked.gpkg
   6  assemble      — assemblage final → output/{terrain}.omap
@@ -45,7 +46,7 @@ OUTPUT = ROOT / "output"  # remplacé dans main() selon output_dir du terrain
 SCRIPTS = ROOT / "scripts"
 PYTHON = sys.executable
 
-STEPS = ["fetch", "pdal", "process_hag", "relief", "vegetation", "mask", "assemble", "qa"]
+STEPS = ["fetch", "pdal", "process_hag", "relief", "vegetation_kp", "vegetation", "mask", "assemble", "qa"]
 _STEP_IDX = {s: i for i, s in enumerate(STEPS)}
 
 
@@ -185,6 +186,112 @@ def step_relief(
     except Exception as exc:
         log.warning("relief : KP échoué — étape ignorée (%s)", exc)
         return f"ignoré : KP échoué ({exc})"
+
+
+# ── Étape 3c : vegetation_kp ─────────────────────────────────────────────────
+
+def step_vegetation_kp(terrain: str, cfg: dict, force: bool) -> None:
+    """PNG KP → vegetation_kp.gpkg via classification + polygonisation + coverage_simplify.
+
+    Fraîcheur sur les *_vege*.png, pas les DXF (piège §5 PLAN 3 + commit ecf62e7).
+    Couverture validée AVANT coverage_simplify (§6.1 PLAN 3).
+    """
+    import geopandas as gpd
+    import numpy as np
+    import shapely
+    import shapely.geometry as sg
+
+    out_kp = ROOT / f"out_kp_{terrain}"
+    veg_kp_gpkg = OUTPUT / "vegetation_kp.gpkg"
+
+    png_files: list[pathlib.Path] = []
+    if out_kp.exists():
+        png_files = [
+            p for p in sorted(out_kp.glob("*_vege*.png"))
+            if not p.name.startswith("merged")
+        ]
+
+    if not png_files:
+        log.warning(
+            "vegetation_kp : aucun *_vege*.png dans %s — étape ignorée "
+            "(lancer relief d'abord ou vérifier vege_bitmode dans pullauta.ini)",
+            out_kp.name if out_kp.exists() else f"out_kp_{terrain}/",
+        )
+        return
+
+    if not force and veg_kp_gpkg.exists():
+        ref_mtime = _newest_mtime(*png_files)
+        if ref_mtime and veg_kp_gpkg.stat().st_mtime >= ref_mtime:
+            log.info("SKIP vegetation_kp — vegetation_kp.gpkg à jour")
+            return
+        log.warning("vegetation_kp : vegetation_kp.gpkg périmé — relance")
+
+    terrain_cfg = cfg.get("terrains", {}).get(terrain, {})
+    terrain_crs: str = terrain_cfg.get("crs", "EPSG:2154")
+    bbox = terrain_cfg.get("bbox")
+    vect_cfg = (cfg.get("karttapullautin", {}).get("vectorization", {}) or {})
+    tol = float(vect_cfg.get("coverage_simplify_m", 2.0))
+
+    # P5 — raster classifié KP
+    from src.kp_raster import ISOM_TO_DN, build_class_raster
+    source_tif = OUTPUT / "source_kp_classified.tif"
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    build_class_raster(
+        out_kp, cfg, terrain_crs, source_tif,
+        bbox=tuple(bbox) if bbox else None,
+    )
+
+    # P6 — polygonisation RAW (raster → vecteur lossless avant simplification)
+    import rasterio
+    from rasterio.features import shapes as rasterio_shapes
+    dn_to_isom = {v: k for k, v in ISOM_TO_DN.items()}
+    with rasterio.open(source_tif) as ds:
+        data = ds.read(1)
+        transform = ds.transform
+        crs_raster = ds.crs.to_string()
+
+    all_geoms: list = []
+    all_codes: list[int] = []
+    for dn, isom in sorted(dn_to_isom.items()):
+        mask_arr = (data == dn).astype(np.uint8)
+        for geom_dict, _ in rasterio_shapes(mask_arr, mask=mask_arr, transform=transform):
+            geom = sg.shape(geom_dict)
+            if not geom.is_empty:
+                all_geoms.append(geom)
+                all_codes.append(isom)
+
+    if not all_geoms:
+        log.warning("vegetation_kp : aucun polygone produit — vegetation_kp.gpkg vide")
+        for code in [406, 408, 410]:
+            gpd.GeoDataFrame({"geometry": []}, crs=crs_raster).to_file(
+                veg_kp_gpkg, layer=f"veg_{code}", driver="GPKG",
+            )
+        return
+
+    # P7 — valider la couverture AVANT coverage_simplify (§6.1 PLAN 3)
+    geom_arr = np.array(all_geoms, dtype=object)
+    if not shapely.coverage_is_valid(geom_arr):
+        invalid_edges = shapely.coverage_invalid_edges(geom_arr)
+        n_invalid = int(sum(1 for e in invalid_edges if e is not None and not e.is_empty))
+        raise ValueError(
+            f"vegetation_kp : couverture invalide avant coverage_simplify "
+            f"({n_invalid} arête(s) invalide(s)) — vérifier la polygonisation."
+        )
+
+    simplified = shapely.coverage_simplify(geom_arr, tolerance=tol, simplify_boundary=True)
+
+    layers: dict[int, list] = {406: [], 408: [], 410: []}
+    for geom, code in zip(simplified, all_codes):
+        if geom is not None and not geom.is_empty:
+            layers[code].append(geom)
+
+    for code in [406, 408, 410]:
+        gdf = gpd.GeoDataFrame({"geometry": layers[code]}, crs=crs_raster)
+        gdf.to_file(veg_kp_gpkg, layer=f"veg_{code}", driver="GPKG")
+
+    counts = {c: len(v) for c, v in layers.items()}
+    log.info("vegetation_kp : 406=%d 408=%d 410=%d polygones → %s",
+             counts[406], counts[408], counts[410], veg_kp_gpkg.name)
 
 
 # ── Étape 4 : vegetation ──────────────────────────────────────────────────────
@@ -466,6 +573,46 @@ def _png_to_template(
     )
 
 
+def _build_img_templates(
+    out_kp: pathlib.Path,
+    kp_cfg: dict,
+    omap_out: pathlib.Path,
+) -> list:
+    """Construit la liste des TemplateImage KP végétation selon keep_template.
+
+    Retourne [] si keep_template=False ou si aucun PNG disponible.
+    """
+    kp_rendering = kp_cfg.get("rendering", {}) or {}
+    kp_vect = kp_cfg.get("vectorization", {}) or {}
+    lightgreentone: int = kp_rendering.get("lightgreentone", 200) or 200
+    template_opacity_pct: int = kp_rendering.get("template_opacity_pct", 100) or 100
+    keep_template: bool = bool(kp_vect.get("keep_template", True))
+
+    if not keep_template:
+        log.info("keep_template=false — template végétation exclu de l'OMAP")
+        return []
+
+    veg_png = out_kp / "vegetation.png"
+    if out_kp.exists() and list(out_kp.glob("*_vege.png")):
+        merged = _merge_vege_tiles(out_kp, lightgreentone=lightgreentone)
+        if merged is not None:
+            veg_png = merged
+
+    if not veg_png.exists():
+        log.info("vegetation.png absent dans %s — template omis", out_kp.name)
+        return []
+
+    tmpl = _png_to_template(veg_png, omap_out, opacity_pct=template_opacity_pct)
+    if tmpl is None:
+        return []
+
+    log.info(
+        "Template KP végétation : %s (%d×%d px, tone=%d, opacité=%d%%)",
+        veg_png.name, tmpl.width_px, tmpl.height_px, lightgreentone, template_opacity_pct,
+    )
+    return [tmpl]
+
+
 # ── Étape 6 : assemble ────────────────────────────────────────────────────────
 
 def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
@@ -475,23 +622,28 @@ def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
     from scripts.mask_vegetation import build_fill_layers
     from src.omap_writer import load_georef, load_template, write_omap
 
+    import geopandas as gpd
+    import numpy as np
+    import shapely
+    from src.omap_writer import Layer
+
     out = OUTPUT / f"{terrain}.omap"
-    masked_gpkg = OUTPUT / "vegetation_masked.gpkg"
+    veg_kp_gpkg = OUTPUT / "vegetation_kp.gpkg"
     bdtopo_gpkg = DATA / f"{terrain}_bdtopo.gpkg"
     out_kp = ROOT / f"out_kp_{terrain}"
     osm_cache = DATA / f"osm_landuse_{terrain}.json"
 
-    if not masked_gpkg.exists():
-        sys.exit("ABSENT : output/vegetation_masked.gpkg — lancer mask d'abord")
+    # Verrou supprimé : vegetation_masked.gpkg n'est plus une dépendance de l'assemblage.
+    # La végétation vient de vegetation_kp.gpkg (branche KP) — §8 PLAN 3.
     if not bdtopo_gpkg.exists():
         log.warning("assemble : %s absent — couches BD TOPO ignorées (fill OSM conservé)", bdtopo_gpkg.name)
         bdtopo_gpkg = None  # type: ignore[assignment]
 
     dxf_files = sorted(out_kp.glob("*.dxf")) if out_kp.exists() else []
-    ref_sources = [p for p in [masked_gpkg, bdtopo_gpkg] if p is not None]
+    ref_sources = [p for p in [veg_kp_gpkg, bdtopo_gpkg] if p is not None]
     ref_mtime = _newest_mtime(*ref_sources, *dxf_files)
 
-    if not force and out.exists() and out.stat().st_mtime >= ref_mtime:
+    if not force and out.exists() and ref_mtime and out.stat().st_mtime >= ref_mtime:
         log.info("SKIP assemble — %s à jour", out.name)
         return
     if out.exists():
@@ -507,18 +659,35 @@ def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
 
     all_layers: list = []
 
-    # Végétation vectorielle masquée (406/408/410)
-    import geopandas as gpd
-    from src.omap_writer import Layer
-    for veg_code in [406, 408, 410]:
-        layer_name = f"veg_{veg_code}"
-        try:
-            gdf_veg = gpd.read_file(str(masked_gpkg), layer=layer_name)
-            if not gdf_veg.empty:
-                all_layers.append(Layer(layer_name, veg_code, list(gdf_veg.geometry)))
-                log.info("Vegetation %d : %d polygones", veg_code, len(gdf_veg))
-        except Exception as exc:
-            log.warning("Vegetation %d ignorée : %s", veg_code, exc)
+    # Végétation KP (406/408/410) depuis vegetation_kp.gpkg — branche KP §8 PLAN 3
+    veg_layers_clipped: list = []
+    if veg_kp_gpkg.exists():
+        for veg_code in [406, 408, 410]:
+            layer_name = f"veg_{veg_code}"
+            try:
+                gdf_veg = gpd.read_file(str(veg_kp_gpkg), layer=layer_name)
+                if not gdf_veg.empty:
+                    lyr = Layer(layer_name, veg_code, list(gdf_veg.geometry))
+                    veg_layers_clipped.append(lyr)
+                    log.info("vegetation_kp %d : %d polygones", veg_code, len(gdf_veg))
+            except Exception as exc:
+                log.warning("vegetation_kp %d ignorée : %s", veg_code, exc)
+        veg_layers_clipped = _clip(veg_layers_clipped, "vegetation_kp")
+
+        # Contrôle topologique overlaps==0 APRÈS clip (§8 PLAN 3)
+        all_veg_geoms = [g for lyr in veg_layers_clipped for g in lyr.geometries]
+        if all_veg_geoms:
+            geom_arr = np.array(all_veg_geoms, dtype=object)
+            if not shapely.coverage_is_valid(geom_arr):
+                invalid_edges = shapely.coverage_invalid_edges(geom_arr)
+                n_inv = int(sum(1 for e in invalid_edges if e is not None and not e.is_empty))
+                raise ValueError(
+                    f"assemble : couverture végétation KP invalide après clip "
+                    f"({n_inv} arête(s) invalide(s)) — vérifier step_vegetation_kp."
+                )
+        all_layers += veg_layers_clipped
+    else:
+        log.warning("assemble : vegetation_kp.gpkg absent — végétation omise du .omap")
 
     fill: list = []
     if bdtopo_gpkg is not None:
@@ -544,29 +713,8 @@ def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
     georef = load_georef(ASSETS / f"georef_{terrain}.xml")
     OUTPUT.mkdir(parents=True, exist_ok=True)
 
-    # Template KP végétation
-    kp_rendering = cfg.get("karttapullautin", {}).get("rendering", {}) or {}
-    lightgreentone: int = kp_rendering.get("lightgreentone", 200) or 200
-    template_opacity_pct: int = kp_rendering.get("template_opacity_pct", 100) or 100
-
-    veg_png = out_kp / "vegetation.png"
-    if out_kp.exists() and list(out_kp.glob("*_vege.png")):
-        # Re-mosaïque toujours : applique le tone mapping courant
-        merged = _merge_vege_tiles(out_kp, lightgreentone=lightgreentone)
-        if merged is not None:
-            veg_png = merged
-    img_templates = []
-    if veg_png.exists():
-        tmpl = _png_to_template(veg_png, out, opacity_pct=template_opacity_pct)
-        if tmpl is not None:
-            img_templates.append(tmpl)
-            log.info(
-                "Template KP végétation : %s (%d×%d px, tone=%d, opacité=%d%%)",
-                veg_png.name, tmpl.width_px, tmpl.height_px, lightgreentone, template_opacity_pct,
-            )
-    else:
-        log.info("vegetation.png absent dans %s — template omis", out_kp.name)
-
+    kp_cfg = cfg.get("karttapullautin", {}) or {}
+    img_templates = _build_img_templates(out_kp, kp_cfg, out)
     write_omap(out, template, all_layers, georef, image_templates=img_templates or None)
     log.info("Assemblé : %s (%d couches)", out, len(all_layers))
 
@@ -578,22 +726,37 @@ def step_qa(terrain: str, cfg: dict) -> None:
     import pandas as pd
     from src.qa import load_ffco_hull, report_hull_metrics, report_recall_by_class, write_config_snapshot
 
+    # QA KP par défaut (livrable) ; QA HAG en fallback si vegetation_kp.gpkg absent.
+    # §9 PLAN 3 : la source est nommée dans les logs et dans run_metadata.json.
+    veg_kp_gpkg = OUTPUT / "vegetation_kp.gpkg"
     masked_gpkg = OUTPUT / "vegetation_masked.gpkg"
-    if not masked_gpkg.exists():
-        log.warning("QA : vegetation_masked.gpkg absent — QA ignorée")
+
+    if veg_kp_gpkg.exists():
+        qa_gpkg = veg_kp_gpkg
+        qa_source = "vegetation_kp.gpkg (branche KP)"
+    elif masked_gpkg.exists():
+        qa_gpkg = masked_gpkg
+        qa_source = "vegetation_masked.gpkg (branche HAG — vegetation_kp.gpkg absent)"
+        log.warning("QA : vegetation_kp.gpkg absent — QA HAG utilisée (%s)", masked_gpkg.name)
+    else:
+        log.warning("QA : vegetation_kp.gpkg et vegetation_masked.gpkg absents — QA ignorée")
+        write_config_snapshot(cfg, OUTPUT, extra={"qa_vegetation_source": None})
         return
+
+    log.info("QA source : %s", qa_source)
 
     parts = []
     for cls in [406, 408, 410]:
         layer = f"veg_{cls}"
         try:
-            sub = gpd.read_file(str(masked_gpkg), layer=layer)
+            sub = gpd.read_file(str(qa_gpkg), layer=layer)
             sub["class"] = cls
             parts.append(sub)
         except Exception:
             pass
     if not parts:
-        log.warning("QA : aucune couche veg_* lisible")
+        log.warning("QA : aucune couche veg_* lisible dans %s", qa_gpkg.name)
+        write_config_snapshot(cfg, OUTPUT, extra={"qa_vegetation_source": qa_source})
         return
     gdf = pd.concat(parts, ignore_index=True)
     gdf = gpd.GeoDataFrame(gdf, geometry="geometry", crs=parts[0].crs)
@@ -601,11 +764,12 @@ def step_qa(terrain: str, cfg: dict) -> None:
     # Compte livrable total (sans clip hull) — valeur reproductible pour les releases
     total_by_class = gdf.groupby("class").size().to_dict()
     log.info(
-        "Polygones livrables (vegetation_masked.gpkg, sans clip hull) : %s",
+        "Polygones livrables (%s, sans clip hull) : %s",
+        qa_gpkg.name,
         "  ".join(f"{cls}={total_by_class.get(cls, 0)}" for cls in [406, 408, 410]),
     )
     print()
-    print("=== Livrable — polygones vegetation_masked.gpkg (emprise totale) ===")
+    print(f"=== QA — polygones {qa_gpkg.name} (emprise totale) ===")
     for cls in [406, 408, 410]:
         print(f"    {cls} : {total_by_class.get(cls, 0):,} polygones")
 
@@ -618,12 +782,34 @@ def step_qa(terrain: str, cfg: dict) -> None:
 
     if ffco_gpkg_path:
         report_recall_by_class(
-            masked_gpkg=OUTPUT / "vegetation_masked.gpkg",
+            masked_gpkg=qa_gpkg,
             ffco_gpkg=ROOT / ffco_gpkg_path,
             ffco_layer=ffco_layer,
         )
 
-    write_config_snapshot(cfg, OUTPUT)
+    # P12 — contrôle structural de l'OMAP assemblé
+    omap_path = OUTPUT / f"{terrain}.omap"
+    if omap_path.exists():
+        from tools.ctrl_omap import count_objects, load_code_to_id
+        isom_tpl = ASSETS / "ISOM 2017-2_10000.omap"
+        code_to_id = load_code_to_id(isom_tpl) if isom_tpl.exists() else None
+        omap_counts = count_objects(omap_path, code_to_id=code_to_id)
+        veg_counts = {cls: omap_counts.counts.get(str(cls), 0) for cls in [406, 408, 410]}
+        log.info(
+            "ctrl_omap %s : 406=%d  408=%d  410=%d  (total=%d objs)",
+            omap_path.name,
+            veg_counts[406], veg_counts[408], veg_counts[410],
+            omap_counts.actual,
+        )
+        if not omap_counts.count_match:
+            log.warning(
+                "ctrl_omap : declared=%d != actual=%d dans %s",
+                omap_counts.declared, omap_counts.actual, omap_path.name,
+            )
+    else:
+        log.warning("QA ctrl_omap : %s absent — contrôle OMAP ignoré", omap_path.name)
+
+    write_config_snapshot(cfg, OUTPUT, extra={"qa_vegetation_source": qa_source})
 
 
 # ── Sous-commande : init ──────────────────────────────────────────────────────
@@ -826,6 +1012,9 @@ def _cmd_run() -> None:
     if should_run("relief"):
         relief_tiles_dir = pathlib.Path(args.tiles_dir) if args.tiles_dir else None
         relief_status = step_relief(args.terrain, cfg, relief_tiles_dir, args.force)
+
+    if should_run("vegetation_kp"):
+        step_vegetation_kp(args.terrain, cfg, args.force)
 
     if should_run("vegetation"):
         step_vegetation(args.terrain, cfg, args.force)

@@ -205,6 +205,8 @@ karttapullautin:
       6: 408
       7: 410
       8: 410
+    coverage_simplify_m: 2.0  # tolérance coverage_simplify — validé V3 bras C
+    keep_template: true        # inclure vegetation.png comme template OOM (opacité template_opacity_pct)
   cliff:
     cliffheight: null               # m — hauteur minimale de falaise (défaut KP si null)
     cliffangle: null                # ° — angle minimal de falaise (défaut KP si null)

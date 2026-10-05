@@ -569,12 +569,18 @@ def _git_hash() -> str | None:
         return None
 
 
-def write_config_snapshot(cfg: dict, output_dir: str | pathlib.Path) -> None:
+def write_config_snapshot(
+    cfg: dict,
+    output_dir: str | pathlib.Path,
+    extra: dict | None = None,
+) -> None:
     """Ajoute un snapshot de la config de généralisation dans run_metadata.json.
 
     Complète (sans écraser) les métadonnées existantes avec les paramètres
     nécessaires pour reconstituer la config qui a produit le run courant.
     Capture la configuration RÉSOLUE (objet en mémoire), pas le fichier source.
+
+    extra : paires clé/valeur ajoutées au snapshot (ex. qa_vegetation_source).
     """
     meta_path = pathlib.Path(output_dir) / "run_metadata.json"
     meta: dict = {}
@@ -594,6 +600,7 @@ def write_config_snapshot(cfg: dict, output_dir: str | pathlib.Path) -> None:
 
     kp = cfg.get("karttapullautin", {})
     kp_rendering = kp.get("rendering", {}) or {}
+    kp_vect = kp.get("vectorization", {}) or {}
 
     # Découpage calibration/validation (optionnel — chargé si le fichier existe)
     split_snapshot: dict | None = None
@@ -621,8 +628,13 @@ def write_config_snapshot(cfg: dict, output_dir: str | pathlib.Path) -> None:
         "kp_lightgreentone": kp_rendering.get("lightgreentone"),
         "kp_medianboxsize2": kp_rendering.get("medianboxsize2"),
         "kp_template_opacity_pct": kp_rendering.get("template_opacity_pct"),
+        # Paramètres KP — vectorisation (clés str pour résister au json round-trip)
+        "kp_shade_to_isom":       {str(k): v for k, v in kp_vect.get("shade_to_isom", {}).items()},
+        "kp_coverage_simplify_m": kp_vect.get("coverage_simplify_m"),
+        "kp_keep_template":       kp_vect.get("keep_template"),
         # Découpage calibration/validation
         "split": split_snapshot,
+        **(extra or {}),
     }
 
     meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
