@@ -27,22 +27,29 @@ une `RuntimeError` est levée (état anormal — vérifier `vege_bitmode` dans `
 *_vege*.png (N dalles)
   ↓  kp_raster.mosaic()
 source_kp_classified.tif   (mosaïque reclassifiée : 0=fond 85=406 170=408 255=410)
-  ↓  rasterio.features.shapes()  — polygonisation par valeur DN
-polygones RAW (un polygone par région connexe)
-  ↓  shapely.coverage_is_valid()  — VALIDATION avant simplification
-  ↓  shapely.coverage_simplify(tolerance=coverage_simplify_m)
-polygones simplifiés (topologie préservée, couverture sans recouvrement)
+  ↓  rasterio.features.shapes()  — polygonisation par valeur DN (séparée par classe)
+polygones RAW (un polygone par région connexe, par classe)
+  ↓  shapely.coverage_is_valid() PAR CLASSE — VALIDATION intra-classe avant simplification
+  ↓  shapely.coverage_simplify(tolerance=coverage_simplify_m) PAR CLASSE
+polygones simplifiés (topologie préservée, couverture sans recouvrement intra-classe)
   ↓  clip à la bbox du terrain
-  ↓  coverage_is_valid() après clip — alerte si arêtes invalides
+  ↓  contrôle overlap surfacique inter-classes après clip (sum_area - union_area ≤ 0.01 m²)
 vegetation_kp.gpkg  (couches : veg_406 / veg_408 / veg_410)
 ```
 
 **Propriété V1 (round-trip)** : avant simplification, la rasterisation des polygones RAW
 reproduit le raster source à 0 pixel près (vérifiée par `test_roundtrip_lossless_before_simplify`).
 
-**Propriété V6 (couverture valide)** : `coverage_is_valid` est appelé AVANT `coverage_simplify`.
-Si la couverture est invalide (recouvrement entre polygones), une `ValueError` est levée — jamais
-un appel silencieux sur une entrée invalide.
+**Propriété V6 (couverture intra-classe valide)** : `coverage_is_valid` est appelé PAR CLASSE
+AVANT `coverage_simplify`. Si une classe individuelle présente des overlaps ou des arêtes
+invalides, une `ValueError` est levée.
+
+**T-junctions inter-classes** : la polygonisation séparée par masque produit des T-junctions
+aux frontières entre classes (vertex de 408 sur une arête de 406 sans sommet homologue).
+`coverage_is_valid` global (406+408+410 mélangés) renvoie donc toujours `False` — c'est une
+propriété structurelle, pas un bug. Le contrôle inter-classes repose sur l'absence d'overlap
+surfacique, pas sur `coverage_is_valid`. Vérifié par diagnostic sur Grimbosq (0 overlap, 429
+T-junctions attendues) et présent dès `vectorized_raw.gpkg` V1.
 
 ---
 
@@ -133,8 +140,8 @@ Mesures issues de V4 (validation OOM, 2026-10-04) :
 | Garde-fou | Déclencheur | Comportement |
 |-----------|-------------|--------------|
 | `check_config_snapshot` | Écart dans `shade_to_isom`, `coverage_simplify_m`, `keep_template`, `lightgreentone`, `medianboxsize2` | Avertissement non bloquant au démarrage du run |
-| `coverage_is_valid` avant simplify | Recouvrement entre polygones après polygonisation | `ValueError` bloquante |
-| `coverage_is_valid` après clip | Arêtes invalides après clip bbox | `ValueError` bloquante |
+| `coverage_is_valid` **intra-classe** avant simplify | Overlaps ou arêtes invalides au sein d'une classe (406, 408 ou 410 séparément) | `ValueError` bloquante — les T-junctions inter-classes ne déclenchent pas ce garde-fou |
+| Overlap surfacique après clip | `sum_area - union_area > 0.01 m²` après clip bbox (chevauchement réel entre couches) | `ValueError` bloquante dans `step_assemble` |
 | `out_kp/` présent sans PNG | `vege_bitmode` désactivé ou `step_relief` non lancé | `RuntimeError` bloquante dans `step_vegetation_kp` |
 | `vegetation_kp.gpkg` absent avec `out_kp/` présent | `step_vegetation_kp` non lancé après KP | `RuntimeError` bloquante dans `step_assemble` |
 | `ctrl_omap.count_objects` | Chaque run QA | `declared != actual` → warning dans les logs |

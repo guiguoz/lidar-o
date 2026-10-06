@@ -110,11 +110,11 @@ def test_roundtrip_lossless_before_simplify(tmp_path: pathlib.Path) -> None:
     )
 
 
-# ── P7 : coverage_is_valid avant coverage_simplify ────────────────────────────
+# ── P7 : coverage_is_valid — comportement intra-classe et T-junctions inter-classes ──
 
 @pytest.mark.skipif(not _SHAPELY, reason="shapely absent")
 def test_coverage_valid_on_adjacent_polygons() -> None:
-    """Deux polygones adjacents (arête partagée) → coverage_is_valid=True."""
+    """Deux polygones adjacents (arête partagée exacte) → coverage_is_valid=True."""
     a = sg.box(0, 0, 1, 1)
     b = sg.box(1, 0, 2, 1)
     arr = np.array([a, b], dtype=object)
@@ -128,6 +128,38 @@ def test_coverage_invalid_on_overlapping_polygons() -> None:
     b = sg.box(1, 0, 2, 1)
     arr = np.array([a, b], dtype=object)
     assert not shapely.coverage_is_valid(arr)
+
+
+@pytest.mark.skipif(not _SHAPELY, reason="shapely absent")
+def test_inter_class_tjunction_not_blocked_by_per_class_guard() -> None:
+    """T-junctions inter-classes : invalides globalement, valides par classe, overlaps=0.
+
+    Propriété structurelle de la polygonisation raster séparée par masque :
+    lorsqu'on polygonise 406 et 408 séparément, la frontière commune produit des
+    T-junctions (un sommet de B se trouve sur une arête de A sans sommet homologue).
+    coverage_is_valid(global) = False, mais il n'y a aucun overlap surfacique.
+
+    Le garde-fou P7 doit donc être appliqué PAR CLASSE, pas sur 406+408+410 ensemble.
+    """
+    # Polygon A (406) : rectangle tall, arête droite de (1,0) à (1,2) sans sommet à (1,1)
+    # Polygon B (408) : rectangle bas, sommet haut-gauche à (1,1) sur l'arête de A
+    a = sg.box(0, 0, 1, 2)
+    b = sg.box(1, 0, 2, 1)
+
+    arr_global = np.array([a, b], dtype=object)
+    arr_a = np.array([a], dtype=object)
+    arr_b = np.array([b], dtype=object)
+
+    # Global : invalide — T-junction structurelle inter-classes attendue
+    assert not shapely.coverage_is_valid(arr_global), (
+        "La couverture globale 406+408 doit etre invalide (T-junction structurelle)"
+    )
+    # Par classe : valide — aucune arête partagée au sein d'une même classe
+    assert shapely.coverage_is_valid(arr_a), "La classe 406 seule doit etre valide"
+    assert shapely.coverage_is_valid(arr_b), "La classe 408 seule doit etre valide"
+
+    # Mais overlap surfacique nul — la T-junction n'est pas un chevauchement
+    assert a.intersection(b).area == 0, "Overlap surfacique inattendu entre 406 et 408"
 
 
 # ── P8 : topologie après clip — overlaps==0 ──────────────────────────────────

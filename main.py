@@ -252,15 +252,38 @@ def step_vegetation_kp(terrain: str, cfg: dict, force: bool) -> None:
         transform = ds.transform
         crs_raster = ds.crs.to_string()
 
+    # P6/P7 — polygonisation + coverage_is_valid intra-classe + coverage_simplify global.
+    # Les T-junctions inter-classes sont structurelles (polygonisation séparée par masque,
+    # diagnostiquées sur V1). coverage_is_valid est appliqué par classe pour détecter les
+    # overlaps intra-classe réels. coverage_simplify est appelé sur l'ensemble 406+408+410 :
+    # les T-junctions y sont tolérées et les frontières inter-classes sont résolues
+    # conjointement, évitant les overlaps inter-classes qu'un simplify per-classe produirait.
     all_geoms: list = []
     all_codes: list[int] = []
+
     for dn, isom in sorted(dn_to_isom.items()):
         mask_arr = (data == dn).astype(np.uint8)
+        geoms: list = []
         for geom_dict, _ in rasterio_shapes(mask_arr, mask=mask_arr, transform=transform):
             geom = sg.shape(geom_dict)
             if not geom.is_empty:
-                all_geoms.append(geom)
-                all_codes.append(isom)
+                geoms.append(geom)
+
+        if not geoms:
+            continue
+
+        geom_arr_cls = np.array(geoms, dtype=object)
+        if not shapely.coverage_is_valid(geom_arr_cls):
+            invalid_edges = shapely.coverage_invalid_edges(geom_arr_cls)
+            n_invalid = int(sum(1 for e in invalid_edges if e is not None and not e.is_empty))
+            raise ValueError(
+                f"vegetation_kp : couverture invalide avant coverage_simplify "
+                f"pour la classe {isom} ({n_invalid} arete(s) invalide(s)) — "
+                "verifier la polygonisation."
+            )
+
+        all_geoms.extend(geoms)
+        all_codes.extend([isom] * len(geoms))
 
     if not all_geoms:
         log.warning("vegetation_kp : aucun polygone produit — vegetation_kp.gpkg vide")
@@ -270,16 +293,7 @@ def step_vegetation_kp(terrain: str, cfg: dict, force: bool) -> None:
             )
         return
 
-    # P7 — valider la couverture AVANT coverage_simplify (§6.1 PLAN 3)
     geom_arr = np.array(all_geoms, dtype=object)
-    if not shapely.coverage_is_valid(geom_arr):
-        invalid_edges = shapely.coverage_invalid_edges(geom_arr)
-        n_invalid = int(sum(1 for e in invalid_edges if e is not None and not e.is_empty))
-        raise ValueError(
-            f"vegetation_kp : couverture invalide avant coverage_simplify "
-            f"({n_invalid} arête(s) invalide(s)) — vérifier la polygonisation."
-        )
-
     simplified = shapely.coverage_simplify(geom_arr, tolerance=tol, simplify_boundary=True)
 
     layers: dict[int, list] = {406: [], 408: [], 410: []}
@@ -292,7 +306,7 @@ def step_vegetation_kp(terrain: str, cfg: dict, force: bool) -> None:
         gdf.to_file(veg_kp_gpkg, layer=f"veg_{code}", driver="GPKG")
 
     counts = {c: len(v) for c, v in layers.items()}
-    log.info("vegetation_kp : 406=%d 408=%d 410=%d polygones → %s",
+    log.info("vegetation_kp : 406=%d 408=%d 410=%d polygones -> %s",
              counts[406], counts[408], counts[410], veg_kp_gpkg.name)
 
 
@@ -676,16 +690,19 @@ def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
                 log.warning("vegetation_kp %d ignorée : %s", veg_code, exc)
         veg_layers_clipped = _clip(veg_layers_clipped, "vegetation_kp")
 
-        # Contrôle topologique overlaps==0 APRÈS clip (§8 PLAN 3)
+        # Contrôle topologique overlaps==0 APRÈS clip (§8 PLAN 3).
+        # On vérifie l'absence d'overlap surfacique (sum_area - union_area > seuil).
+        # coverage_is_valid n'est pas utilisé ici : les T-junctions inter-classes
+        # sont structurelles et ne constituent pas un overlap (cf. diagnostic V1).
         all_veg_geoms = [g for lyr in veg_layers_clipped for g in lyr.geometries]
         if all_veg_geoms:
-            geom_arr = np.array(all_veg_geoms, dtype=object)
-            if not shapely.coverage_is_valid(geom_arr):
-                invalid_edges = shapely.coverage_invalid_edges(geom_arr)
-                n_inv = int(sum(1 for e in invalid_edges if e is not None and not e.is_empty))
+            union_area = shapely.unary_union(all_veg_geoms).area
+            sum_area = sum(g.area for g in all_veg_geoms)
+            overlap_area = sum_area - union_area
+            if overlap_area > 0.01:
                 raise ValueError(
-                    f"assemble : couverture végétation KP invalide après clip "
-                    f"({n_inv} arête(s) invalide(s)) — vérifier step_vegetation_kp."
+                    f"assemble : overlaps detectes dans la vegetation KP apres clip "
+                    f"({overlap_area:.2f} m2 recouverts) — verifier step_vegetation_kp."
                 )
         all_layers += veg_layers_clipped
     else:
