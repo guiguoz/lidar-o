@@ -662,6 +662,95 @@ vers KP**, où les couches 406/408/410 étaient encore injectées dans le `.omap
 
 ---
 
+## PLAN 3 — verdict final (2026-10-07)
+
+Objectif : intégrer la vectorisation du rendu KP dans la chaîne de production et supprimer l'ancien chemin HAG→OMAP.
+
+### Acquis expérimentaux
+
+| Point | Statut | Référence |
+|---|---|---|
+| Raster KP retenu comme source de classification | ÉTABLI | V1 f9ea539 |
+| `shade_to_isom` gelé (table PLAN 3) | ÉTABLI | V3 3d579ba |
+| Polygonisation RAW lossless (aucune perte avant `coverage_simplify`) | ÉTABLI | V1 f9ea539 |
+| `coverage_simplify` tolerance=2 m retenu | ÉTABLI | V3 3d579ba |
+| Topologie inter-classes : T-junctions structurelles, garde-fou per-classe, simplification globale | ÉTABLI | P16 866916f |
+| OOM validé avec template (opacity=0,5) | ATTESTÉ porteur | V4 5fffba7 |
+| OOM validé sans template | ATTESTÉ porteur | V4 5fffba7 |
+
+**T-junctions** : quand rasterio polygonise chaque classe séparément, les frontières inter-classes produisent des T-junctions. `coverage_is_valid` per-classe = True, global = False. La garde-fou per-classe détecte les erreurs intra-classe ; `coverage_simplify` est appliqué sur l'ensemble des classes pour traiter les frontières partagées sans créer de recouvrements.
+
+### Production — état intégré
+
+- Chaîne : `step_vegetation_kp` → `vegetation_kp.gpkg` → `step_assemble` → `.omap`
+- Source unique de la végétation dans le `.omap` : `vegetation_kp.gpkg`
+- QA KP par défaut ; fallback QA HAG si `vegetation_kp.gpkg` absent (nommé dans les logs et `run_metadata.json`)
+- Paramètres KP suivis dans `config_snapshot.json`
+- Ancien chemin `scripts/mask_vegetation.py:main()` + `build_veg_layers` + `regenerate_omap` supprimés (P20, ffaaea9)
+
+### Grimbosq — chiffres de référence
+
+1340/409/18 (406/408/410). Validation visuelle OOM 2026-10-04 (attestation porteur).
+
+Artefacts V4 (commit 5fffba7 — `work/expe/vectorisation/`) :
+
+| Fichier | XML | Objets | 406 | 408 | 410 | Symboles inconnus |
+|---|---|---|---|---|---|---|
+| `v4_with_template.omap` | valide | 1767 | 1340 | 409 | 18 | aucun |
+| `v4_no_template.omap` | valide | 1767 | 1340 | 409 | 18 | aucun |
+
+> `ctrl_omap.py` sans gabarit ISOM produit des IDs bruts : id_86=406, id_89=408, id_93=18.
+
+Attributs XML templates (vérifiés) :
+- `v4_with_template` : `<templates count="1" first_front_template="1">`, `<template type="TemplateImage" relpath="vegetation.png" opacity="0.5" georef="true"/>`
+- `v4_no_template` : `<templates count="0" first_front_template="0">`, zéro TemplateImage
+
+Bbox `vegetation_kp.gpkg` (global 406+408+410) : [448000, 6886000, 449997, 6888997] ⊂ emprise config [448000, 6886000, 450001, 6889001].
+
+### Non démontré
+
+- Portabilité de `shade_to_isom` sur un terrain différent de Grimbosq
+- Comportement des classes 406/408/410 sur une autre forêt ou composition différente
+- Qualité géométrique hors Grimbosq
+
+→ étape suivante : test de portabilité sur au moins un autre terrain.
+
+### Docker
+
+Commit df15ceb met à jour le Dockerfile (ligne 58 : `kp_raster`, `kp_install`, `setup_terrain`, `trier_ref`). Image **non reconstruite** dans cette session — la conformité Dockerfile/image n'est pas vérifiée.
+
+### Suite de tests
+
+| Arbre | Collectés | Passés | Skippés | Échoués | Note |
+|---|---|---|---|---|---|
+| Dépôt `origin/master@4ec6848` | 148 | 146 | 1 | 1 | Échec environnemental : `test_init_terrain::TestCmdCheck` (module `pdal` absent) |
+| Arbre exécuteur local | 160 | 160 | 0 | 0 | 12 tests supplémentaires dans `tests/test_topology.py` (untracked, absent de `origin/master`) |
+
+`tests/test_vegetation_kp.py` est identique à `origin/master` (13 tests déjà au registre sur 4ec6848). Les 12 tests supplémentaires proviennent de `tests/test_topology.py`, fichier non versionné.
+
+### Registre des commits PLAN 3
+
+| Étape | Hash | Statut | Description |
+|---|---|---|---|
+| P2–P15 intégration | 7f4805d | origin/master | feat: intégrer la chaîne KP vectorisée |
+| Tests P2–P11 | 5cba21a | origin/master | test: couverture P2–P11 |
+| V4 validation OOM | 5fffba7 | origin/master | docs: V4 PASS — validation OOM 2026-10-04 |
+| P16 fix topologie | 866916f | origin/master | fix: coverage_simplify global + garde-fou P7 |
+| P16 tests mutation | 4ec6848 | origin/master | test: verrouiller coverage_simplify global par mutation |
+| P17 fix KP absente | 652f200 | origin/master | fix: erreurs bloquantes source KP absente + doc pipeline |
+| P17 tests KP absente | 7dda3ed | origin/master | test: couvrir les erreurs bloquantes source KP absente |
+| P18 docs Dockerfile | df15ceb | origin/master | docs: README + Dockerfile reflètent l'intégration KP |
+| P20 cleanup HAG→OMAP | ffaaea9 | **LOCAL** | refactor: supprimer l'ancien chemin HAG→OMAP |
+
+P20 (`ffaaea9`) n'est pas poussé sur `origin/master`.
+
+### Artefacts hors registre
+
+- `work/expe/vectorisation/v4_with_template_test.omap`, `v4_no_template_test.omap` : fichiers post-édition OOM (test porteur) — non commités, untracked
+- OMAPs de validation P18 (`output/grimbosq_with_template.omap`, `output/grimbosq_without_template.omap`) : produits dans `output/` (gitignore), non au registre
+
+---
+
 ## Annexe — Inventaire des réfutations
 
 | # | Levier | Test | Résultat |
