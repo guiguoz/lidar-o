@@ -8,13 +8,9 @@ Soustrait de chaque couche végétation (406/408/410) :
 
 Paramètres lus depuis config.yaml → section `mask`.
 Cache OSM : data/osm_landuse_{terrain}.json — auto-fetchéé si absent.
-
-Usage :
-    python scripts/mask_vegetation.py grimbosq
 """
 from __future__ import annotations
 
-import argparse
 import json
 import logging
 import pathlib
@@ -29,18 +25,12 @@ from shapely.geometry.base import BaseGeometry
 from shapely.validation import make_valid
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
-from src.omap_writer import Layer, load_georef, load_template, write_omap
+from src.omap_writer import Layer
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 log = logging.getLogger(__name__)
 
 ROOT = pathlib.Path(".")
-ASSETS = ROOT / "assets"
-DATA = ROOT / "data"
-OUTPUT = ROOT / "output"
-WORK = ROOT / "work"
-TEMPLATE_PATH = ASSETS / "ISOM 2017-2_10000.omap"
-
 _full_cfg = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
 _cfg = _full_cfg.get("mask", {})
 ROAD_BUFFER_M: float = _cfg.get("road_buffer_m", 5.0)
@@ -396,108 +386,3 @@ def build_fill_layers(
     return layers
 
 
-def build_veg_layers(masked_gpkg: pathlib.Path) -> list[Layer]:
-    """Lit vegetation_masked.gpkg → liste de Layer ISOM 406/408/410."""
-    from pyogrio import list_layers
-
-    layer_codes = {"veg_406": 406, "veg_408": 408, "veg_410": 410}
-    available = {n for n, _ in list_layers(str(masked_gpkg))}
-    omap_layers: list[Layer] = []
-    for layer_name, code in sorted(layer_codes.items(), key=lambda x: x[1]):
-        if layer_name not in available:
-            log.warning("Couche %s absente du GPKG masqué", layer_name)
-            continue
-        gdf = gpd.read_file(str(masked_gpkg), layer=layer_name)
-        omap_layers.append(Layer(layer_name, code, list(gdf.geometry)))
-        log.info("  %s : %d polygones → ISOM %d", layer_name, len(gdf), code)
-    return omap_layers
-
-
-def regenerate_omap(
-    masked_gpkg: pathlib.Path,
-    out_omap: pathlib.Path,
-    fill_layers: list[Layer] | None = None,
-    georef_xml: pathlib.Path | None = None,
-) -> int:
-    """Régénère le .omap végétation + couches de remplissage depuis le GPKG masqué."""
-    template = load_template(TEMPLATE_PATH)
-    _georef_path = georef_xml or (ASSETS / "georef_grimbosq.xml")
-    georef = load_georef(_georef_path)
-
-    omap_layers = build_veg_layers(masked_gpkg)
-    total = sum(len(l.geometries) for l in omap_layers)
-
-    if fill_layers:
-        for fl in fill_layers:
-            omap_layers.append(fl)
-            log.info("  %s → ISOM %d", fl.name, fl.isom_code)
-        total += len(fill_layers)
-
-    write_omap(out_omap, template, omap_layers, georef)
-    return total
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Masque anthropique sur végétation")
-    parser.add_argument("terrain", help="Nom du terrain (ex: grimbosq)")
-    args = parser.parse_args()
-
-    bdtopo_gpkg = DATA / f"{args.terrain}_bdtopo.gpkg"
-
-    # Répertoire de sortie : config.yaml → output_dir, sinon output_{terrain}, sinon output/
-    _tcfg = yaml.safe_load(open("config.yaml", encoding="utf-8"))
-    _terrain_cfg = _tcfg.get("terrains", {}).get(args.terrain, {})
-    _out_dir_name = _terrain_cfg.get("output_dir") or (
-        f"output_{args.terrain}" if args.terrain != "grimbosq" else "output"
-    )
-    terrain_out = ROOT / _out_dir_name
-
-    veg_gpkg = terrain_out / "vegetation.gpkg"
-    masked_gpkg = terrain_out / "vegetation_masked.gpkg"
-    out_omap = WORK / f"{args.terrain}_veg.omap"
-    osm_cache = DATA / f"osm_landuse_{args.terrain}.json"
-
-    georef_path = ASSETS / f"georef_{args.terrain}.xml"
-    if not georef_path.exists():
-        georef_path = ASSETS / "georef_grimbosq.xml"
-        log.warning("georef_%s.xml absent — utilisation de georef_grimbosq.xml (à corriger)", args.terrain)
-
-    for p in [bdtopo_gpkg, veg_gpkg, TEMPLATE_PATH, georef_path]:
-        if not p.exists():
-            sys.exit(f"ABSENT : {p}")
-
-    # Emprise terrain pour clip OSM
-    terrain_cfg = _full_cfg.get("terrains", {}).get(args.terrain, {})
-    bbox = terrain_cfg.get("bbox")
-    bbox_geom = sg.box(*bbox) if bbox else None
-    if bbox_geom is None:
-        log.warning("Emprise terrain introuvable dans config.yaml — masque OSM désactivé")
-
-    # Auto-fetch OSM si cache absent et bbox connue
-    if OSM_INCLUDE and bbox_geom is not None and not osm_cache.exists():
-        try:
-            _fetch_osm(bbox, osm_cache)
-        except Exception as e:
-            sys.exit(f"ERREUR fetch OSM : {e}\nVérifier la connexion ou désactiver mask.osm.include dans config.yaml")
-
-    log.info(
-        "Construction du masque (road=%.0fm, hab=%.0fm, bat=%.0fm, osm=%s) …",
-        ROAD_BUFFER_M, HAB_BUFFER_M, BAT_BUFFER_M, sorted(OSM_INCLUDE),
-    )
-    mask = build_mask(bdtopo_gpkg, osm_cache=osm_cache, bbox_geom=bbox_geom)
-    log.info("Masque total : %.1f ha", mask.area / 10_000)
-
-    log.info("Application du masque …")
-    apply_mask(veg_gpkg, mask, masked_gpkg)
-
-    log.info("Production couches de remplissage (520/401) …")
-    fill_layers = build_fill_layers(bdtopo_gpkg, osm_cache=osm_cache, bbox_geom=bbox_geom)
-
-    WORK.mkdir(parents=True, exist_ok=True)
-    log.info("Régénération %s …", out_omap.name)
-    total = regenerate_omap(masked_gpkg, out_omap, fill_layers=fill_layers, georef_xml=georef_path)
-    log.info("Ecrit : %s (%d objets)", out_omap, total)
-
-
-if __name__ == "__main__":
-    main()
