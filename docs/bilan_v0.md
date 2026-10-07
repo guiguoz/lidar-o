@@ -699,10 +699,10 @@ Artefacts V4 (commit 5fffba7 — `work/expe/vectorisation/`) :
 | `v4_with_template.omap` | valide | 1767 | 1340 | 409 | 18 | aucun |
 | `v4_no_template.omap` | valide | 1767 | 1340 | 409 | 18 | aucun |
 
-> `ctrl_omap.py` sans gabarit ISOM produit des IDs bruts : id_86=406, id_89=408, id_93=18.
+> `ctrl_omap.py` sans gabarit ISOM produit des IDs bruts : id_86 → 406 (1340), id_89 → 408 (409), id_93 → 410 (18).
 
 Attributs XML templates (vérifiés) :
-- `v4_with_template` : `<templates count="1" first_front_template="1">`, `<template type="TemplateImage" relpath="vegetation.png" opacity="0.5" georef="true"/>`
+- `v4_with_template` : `<templates count="1" first_front_template="1">`, `<template type="TemplateImage" open="true" name="KP vegetation (fond)" relpath="vegetation.png" opacity="0.5" georef="true">` (non auto-fermant)
 - `v4_no_template` : `<templates count="0" first_front_template="0">`, zéro TemplateImage
 
 Bbox `vegetation_kp.gpkg` (global 406+408+410) : [448000, 6886000, 449997, 6888997] ⊂ emprise config [448000, 6886000, 450001, 6889001].
@@ -723,26 +723,25 @@ Commit df15ceb met à jour le Dockerfile (ligne 58 : `kp_raster`, `kp_install`, 
 
 | Arbre | Collectés | Passés | Skippés | Échoués | Note |
 |---|---|---|---|---|---|
-| Dépôt `origin/master@4ec6848` | 148 | 146 | 1 | 1 | Échec environnemental : `test_init_terrain::TestCmdCheck` (module `pdal` absent) |
-| Arbre exécuteur local | 160 | 160 | 0 | 0 | 12 tests supplémentaires dans `tests/test_topology.py` (untracked, absent de `origin/master`) |
+| Dépôt `origin/master@3d0854c` | 148 | 146 | 1 | 1 | Échec environnemental : `test_init_terrain::TestCmdCheck` (module `pdal` absent). P20+P21 ne touchent pas les tests. |
+| Arbre exécuteur local | 160 | 160 | 0 | 0 | 12 tests supplémentaires dans `tests/test_topology.py` (untracked) |
 
-`tests/test_vegetation_kp.py` est identique à `origin/master` (13 tests déjà au registre sur 4ec6848). Les 12 tests supplémentaires proviennent de `tests/test_topology.py`, fichier non versionné.
+`tests/test_vegetation_kp.py` est identique à `origin/master` (13 tests déjà au registre sur 4ec6848). Les 12 tests de `tests/test_topology.py` couvrent `src/topology.py` (module également untracked) — non commités car `src/topology.py` est absent du dépôt.
 
 ### Registre des commits PLAN 3
 
 | Étape | Hash | Statut | Description |
 |---|---|---|---|
-| P2–P15 intégration | 7f4805d | origin/master | feat: intégrer la chaîne KP vectorisée |
+| Intégration P2–P15 | 7f4805d | origin/master | feat: intégrer la chaîne KP vectorisée |
 | Tests P2–P11 | 5cba21a | origin/master | test: couverture P2–P11 |
 | V4 validation OOM | 5fffba7 | origin/master | docs: V4 PASS — validation OOM 2026-10-04 |
-| P16 fix topologie | 866916f | origin/master | fix: coverage_simplify global + garde-fou P7 |
-| P16 tests mutation | 4ec6848 | origin/master | test: verrouiller coverage_simplify global par mutation |
-| P17 fix KP absente | 652f200 | origin/master | fix: erreurs bloquantes source KP absente + doc pipeline |
-| P17 tests KP absente | 7dda3ed | origin/master | test: couvrir les erreurs bloquantes source KP absente |
-| P18 docs Dockerfile | df15ceb | origin/master | docs: README + Dockerfile reflètent l'intégration KP |
-| P20 cleanup HAG→OMAP | ffaaea9 | **LOCAL** | refactor: supprimer l'ancien chemin HAG→OMAP |
-
-P20 (`ffaaea9`) n'est pas poussé sur `origin/master`.
+| Fix topologie inter-classes | 866916f | origin/master | fix: coverage_simplify global + garde-fou intra-classe |
+| Tests mutation topologie | 4ec6848 | origin/master | test: verrouiller coverage_simplify global par mutation |
+| Fix erreurs bloquantes KP absente | 652f200 | origin/master | fix: erreurs bloquantes source KP absente + doc pipeline |
+| Tests erreurs bloquantes KP absente | 7dda3ed | origin/master | test: couvrir les erreurs bloquantes source KP absente |
+| Docs README + Dockerfile | df15ceb | origin/master | docs: README + Dockerfile reflètent l'intégration KP |
+| P20 nettoyage HAG→OMAP | ffaaea9 | origin/master | refactor: supprimer l'ancien chemin HAG→OMAP |
+| P21 verdict final | 3d0854c | origin/master | docs: verdict final — chaîne vegetation_kp intégrée |
 
 ### Artefacts hors registre
 
