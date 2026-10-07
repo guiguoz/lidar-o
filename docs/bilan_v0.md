@@ -723,10 +723,9 @@ Commit df15ceb met à jour le Dockerfile (ligne 58 : `kp_raster`, `kp_install`, 
 
 | Arbre | Collectés | Passés | Skippés | Échoués | Note |
 |---|---|---|---|---|---|
-| Dépôt `origin/master@3d0854c` | 148 | 146 | 1 | 1 | Échec environnemental : `test_init_terrain::TestCmdCheck` (module `pdal` absent). P20+P21 ne touchent pas les tests. |
-| Arbre exécuteur local | 160 | 160 | 0 | 0 | 12 tests supplémentaires dans `tests/test_topology.py` (untracked) |
+| Dépôt `origin/master@4e750b4` | 148 | 146 | 1 | 1 | Échec environnemental : `test_init_terrain::TestCmdCheck` (module `pdal` absent). |
 
-`tests/test_vegetation_kp.py` est identique à `origin/master` (13 tests déjà au registre sur 4ec6848). Les 12 tests de `tests/test_topology.py` couvrent `src/topology.py` (module également untracked) — non commités car `src/topology.py` est absent du dépôt.
+`tests/test_vegetation_kp.py` est identique à `origin/master` (13 tests au registre depuis 4ec6848). Aucun test supplémentaire commité : `src/topology.py` + `tests/test_topology.py` sont déplacés sous `work/expe/topology/` (gitignore, local uniquement).
 
 ### Registre des commits PLAN 3
 
