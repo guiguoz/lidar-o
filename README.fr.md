@@ -315,6 +315,10 @@ le banc vertical [0,2–2,0] m de Trier jamais balayé, la cascade morphologique
 comme réponse à la question d'ordre, et le champ « Overlap Points » d'OCAD qui rend
 l'artefact de bande corrigeable en une ligne si les dalles IGN portent `DTM_MAKER`.
 
+Autres symboles ISOM (rochers 204–210, limite de végétation 416, végétation basse) : ce que
+la chaîne produit déjà, ce qu'OCAD fait de plus (Feature Map : des indices à 0,5 m, pas des
+symboles) et le protocole pour trancher — [docs/pistes_symboles_isom.md](docs/pistes_symboles_isom.md).
+
 ---
 
 ## Statut du projet

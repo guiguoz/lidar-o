@@ -284,7 +284,10 @@ researching — see [docs/pistes_raster_multipasses.md](docs/pistes_raster_multi
 `scripts/diag/diag_multilook.py`). A contradictorial review of the follow-up plan
 (« Signaux LiDAR inexploités », 2026-10-08) with primary sources checked (Trier 2015 full
 text, OCAD wiki, KP and Cassini source code) is in
-[docs/revue_plan_signaux_lidar.md](docs/revue_plan_signaux_lidar.md) (French).
+[docs/revue_plan_signaux_lidar.md](docs/revue_plan_signaux_lidar.md) (French). More ISOM
+symbols (rocks 204–210, vegetation boundary 416, low vegetation): current coverage, what
+OCAD's Feature Map really is (0.5 m hint layers, not symbols) and a decision protocol — see
+[docs/pistes_symboles_isom.md](docs/pistes_symboles_isom.md) (French).
 
 ---
 
