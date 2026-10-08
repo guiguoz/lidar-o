@@ -302,6 +302,12 @@ Onze pistes d'amélioration ont été testées et mesurées : ajustement du seui
 
 Documentées dans [docs/bilan_v0.md](docs/bilan_v0.md) pour éviter à d'autres de refaire le chemin.
 
+Piste ouverte non instruite : le **multi-passes / l'ordre des opérations** sur le raster
+(analogie du 2-pass vidéo). État de l'art, ce que fait Karttapullautin en interne, ce que
+cherche OCAD, et trois protocoles prêts à exécuter dans
+[docs/pistes_raster_multipasses.md](docs/pistes_raster_multipasses.md)
+(`scripts/diag/sweep_ordre_lissage.py`, `scripts/diag/diag_multilook.py`).
+
 ---
 
 ## Statut du projet

@@ -277,6 +277,12 @@ Eleven improvement directions were tested and measured: detection threshold tuni
 
 Documented in [docs/bilan_v0.md](docs/bilan_v0.md) to save others from repeating the same experiments.
 
+Open direction, not yet measured: **multi-pass raster processing and operation order**
+(the video 2-pass analogy), including what Karttapullautin does internally and what OCAD is
+researching — see [docs/pistes_raster_multipasses.md](docs/pistes_raster_multipasses.md)
+(French) with three ready-to-run protocols (`scripts/diag/sweep_ordre_lissage.py`,
+`scripts/diag/diag_multilook.py`).
+
 ---
 
 ## Project status
