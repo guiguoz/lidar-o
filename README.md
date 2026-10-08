@@ -281,7 +281,10 @@ Open direction, not yet measured: **multi-pass raster processing and operation o
 (the video 2-pass analogy), including what Karttapullautin does internally and what OCAD is
 researching — see [docs/pistes_raster_multipasses.md](docs/pistes_raster_multipasses.md)
 (French) with three ready-to-run protocols (`scripts/diag/sweep_ordre_lissage.py`,
-`scripts/diag/diag_multilook.py`).
+`scripts/diag/diag_multilook.py`). A contradictorial review of the follow-up plan
+(« Signaux LiDAR inexploités », 2026-10-08) with primary sources checked (Trier 2015 full
+text, OCAD wiki, KP and Cassini source code) is in
+[docs/revue_plan_signaux_lidar.md](docs/revue_plan_signaux_lidar.md) (French).
 
 ---
 

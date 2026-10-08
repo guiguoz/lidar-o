@@ -14,6 +14,15 @@ Variantes comparees (meme sigma, meme noyau median de reference, memes seuils) :
     V3 gauss_med_med: une passe mediane supplementaire
     V4 norm_before  : normalisation p95 avant lissage, puis gauss_med sans renorm
 
+Deux ordres de reference de la litterature, ajoutes en V5/V6 (cf.
+docs/revue_plan_signaux_lidar.md) :
+
+    V5 seuil_med    : seuiller le ratio brut, PUIS medianes 9 m et 16 m sur la
+                      carte de classes — ordre de Karttapullautin
+                      (medianboxsize/medianboxsize2 sur la teinte quantifiee)
+    V6 seuil_morpho : seuiller, PUIS cascade morphologique progressive
+                      closing/opening (7-3-9-5-11-7 px) — ordre de Trier 2015 §2.2
+
 Metriques : metriques de forme (compacite, %trous, P/sqrtA) via src.qa, plus
 quadruplet (n, mediane mm2, %<1mm2, part du plus grand composant 406).
 
@@ -137,6 +146,112 @@ def classify(
     return cls
 
 
+# ── Deux ordres de reference : seuiller PUIS filtrer ─────────────────────────
+
+def _disk(radius: int) -> "np.ndarray":
+    """Disque binaire (structure morphologique), scipy n'en fournit pas."""
+    yy, xx = np.mgrid[-radius:radius + 1, -radius:radius + 1]
+    return (yy ** 2 + xx ** 2) <= radius ** 2
+
+
+def classify_threshold_then_filter(
+    ratio: np.ndarray,
+    mask: np.ndarray,
+    thresholds: tuple[float, float, float],
+    res_m: float,
+    medians_m: tuple[float, float] = (9.0, 16.0),
+) -> np.ndarray:
+    """Ordre KP : seuiller d'abord, filtrer median ensuite (carte de classes).
+
+    Le ratio BRUT est normalise par son p95 (sur les pixels valides), seuille aux
+    seuils de production, PUIS la carte de classes est passee dans deux medianes
+    successifs de 9 m et 16 m — transposition de `medianboxsize=9` et
+    `medianboxsize2=16` de KP, qui appliquent ces filtres a l'image de teintes
+    deja quantifiee (src/vegetation.rs : median_filter apres le seuillage
+    `greenshades`).
+
+    Note : normaliser le ratio brut par son p95 n'est pas exactement ce que fait
+    la production (qui normalise le champ lisse). C'est la seule normalisation
+    definie dans cet ordre ; le comparateur teste donc « seuiller puis medianer »
+    a normalisation honnete, pas une equivalence bit a bit.
+    """
+    valid = ratio[~mask]
+    vmax = float(np.percentile(valid, 95)) if valid.size else 1.0
+    normed = np.clip(ratio / vmax, 0.0, 1.0) if vmax > 1e-9 else np.clip(ratio, 0.0, 1.0)
+    normed[mask] = 0.0
+    cls = classify(normed, mask, thresholds)
+
+    for med_m in medians_m:
+        k = _odd(med_m / res_m)
+        if k > 1:
+            cls = median_filter(cls, size=k).astype(np.uint8)
+    cls[mask] = 0
+    return cls
+
+
+# Cascade morphologique de Trier (2015 §2.2), en pixels a 1 m :
+# closing 7 -> opening 3 -> closing 9 -> opening 5 -> closing 11 -> opening 7.
+# Trier alterne fermetures et ouvertures de taille croissante : la fermeture
+# connecte les taches proches, l'ouverture qui suit re-retire ce qui est plus
+# fin que le noyau, donc le signal faible est exagere sans etre invente.
+TRIER_CASCADE: tuple[tuple[str, int], ...] = (
+    ("closing", 7), ("opening", 3),
+    ("closing", 9), ("opening", 5),
+    ("closing", 11), ("opening", 7),
+)
+
+
+def _apply_cascade(binary: np.ndarray, res_m: float,
+                   cascade: tuple[tuple[str, int], ...] = TRIER_CASCADE) -> np.ndarray:
+    """Applique une cascade (operation, noyau en metres) a un masque binaire."""
+    from scipy.ndimage import binary_closing, binary_opening
+
+    out = binary
+    for op, kernel_m in cascade:
+        # Taille de noyau impaire (7, 3, 9, 5, 11, 7 px) : rayon = taille // 2,
+        # ce qui reproduit exactement les noyaux de Trier 2015 (§2.2).
+        size_px = max(int(round(kernel_m / res_m)), 3)
+        if size_px % 2 == 0:
+            size_px += 1
+        struct = _disk(size_px // 2)
+        out = binary_closing(out, structure=struct) if op == "closing" \
+            else binary_opening(out, structure=struct)
+    return out
+
+
+def classify_threshold_then_morphology(
+    ratio: np.ndarray,
+    mask: np.ndarray,
+    thresholds: tuple[float, float, float],
+    res_m: float,
+    cascade: tuple[tuple[str, int], ...] = TRIER_CASCADE,
+) -> np.ndarray:
+    """Ordre Trier : seuiller d'abord, puis generaliser par morphologie progressive.
+
+    Les trois classes sont traitees separement puis recomposees de la plus
+    severe a la moins severe (410 > 408 > 406), ce qui garde l'imbrication
+    naturelle des seuils. C'est la transposition de la methode 2.2 de
+    Trier 2015 (closing/opening alternes de taille croissante).
+    """
+    valid = ratio[~mask]
+    vmax = float(np.percentile(valid, 95)) if valid.size else 1.0
+    normed = np.clip(ratio / vmax, 0.0, 1.0) if vmax > 1e-9 else np.clip(ratio, 0.0, 1.0)
+    normed[mask] = 0.0
+    raw = classify(normed, mask, thresholds)
+
+    out = np.zeros_like(raw)
+    assigned = np.zeros(raw.shape, dtype=bool)
+    for value in (255, 170, 85):          # severe -> leger
+        binary = (raw == value) & ~assigned
+        if not binary.any():
+            continue
+        kept = _apply_cascade(binary, res_m, cascade)
+        out[kept] = value
+        assigned |= kept
+    out[mask] = 0
+    return out
+
+
 # ── Metriques ────────────────────────────────────────────────────────────────
 
 _RAW_VALUE = {406: 85, 408: 170, 410: 255}
@@ -218,14 +333,17 @@ def main() -> None:
     print(f"Champ : {mask.size - mask.sum()} px valides sur {mask.size}\n")
 
     variants = build_variants(ratio, mask, res_m, sigma_m, median_m)
+    class_orders: dict[str, np.ndarray] = {
+        "V5_seuil_med_med": classify_threshold_then_filter(ratio, mask, thresholds, res_m),
+        "V6_seuil_morpho": classify_threshold_then_morphology(ratio, mask, thresholds, res_m),
+    }
 
     # Changement effectif de chaque variante vs V0 (avant vectorisation)
-    ref = variants["V0_gauss_med"]
     print("Ecarts raster vs V0 (avant vectorisation) :")
     for name, field in variants.items():
         if name == "V0_gauss_med":
             continue
-        diff = np.abs(field - ref)[~mask]
+        diff = np.abs(field - variants["V0_gauss_med"])[~mask]
         frac = float((diff > 0.05).mean() * 100.0) if diff.size else 0.0
         print(f"  {name:<18} |ecart| med={np.median(diff):.4f}  "
               f"p95={np.percentile(diff, 95):.4f}  cellules>0.05={frac:.1f}%")
@@ -243,8 +361,12 @@ def main() -> None:
     if save_dir:
         save_dir.mkdir(parents=True, exist_ok=True)
 
-    for name, field in variants.items():
-        cls = classify(field, mask, thresholds)
+    order_rows: list[tuple[str, np.ndarray]] = [
+        (name, classify(field, mask, thresholds)) for name, field in variants.items()
+    ]
+    order_rows += list(class_orders.items())
+
+    for name, cls in order_rows:
         tif = tmpdir / f"{name}.tif"
         _save(cls, profile, tif, "uint8", 0)
         if save_dir:
@@ -262,6 +384,9 @@ def main() -> None:
                   f"{sh['peri_over_sqrtarea_med']:>8.2f}")
         sys.stdout.flush()
 
+    print()
+    print("V5 = ordre KP (seuiller puis medianer) — V6 = ordre Trier (seuiller")
+    print("puis cascade morphologique progressive). Voir review pour les sources.")
     print()
     print("Lecture : comparer chaque variante a V0 (production) ligne a ligne.")
     print("  Go    : compacite mediane en hausse, %<1mm2 stable, part max 406 stable.")

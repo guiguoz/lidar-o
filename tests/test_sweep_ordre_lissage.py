@@ -132,3 +132,83 @@ class TestRasterMetrics:
         m408 = sw.raster_metrics(cls, 408, 1.0)
         assert m406["pct"] == pytest.approx(50.0)
         assert m408["pct"] == pytest.approx(50.0)
+
+
+# ── Ordres « seuiller puis filtrer » (V5 KP, V6 Trier) ───────────────────────
+
+class TestThresholdThenFilter:
+    def _ratio(self):
+        """Champ synthetique : deux masses nettes + moucheture isolee."""
+        return _blob(shape=(64, 64), centre=(20, 20), rayon=10, valeur=0.95) + \
+               _blob(shape=(64, 64), centre=(45, 45), rayon=6, valeur=0.5)
+
+    def test_values_stay_in_class_set(self):
+        ratio = self._ratio()
+        mask = np.zeros_like(ratio, dtype=bool)
+        cls = sw.classify_threshold_then_filter(ratio, mask, (0.20, 0.45, 0.85), 1.0)
+        assert set(np.unique(cls)) <= {0, 85, 170, 255}
+
+    def test_masked_cells_stay_zero(self):
+        ratio = self._ratio()
+        mask = np.zeros_like(ratio, dtype=bool)
+        mask[:, :8] = True
+        cls = sw.classify_threshold_then_filter(ratio, mask, (0.20, 0.45, 0.85), 1.0)
+        assert (cls[mask] == 0).all()
+
+    def test_order_differs_from_production(self):
+        rng = np.random.default_rng(7)
+        ratio = self._ratio() * (1 + 0.3 * rng.random((64, 64)))
+        mask = np.zeros_like(ratio, dtype=bool)
+        prod = sw.classify(sw.build_variants(ratio, mask, 1.0, 1.0, 9.0)["V0_gauss_med"],
+                           mask, (0.20, 0.45, 0.85))
+        kp = sw.classify_threshold_then_filter(ratio, mask, (0.20, 0.45, 0.85), 1.0)
+        assert not np.array_equal(prod, kp)
+
+
+class TestTrierCascade:
+    def test_disk_shape(self):
+        d = sw._disk(2)
+        assert d.shape == (5, 5)
+        assert d[2, 2] and d[0, 2]      # centre et bord cardinal
+        assert not d[0, 0]              # coin exclu
+
+    def test_small_blob_removed_big_blob_survives(self):
+        binary = np.zeros((60, 60), dtype=bool)
+        binary[5:7, 5:7] = True          # 2x2 px : plus fin que le plus petit noyau
+        binary[30:50, 30:50] = True      # 20x20 px : masse franche
+        out = sw._apply_cascade(binary, 1.0)
+        assert not out[5:7, 5:7].any()
+        assert out[35:45, 35:45].mean() > 0.9
+
+    def test_cascade_never_invents_far_away_pixels(self):
+        binary = np.zeros((80, 80), dtype=bool)
+        binary[38:42, 38:42] = True
+        out = sw._apply_cascade(binary, 1.0)
+        assert out[:10, :10].sum() == 0
+
+    def test_class_map_is_exclusive(self):
+        """Une carte de classes : chaque pixel porte une classe et une seule."""
+        ratio = _blob(shape=(80, 80), rayon=30, valeur=0.99)
+        mask = np.zeros_like(ratio, dtype=bool)
+        cls = sw.classify_threshold_then_morphology(ratio, mask, (0.20, 0.45, 0.85), 1.0)
+        assert set(np.unique(cls)) <= {0, 85, 170, 255}
+
+    def test_morphology_does_not_amplify_beyond_kernel(self):
+        """La fermeture peut grossir, mais pas au-dela du plus grand noyau (11 px)."""
+        from scipy.ndimage import binary_dilation
+        ratio = _blob(shape=(120, 120), centre=(60, 60), rayon=25, valeur=0.99)
+        mask = np.zeros_like(ratio, dtype=bool)
+        cls = sw.classify_threshold_then_morphology(ratio, mask, (0.20, 0.45, 0.85), 1.0)
+
+        # Masque brut de la classe la plus severe, avant morphologie
+        valid = ratio[~mask]
+        normed = np.clip(ratio / np.percentile(valid, 95), 0.0, 1.0)
+        raw410 = sw.classify(normed, mask, (0.20, 0.45, 0.85)) == 255
+        bound = binary_dilation(raw410, structure=sw._disk(7))
+        assert ((cls == 255) & ~bound).sum() == 0
+
+    def test_custom_cascade_is_used(self):
+        binary = np.zeros((40, 40), dtype=bool)
+        binary[19:21, 19:21] = True      # disparait avec un noyau de 7
+        out = sw._apply_cascade(binary, 1.0, cascade=(("opening", 7),))
+        assert out.sum() == 0

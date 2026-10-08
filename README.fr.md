@@ -308,6 +308,13 @@ cherche OCAD, et trois protocoles prêts à exécuter dans
 [docs/pistes_raster_multipasses.md](docs/pistes_raster_multipasses.md)
 (`scripts/diag/sweep_ordre_lissage.py`, `scripts/diag/diag_multilook.py`).
 
+Revue contradictoire du plan « Signaux LiDAR inexploités » (2026-10-08), avec les sources
+primaires vérifiées (Trier 2015 en texte intégral, wiki OCAD, code KP et Cassini) :
+[docs/revue_plan_signaux_lidar.md](docs/revue_plan_signaux_lidar.md). Trois résultats neufs —
+le banc vertical [0,2–2,0] m de Trier jamais balayé, la cascade morphologique progressive
+comme réponse à la question d'ordre, et le champ « Overlap Points » d'OCAD qui rend
+l'artefact de bande corrigeable en une ligne si les dalles IGN portent `DTM_MAKER`.
+
 ---
 
 ## Statut du projet
