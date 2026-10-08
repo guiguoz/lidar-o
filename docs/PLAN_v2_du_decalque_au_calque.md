@@ -21,6 +21,13 @@
 > dimensionnement des noyaux (§0c, §3), protocole de calibration 1b renforcé (ROIs
 > indépendantes, validation tenue à part, monotonicité), décomposition suppression/fusion
 > (§2.3), et **décision écrite d'avance en cas d'échec de 1b** (§3).
+>
+> **Révision 4 (2026-10-08, nuit)** : troisième passe de la même revue + **vérification à la
+> source de la citation Trier**. Corrections : marge de sécurité des ROIs (§3), statut de
+> **référence bruitée** de la FFCO (§3), reformulation du noyau 7×7 et rappel de ne pas
+> « corriger » la séquence de Trier pour l'aligner sur la maille de 3 m (§0c), **plafond
+> `max_pct` pré-engagé** (§2.3), nuance sur « seuils de suppression » (§2.2), structure de
+> falsification A/B/C (§6).
 
 ---
 
@@ -147,6 +154,18 @@ en mètres), protocole 1b (ROIs, cellule = observation, validation à part, mono
 décomposition suppression/fusion (§2.3.3). Ajout demandé par la question utilisateur : la
 **décision d'échec de 1b** (§3), que ni la revue ni la révision 2 ne prévoyaient.
 
+**Troisième passe de la même revue (révision 4)** — corrections acceptées : marge de sécurité
+des ROIs (§3), statut de référence bruitée de la FFCO (§3), reformulation du noyau 7×7 (§0c),
+plafond `max_pct` pré-engagé (§2.3), nuance sur « plus agressive » (§2.2). **Sa citation de
+Trier a été vérifiée à la source** (article intégral, GAC/Vilnius Tech) : la séquence
+closing 7×7 → opening 3×3 → closing 9×9 → opening 5×5 → closing 11×11 → opening 7×7 est bien
+la procédure publiée en §2.2 (fig. 7c–7h), sur une image NDVD 0.2–2,0 m **agrégée à 1,0 m**.
+Deux trouvailles supplémentaires, qui renforcent le plan : (a) Trier conclut lui-même qu'une
+**seule classe** de runabilité réduite est « more meaningful » pour une méthode automatique —
+notre branche d'échec de 1b cesse d'être un jugement pour devenir le résultat de référence ;
+(b) ses seuils de NDVD dépendent de la densité d'impulsions (2 vs 10 pts/m²), donc rien ne se
+copie sur nos bandes à 41–85 pts/m².
+
 **Réserves, documentées** :
 
 - « onze `greenshades` configurés dans ton projet » : **non vérifié en l'état**. Le dépôt ne
@@ -189,14 +208,27 @@ Contraintes graphiques de la spec, converties à l'échelle cible 1:10 000 (1 mm
 > Les valeurs 50/30/20 m² de `docs/iof_generalization_rules.md` (colonne « mm² » : 0,5 / 0,3 /
 > 0,2) **ne sont pas les minima ISOM 2017-2** et le document les donnait lui-même comme « à
 > confirmer ». Elles sous-estiment les minima d'un facteur ~2 et doivent être remplacées : à
-> 1:10 000, c'est 1,0 / 0,49 / 0,30 mm². Conséquence : la généralisation doit être **plus**
-> agressive qu'annoncé — un point favorable au critère de fragmentation.
+> 1:10 000, c'est 1,0 / 0,49 / 0,30 mm². Conséquence : **les seuils de suppression peuvent être
+> plus agressifs que ceux employés jusqu'ici** — c'est un droit, pas une obligation. Le minimum
+> ISOM est une contrainte de **représentation** : aucun objet n'est « illégal » ; c'est la
+> situation locale (fusionner, transformer, déplacer, supprimer) qui décide. Corroboration de
+> la pratique : Trier, travaillant à 1:15 000, retire les objets 406/408 sous **225 m²**
+> (= 1 mm² à cette échelle) et les 410 sous **112,5 m²** — il place son seuil au minimum
+> graphique de l'échelle cible, exactement ce que la table ci-dessus convertit pour 1:10 000.
 
 ### 2.3 Garde-fous (à appliquer à chaque variante)
 
 1. **Surfaces** : totale et par ton, dans ±20 % de l'état actuel.
-2. **Plus grande composante** (`max_pct` de `qa.py`) : plafond d'évolution — empêche la
-   nappe unique qui satisferait le critère en aplatissant.
+2. **Plus grande composante** (`max_pct` de `qa.py` = surface de la plus grande composante ÷
+   surface totale de la classe, en %) : plafond **numérique, pré-engagé avant toute variante** —
+   `max_pct_variante ≤ min(1,5 × max_pct_1d ; seuil qa.py)`, où `max_pct_1d` est mesuré **une
+   fois** sur la chaîne minimale non généralisée (étape 1d), gelé, et où le `seuil qa.py` est
+   celui **déjà présent dans le code** : alerte percolation au-delà de **15 %** de `max%406`
+   (plancher mesuré 7,4 %). Dépassement = **rejet automatique**, quelle que soit la médiane
+   obtenue ; `k = 1,5` et le seuil ne s'ajustent **pas** après avoir vu un résultat (« ce run
+   fait 62 %, ça semble encore raisonnable » est précisément l'arbitrage a posteriori que le
+   plan cherche à éliminer). Pour 408/410 (pas de seuil existant), même borne relative ; au-delà,
+   jugement sur planche obligatoire.
 3. **Nombre de composantes par classe, décomposé** : `n_avant → supprimées par les minima →
    fusionnées par proximité → n_après`. La suppression par surface minimale est une opération
    **légitime** — l'interdire serait absurde — mais il faut savoir d'où vient le gain de
@@ -236,8 +268,19 @@ se convertissent selon la résolution réelle du PNG (`taille_px = 2·(rayon_m /
 1 m/pixel : rayon 1 / 2 / 3 / 4 / 5 m → noyau 3 / 5 / 7 / 9 / 11 px. Un noyau 3×3 px a un
 rayon de **1 m** : ce n'est pas un opérateur « sans effet », c'est un opérateur
 **sub-cellulaire** (il agit sur le bord d'une cellule de 3 m, pas sur une cellule entière).
-**Le premier ordre de grandeur capable de fusionner deux cellules sémantiques voisines est un
-rayon de 3 m (noyau 7×7).**
+**Un noyau 7×7 à 1 m/px (rayon 3 m) est le premier ordre de grandeur permettant de combler une
+séparation de l'ordre d'une cellule sémantique entre deux structures.** (La formulation
+antérieure — « fusionner deux cellules voisines » — était incorrecte : des cellules voisines se
+touchent déjà.) Le mécanisme, tel que Trier le décrit : le *closing* remplit l'espace entre
+zones de végétation séparées par **moins que le diamètre du noyau** ; l'*opening* qui suit
+retire ce qui est plus mince que ce diamètre. C'est le **diamètre** qui compte : un 7×7 comble
+les trous < 7 m à 1 m/px.
+
+> **Ne pas « corriger » la séquence de Trier** pour l'aligner sur la maille de 3 m (7×7 → 9×9) :
+> elle n'est pas dérivée de la maille KP. C'est une séquence de généralisation morphologique
+> publiée, appliquée par son auteur sur une image **agrégée à 1,0 m** — la même résolution que
+> notre PNG. (Note : les légendes de figures de l'article indiquent 1,5 m alors que le texte de
+> la méthode dit 1,0 m ; on suit le texte.)
 
 ### 1 — Chaîne minimale, bout-en-bout (½ j) — **la première chose à faire**
 
@@ -258,10 +301,18 @@ write_omap()
   Phase A de v1, mais **le problème statistique a changé** : on ne cherche plus un seuil sur un
   champ continu (HAG), on cherche une **relation entre des niveaux de teinte ordonnés et une
   classe cartographique** — d'où un protocole durci :
-  - **6 à 10 ROIs indépendantes par classe** (406 / 408 / 410) sur le FFCO, homogènes, avec
-    une marge d'au moins une cellule sémantique par rapport aux bords ;
+  - **6 à 10 ROIs indépendantes par classe** (406 / 408 / 410) sur le FFCO, homogènes, avec une
+    **marge de sécurité paramétrable** : le contour de référence est **érodé** avant
+    échantillonnage, `marge = max(6 m ; largeur minimale du symbole)` — soit 6 m — portée à
+    **8–10 m** pour les classes les plus sensibles (408/410, petites surfaces). La marge est
+    **fixée avant la mesure** ; toute cellule à moins de `marge` du contour FFCO est exclue ;
   - **une observation = une cellule de 3 m** (jamais 9 pixels comme 9 observations
     indépendantes) ;
+  - **la FFCO est une référence bruitée, pas une vérité terrain** : ses contours sont déjà
+    généralisés par le cartographe et le style varie d'un traceur à l'autre (Trier : « different
+    mapping styles by different mapmakers »). On ne cherche donc pas une exactitude au pixel,
+    mais une **relation ordonnée et stable** — d'où les distributions complètes, la variance
+    inter-ROIs et la validation spatiale, plutôt qu'un simple seuil médian ;
   - **séparation calibration / validation spatiale** : ~70 % des ROIs pour dériver la règle,
     ~30 % **spatialement distinctes** pour la valider (sinon l'autocorrélation spatiale offre
     une performance artificielle) ;
@@ -275,6 +326,13 @@ write_omap()
     végétation** (la limite extérieure du vert, que le cartographe trace déjà depuis le
     décalque), (b) revenir au signal (étape 6) pour tenter les classes, (c) rester au PNG.
     On ne « rattrape » pas un mapping instable en ajoutant des réglages.
+    **Corroboré par la source** : sur ses quatre terrains, Trier mesure, par classe, slow run
+    22–52 %, walk 9–40 %, **fight 0–4 %** — et conclut qu'il est « more meaningful to use one
+    common class for reduced runability » dans une méthode automatique. L'échec du mapping fin
+    n'est donc pas une hypothèse exotique : c'est le résultat de référence. Autre écart à garder
+    en tête : ses seuils NDVD dépendent de la densité (2 vs 10 pts/m², table 5) et nos bandes
+    sont à **41–85 pts/m²** — un régime qu'il n'explore pas ; nos seuils ne peuvent pas être
+    copiés, seulement la méthode.
 - **1c/1d — polygonisation et nettoyage** : sans généralisation cartographique à ce stade (elle
   arrive en 2), pour que la chaîne soit vérifiable de bout en bout.
 - **Sortie** : un `.omap` expérimental contenant des objets, **en parallèle** du fond PNG qui
@@ -359,6 +417,11 @@ seulement. Paramètres = données (avenant n°02 §0 bis).
    épuisée.
 5. Si une variante satisfait le chiffre mais dégrade la planche : rejetée.
 
+**Trois échecs instructifs** (structure de falsification, à lire dans cet ordre) :
+- **A — mapping OK, géométrie NON** : travailler la généralisation (étapes 2–4).
+- **B — mapping NON** : appliquer la branche d'échec de 1b (une classe, sinon signal, sinon PNG).
+- **C — chiffres OK, planche mauvaise** : rejet (règle 5), quels que soient les chiffres.
+
 ## 7. Risques (révisés après revue externe)
 
 | Risque | Niveau | Étape de réfutation |
@@ -381,6 +444,8 @@ seulement. Paramètres = données (avenant n°02 §0 bis).
 | Vectorisation obligatoire | décision utilisateur 2026-10-08 |
 | Chaîne minimale d'abord ; mapping tons→classes ; masques cumulatifs ; audit 0b/0c élargi ; lissage = finition | revue externe ChatGPT 2026-10-08, 1re passe (§1.8) |
 | Dimensionnement des noyaux en mètres ; ROIs + validation tenue à part + monotonicité ; décomposition suppression/fusion ; décision d'échec de 1b | revue externe ChatGPT 2026-10-08, 2e passe (§1.8) |
+| Marge de sécurité des ROIs ; FFCO = référence bruitée ; reformulation du noyau 7×7 ; plafond `max_pct` pré-engagé ; nuance « seuils de suppression » ; structure A/B/C | revue externe ChatGPT 2026-10-08, 3e passe (§1.8) |
+| Séquence morphologique de Trier et conclusion « une seule classe de runabilité » ; minima de suppression 225 / 112,5 m² à 1:15 000 | Trier 2015, *Automatic mapping of forest density from airborne lidar data* — **vérifié à la source le 2026-10-08** |
 | **Minima ISOM 100/49/30 m², largeurs 4/3/2,5 m à 1:10 000** | O-Map Wiki (spec ISOM 2017-2 rev. 6), vérifié aux trois fiches symboles |
 | Écarté d'avance : médian supplémentaire | bilan §12.1 (mbs2=16) |
 | Cascade de Trier ; résolution sémantique 3 m (`greendetectsize`) | Trier 2015 §2.2 ; KP `src/vegetation.rs` |
