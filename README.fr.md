@@ -323,6 +323,10 @@ Contenu des fichiers LiDAR HD au-delà du XYZ (classes 3/4/5, points virtuels 66
 d'acquisition, MNT/MNS/MNH, fraction de pénétration) : inventaire et sept pistes chiffrées —
 [docs/pistes_contenu_fichiers_lidar.md](docs/pistes_contenu_fichiers_lidar.md).
 
+Entreprises qui exploitent le LiDAR (producteurs, éditeurs d'outils, capteurs, analyse
+forestière, bulle CO) et ce qui s'y transpose — dont la réponse industrielle à notre artefact
+de bande : [docs/pistes_entreprises_lidar.md](docs/pistes_entreprises_lidar.md).
+
 ---
 
 ## Statut du projet

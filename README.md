@@ -290,6 +290,9 @@ OCAD's Feature Map really is (0.5 m hint layers, not symbols) and a decision pro
 [docs/pistes_symboles_isom.md](docs/pistes_symboles_isom.md) (French), and the file content
 beyond XYZ (IGN classes 3/4/5, virtual points, acquisition metadata, MNT/MNS/MNH, gap
 fraction): [docs/pistes_contenu_fichiers_lidar.md](docs/pistes_contenu_fichiers_lidar.md) (French).
+Companies exploiting LiDAR (data producers, tool vendors, sensors, forest analytics, the
+orienteering niche) and what transfers to this project — including the industry's answer to
+our flight-line banding: [docs/pistes_entreprises_lidar.md](docs/pistes_entreprises_lidar.md) (French).
 
 ---
 
