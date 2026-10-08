@@ -327,8 +327,11 @@ Entreprises qui exploitent le LiDAR (producteurs, éditeurs d'outils, capteurs, 
 forestière, bulle CO) et ce qui s'y transpose — dont la réponse industrielle à notre artefact
 de bande : [docs/pistes_entreprises_lidar.md](docs/pistes_entreprises_lidar.md).
 
-**Ordre de travail en vigueur** : [docs/avenant_plan_signaux_lidar.md](docs/avenant_plan_signaux_lidar.md)
-(audit de l'ini et des dalles → banc vertical → ordre V5/V6 → overage removal → Phase A → B1/B2 → C).
+**Plan en vigueur** : [docs/PLAN_v2_du_decalque_au_calque.md](docs/PLAN_v2_du_decalque_au_calque.md)
+(« Du décalque au calque ») — vectoriser le rendu KP jusqu'au critère, puis améliorer la
+matière première si nécessaire : audit de l'ini et des dalles → vectorisation + généralisation
+ISOM → cascade de Trier → lissage des contours → overage removal → signal (banc vertical,
+Phase A, dégradés) → intensité → profil vertical.
 
 ---
 

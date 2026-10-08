@@ -293,8 +293,9 @@ fraction): [docs/pistes_contenu_fichiers_lidar.md](docs/pistes_contenu_fichiers_
 Companies exploiting LiDAR (data producers, tool vendors, sensors, forest analytics, the
 orienteering niche) and what transfers to this project — including the industry's answer to
 our flight-line banding: [docs/pistes_entreprises_lidar.md](docs/pistes_entreprises_lidar.md) (French).
-The operating order that results from all of the above is in
-[docs/avenant_plan_signaux_lidar.md](docs/avenant_plan_signaux_lidar.md) (French).
+The consolidated operating plan is
+[docs/PLAN_v2_du_decalque_au_calque.md](docs/PLAN_v2_du_decalque_au_calque.md) (French) —
+from raster overlay to vector layers.
 
 ---
 

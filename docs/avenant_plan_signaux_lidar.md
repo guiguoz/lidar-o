@@ -1,3 +1,10 @@
+> **SUPERSEDED (2026-10-08)** — cet avenant est remplacé par le plan consolidé
+> [`docs/PLAN_v2_du_decalque_au_calque.md`](PLAN_v2_du_decalque_au_calque.md). Il est conservé
+> comme trace de la séquence de décisions (prémisses corrigées, filtre `.omap`, ordre v2).
+> En cas de conflit, le plan v2 prime.
+
+---
+
 # Avenant n°01 au plan « Signaux LiDAR inexploités »
 
 **Objet :** mettre à jour le plan du 2026-10-08 à la lumière des trois revues qui l'ont suivi
