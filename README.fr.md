@@ -319,6 +319,10 @@ Autres symboles ISOM (rochers 204–210, limite de végétation 416, végétatio
 la chaîne produit déjà, ce qu'OCAD fait de plus (Feature Map : des indices à 0,5 m, pas des
 symboles) et le protocole pour trancher — [docs/pistes_symboles_isom.md](docs/pistes_symboles_isom.md).
 
+Contenu des fichiers LiDAR HD au-delà du XYZ (classes 3/4/5, points virtuels 66, métadonnées
+d'acquisition, MNT/MNS/MNH, fraction de pénétration) : inventaire et sept pistes chiffrées —
+[docs/pistes_contenu_fichiers_lidar.md](docs/pistes_contenu_fichiers_lidar.md).
+
 ---
 
 ## Statut du projet

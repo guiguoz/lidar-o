@@ -287,7 +287,9 @@ text, OCAD wiki, KP and Cassini source code) is in
 [docs/revue_plan_signaux_lidar.md](docs/revue_plan_signaux_lidar.md) (French). More ISOM
 symbols (rocks 204–210, vegetation boundary 416, low vegetation): current coverage, what
 OCAD's Feature Map really is (0.5 m hint layers, not symbols) and a decision protocol — see
-[docs/pistes_symboles_isom.md](docs/pistes_symboles_isom.md) (French).
+[docs/pistes_symboles_isom.md](docs/pistes_symboles_isom.md) (French), and the file content
+beyond XYZ (IGN classes 3/4/5, virtual points, acquisition metadata, MNT/MNS/MNH, gap
+fraction): [docs/pistes_contenu_fichiers_lidar.md](docs/pistes_contenu_fichiers_lidar.md) (French).
 
 ---
 
