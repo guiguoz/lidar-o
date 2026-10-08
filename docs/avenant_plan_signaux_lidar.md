@@ -26,6 +26,13 @@ dont on ne sait pas ce qu'il contient réellement.
 Le coût de la mise à jour est de **~1,5 à 2 jours**, et il réduit le risque de refaire la
 Phase A deux fois.
 
+**Surgénierie ? Partiellement, et le §6 le tranche.** Sur les sept étapes du §5, **quatre
+n'atteignent pas le `.omap`** : elles servent la classification 406/408/410, qui n'est pas
+dans le livrable et dont la vectorisation est suspendue. Le §6 leur oppose un filtre explicite
+et réduit le périmètre **engagé** à une demi-journée. Ce qui reste coûteux dans cet avenant
+n'est donc pas le plan — c'est la tentation de l'exécuter avant d'avoir décidé si la
+vectorisation reprend.
+
 ---
 
 ## 1. Trois prémisses corrigées, deux confirmées
@@ -92,16 +99,26 @@ Quick Start restent, eux, des livrables.
 
 ## 5. Ordre de travail mis à jour (remplace le §9 du plan)
 
-| Ordre | Étape | Coût | Critère de sortie |
-|---|---|---|---|
-| **0a** | Audit ini KP + épinglage | 10 min | les paramètres de production cessent d'être une hypothèse |
-| **0b** | Audit du contenu des dalles | 15 min | classes réelles, `DTM_MAKER` oui/non, intensité réelle |
-| **1** | Banc vertical B0–B4 | ½ j | AUC conditionnelle > 0,4919 → le canal n'est plus le plafond |
-| **2** | Ordre V5/V6 | 1 h | le témoin de production (médian sur teintes) est défendable ou non |
-| **3** | Overage removal | ½ j | contraste de bande réduit, AUC conditionnelle non dégradée |
-| **4** | **Phase A** — seuils par échantillons, **sur notre indice continu d'abord** | 1 j | portage Grimbosq → Sainte-Honorine, contre témoin figé |
-| **5** | **B1** (lasoverlap -intensity) puis **B2** (intensité vs BD Forêt V2) | ½ j | séparation essence exploitable ou piste fermée |
-| **6** | **Phase C** (profil vertical) | — | conditionnelle (§6 du plan, inchangé) |
+La colonne « `.omap` » est le **filtre du §6** : elle indique par quel chemin, s'il existe,
+l'étape améliore le fichier livré.
+
+| Ordre | Étape | Coût | Atteint le `.omap` ? | Critère de sortie |
+|---|---|---|---|---|
+| **0a** | Audit ini KP + épinglage | 10 min | **oui, direct** (ce sont les paramètres du PNG tracé) | les paramètres de production cessent d'être une hypothèse |
+| **0b** | Audit du contenu des dalles | 15 min | **oui, préalable** (décide si un nettoyage d'overlap est faisable) | classes réelles, `DTM_MAKER` oui/non, intensité réelle |
+| **1** | Banc vertical B0–B4 | ½ j | **non** (améliore notre raster 406/408/410, qui n'est pas dans le `.omap`) | AUC conditionnelle > 0,4919 → le canal n'est plus le plafond |
+| **2** | Ordre V5/V6 | 1 h | **peut-être**, en post-traitant le PNG avant assemblage | le témoin de production (médian sur teintes) est défendable ou non |
+| **3** | Overage removal | ½ j | **oui, indirect** (nettoie les dalles d'entrée de KP) | contraste de bande réduit **et** PNG au moins aussi lisible à 1:10 000 |
+| **4** | **Phase A** — seuils par échantillons | 1 j | **non aujourd'hui** (même raison que l'étape 1) | portage Grimbosq → Sainte-Honorine, contre témoin figé |
+| **5** | **B1/B2** intensité | ½ j | **ajout possible** au contenu du `.omap` | séparation essence exploitable ou piste fermée |
+| **6** | **Phase C** (profil vertical) | — | non | conditionnelle (§6 du plan, inchangé) |
+
+**Conséquence, dite franchement** : sur les sept étapes, **deux seulement (0a, 0b) sont
+certaines d'atteindre le livrable, une (3) en a un chemin indirect, une (2) un chemin
+conditionnel**. Les quatre autres servent la classification 406/408/410 — c'est-à-dire la
+piste de vectorisation, **suspendue** (longueur médiane 19 m < 32 m ; couverture 57,9 % <
+64,5 %). Tant que ce critère n'est pas franchi, ces étapes ne changent rien au `.omap` :
+elles doivent donc attendre une décision explicite de relance, pas l'inertie d'un plan.
 
 Deux règles d'arrêt restent en vigueur : **aucune étape ne se commence avant que la
 précédente ait produit son critère** ; et si l'arbitrage est entre ce plan et la livraison
@@ -109,7 +126,44 @@ précédente ait produit son critère** ; et si l'arbitrage est entre ce plan et
 
 ---
 
-## 6. Invariants (le §10 du plan, confirmé)
+## 6. Filtre — qu'est-ce qui atteint le `.omap` ? (nouveau)
+
+Le livrable `output/<terrain>.omap` contient **exactement** ceci (`main.py::step_assemble`) :
+
+| Contenu | Source | Rôle |
+|---|---|---|
+| Fond végétation KP (`vegetation.png`, opacité 50 %) | Karttapullautin | **décalque de traçage** — le cartographe trace par-dessus |
+| Routes, chemins, bâti, eau | BD TOPO (+ OSM en remplissage) | contenu |
+| Courbes de niveau, falaises, buttes | Karttapullautin → DXF → CRT | contenu |
+| *(les couches 406/408/410 n'y sont plus — retirées du livrable)* | — | — |
+
+**Règle d'engagement** (c'est la règle de l'avenant n°02 §0 appliquée au livrable) :
+
+> Une piste ne s'engage que si elle nomme son chemin vers ce tableau — soit elle **améliore le
+> PNG** (paramètres, ordre, nettoyage des dalles d'entrée), soit elle **ajoute une couche**
+> jugée utile sur une planche, soit elle **franchit le critère de vectorisation** (longueur
+> médiane ≥ 32 m **et** couverture ≤ 10 m ≥ 64,5 %). À défaut : volet 2, sans exception.
+
+Vérification, piste par piste :
+
+| Piste | Chemin vers le `.omap` | Verdict |
+|---|---|---|
+| Audit ini KP | les paramètres produisent le PNG tracé | **engagée (10 min)** |
+| Audit du contenu des dalles | conditionne le nettoyage d'overlap | **engagée (15 min)** |
+| Overage removal | nettoie les dalles d'entrée → PNG (et notre raster) | **engagée sous condition** : jugement à 1:10 000 sur le PNG, avant/après |
+| V5/V6 (ordre) | post-traitement possible du PNG avant assemblage | **engagée (1 h)** — mais seul un mieux **vu sur planche** la retient |
+| Banc vertical, Phase A | améliorent notre raster, pas le PNG | **en attente** : dépend de la relance de la vectorisation |
+| B1/B2 intensité | couche d'essence en décalque supplémentaire | **en attente** : décision de contenu, sur planche |
+| Couche-indice ISOM, gap fraction, MNT/MNH, classes IGN 3/4/5, filtrage 65/66, doublons | aucun aujourd'hui | **volet 2** |
+
+**Conséquence opérationnelle** : le périmètre réellement engagé tient en **une demi-journée**
+(0a + 0b + test d'overage + V5/V6). Tout le reste attend la décision « on relance la
+vectorisation, ou on livre le fond de traçage en l'état ». C'est cette décision, pas une
+nouvelle piste, qui débloque la suite.
+
+---
+
+## 7. Invariants (le §10 du plan, confirmé)
 
 Paramètres de production (`lightgreentone` 160, `medianboxsize` 9, `medianboxsize2` 16, les
 onze `greenshades`, opacité 50 %, KP 2.12.1) : chaque phase mesure **contre** eux, aucune ne
@@ -120,7 +174,7 @@ fait autrement.
 
 ---
 
-## 7. Traçabilité — quelle observation a produit quel changement
+## 8. Traçabilité — quelle observation a produit quel changement
 
 | Observation (source) | Changement |
 |---|---|
@@ -133,10 +187,11 @@ fait autrement.
 | IGN MNT/MNS/MNH + BD Forêt V2 | §4 : volet 2 parqué (validation sol, classes 3/4/5) |
 | NV5 (polygones 0,45–1,8 m) + OCAD Feature Map | §4 : couche-indice parquée |
 | MapAnt / bulle CO bénévole | §4 : « pas de concurrent à battre », priorité au livrable |
+| Question « qu'est-ce que ça apporte au `.omap` ? » (2026-10-08) | §6 : filtre d'engagement, colonne `.omap` au §5, périmètre engagé réduit à ½ j |
 
 ---
 
-## 8. Références
+## 9. Références
 
 `docs/revue_plan_signaux_lidar.md` · `docs/pistes_contenu_fichiers_lidar.md` ·
 `docs/pistes_entreprises_lidar.md` · `docs/pistes_symboles_isom.md` ·
