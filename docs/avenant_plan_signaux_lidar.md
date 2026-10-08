@@ -26,12 +26,24 @@ dont on ne sait pas ce qu'il contient réellement.
 Le coût de la mise à jour est de **~1,5 à 2 jours**, et il réduit le risque de refaire la
 Phase A deux fois.
 
-**Surgénierie ? Partiellement, et le §6 le tranche.** Sur les sept étapes du §5, **quatre
-n'atteignent pas le `.omap`** : elles servent la classification 406/408/410, qui n'est pas
-dans le livrable et dont la vectorisation est suspendue. Le §6 leur oppose un filtre explicite
-et réduit le périmètre **engagé** à une demi-journée. Ce qui reste coûteux dans cet avenant
-n'est donc pas le plan — c'est la tentation de l'exécuter avant d'avoir décidé si la
-vectorisation reprend.
+**Décision du 2026-10-08 : la vectorisation est obligatoire en aval, quelle que soit la
+situation.** L'alternative « livrer le fond de traçage seul » est donc écartée, et avec elle
+la formulation en « ou bien / ou bien » : le critère de vectorisation (longueur médiane ≥ 32 m
+**et** couverture ≤ 10 m ≥ 64,5 %) n'est plus une porte à rouvrir, c'est **l'objectif à
+atteindre**. Conséquence directe sur le §5 : les étapes qui « n'atteignaient pas le `.omap` »
+y atteignent désormais **par la vectorisation**, et l'ordre est réordonné par leur effet sur
+la métrique qui échoue — pas par leur effet sur l'AUC.
+
+**Ce que la mesure dit de cette métrique** (bilan §12.1) : sur la voie « vectoriser le rendu
+KP », la **couverture passe déjà** (mbs2=1 : 86,0 % pour un seuil de 64,5 %) ; c'est la
+**longueur médiane de composante** qui échoue (16 m, puis 19 m avec mbs2=16, pour 32 m
+requis). Autrement dit, le problème bloquant est la **fragmentation**, pas la fidélité des
+limites — donc un problème de **forme**, et le seul levier de ce type déjà mesuré (le filtre
+médian) est un mauvais levier : il gagne 3 m de longueur et perd **28 points** de couverture.
+Un réglage global ne peut pas satisfaire les deux conditions ; il faut une généralisation
+**consciente de la forme** (fusion des taches proches puis nettoyage des formes fines), pas un
+flou global. C'est exactement la famille non mesurée : cascade de Trier au niveau raster,
+minimums ISOM et lissage de contours au niveau polygone.
 
 ---
 
@@ -99,30 +111,35 @@ Quick Start restent, eux, des livrables.
 
 ## 5. Ordre de travail mis à jour (remplace le §9 du plan)
 
-La colonne « `.omap` » est le **filtre du §6** : elle indique par quel chemin, s'il existe,
-l'étape améliore le fichier livré.
+**Version 2 de l'ordre (vectorisation obligatoire).** Le critère de vectorisation devient le
+critère de sortie des étapes 1 à 3 ; l'AUC ne reprend la main qu'à partir de l'étape 5. La
+vérification « quelle piste atteint le `.omap` » est au §6.
 
-| Ordre | Étape | Coût | Atteint le `.omap` ? | Critère de sortie |
-|---|---|---|---|---|
-| **0a** | Audit ini KP + épinglage | 10 min | **oui, direct** (ce sont les paramètres du PNG tracé) | les paramètres de production cessent d'être une hypothèse |
-| **0b** | Audit du contenu des dalles | 15 min | **oui, préalable** (décide si un nettoyage d'overlap est faisable) | classes réelles, `DTM_MAKER` oui/non, intensité réelle |
-| **1** | Banc vertical B0–B4 | ½ j | **non** (améliore notre raster 406/408/410, qui n'est pas dans le `.omap`) | AUC conditionnelle > 0,4919 → le canal n'est plus le plafond |
-| **2** | Ordre V5/V6 | 1 h | **peut-être**, en post-traitant le PNG avant assemblage | le témoin de production (médian sur teintes) est défendable ou non |
-| **3** | Overage removal | ½ j | **oui, indirect** (nettoie les dalles d'entrée de KP) | contraste de bande réduit **et** PNG au moins aussi lisible à 1:10 000 |
-| **4** | **Phase A** — seuils par échantillons | 1 j | **non aujourd'hui** (même raison que l'étape 1) | portage Grimbosq → Sainte-Honorine, contre témoin figé |
-| **5** | **B1/B2** intensité | ½ j | **ajout possible** au contenu du `.omap` | séparation essence exploitable ou piste fermée |
-| **6** | **Phase C** (profil vertical) | — | non | conditionnelle (§6 du plan, inchangé) |
+| Ordre | Étape | Coût | Critère de sortie |
+|---|---|---|---|
+| **0a** | Audit ini KP + épinglage | 10 min | paramètres réels du PNG connus |
+| **0b** | Audit du contenu des dalles | 15 min | classes réelles, `DTM_MAKER`, intensité |
+| **1** | **Vectorisation des aplats KP + généralisation ISOM** (`docs/iof_generalization_rules.md` : 406/401 ≈ 50 m², 408 ≈ 30 m², 410 ≈ 20 m², trous, Douglas-Peucker/Chaikin existants) | ½ j | **longueur médiane ≥ 32 m** et couverture ≤ 10 m **≥ 64,5 %** |
+| **2** | Ordre V5/V6 — cascade de Trier au niveau raster | 1 h | la matière première fournie à l'étape 1 s'améliore (longueur médiane), sans perdre la couverture |
+| **3** | Lissage des contours vectoriels (§12.2 du bilan, non testé) + niveaux de lissage multiples (§12.3) | ½ j | critère franchi ou famille épuisée |
+| **4** | Overage removal | ½ j | contraste de bande réduit **et** PNG au moins aussi lisible à 1:10 000 |
+| **5** | Banc vertical B0–B4, puis **Phase A** | ½ + 1 j | AUC conditionnelle > 0,4919 (signal) ; n'est engagé que si 1–3 échouent encore |
+| **6** | B1/B2 intensité | ½ j | séparation essence exploitable ou piste fermée |
+| **7** | Phase C (profil vertical) | — | conditionnelle (§6 du plan, inchangé) |
 
-**Conséquence, dite franchement** : sur les sept étapes, **deux seulement (0a, 0b) sont
-certaines d'atteindre le livrable, une (3) en a un chemin indirect, une (2) un chemin
-conditionnel**. Les quatre autres servent la classification 406/408/410 — c'est-à-dire la
-piste de vectorisation, **suspendue** (longueur médiane 19 m < 32 m ; couverture 57,9 % <
-64,5 %). Tant que ce critère n'est pas franchi, ces étapes ne changent rien au `.omap` :
-elles doivent donc attendre une décision explicite de relance, pas l'inertie d'un plan.
+**Pourquoi le signal passe après la forme** : la mesure disponible dit que le blocage est la
+fragmentation (16/19 m contre 32 m requis) alors que la couverture est déjà franchie (86 %).
+Or les 15 leviers de signal et les 9 leviers de forme testés portaient respectivement sur
+`density_hag` et sur les polygones du pipeline HAG — **aucun des deux n'est la voie retenue
+pour la vectorisation** (rendu KP → polygones). Les leviers réellement non mesurés sont donc
+ceux des étapes 1 à 3. Engager le banc vertical avant eux serait reproduire le raisonnement
+que le §6 vient de corriger.
 
-Deux règles d'arrêt restent en vigueur : **aucune étape ne se commence avant que la
-précédente ait produit son critère** ; et si l'arbitrage est entre ce plan et la livraison
-(vectorisation, Quick Start), la livraison passe devant.
+Deux règles restent en vigueur : **aucune étape ne se commence avant que la précédente ait
+produit son critère** ; et la généralisation polygonale doit rester **déterministe et
+configurable** (opérations locales de fusion/proximité, simplification, suppression par
+surface) — c'est ce que l'avenant n°02 autorise explicitement, et ce n'est pas un « moteur de
+généralisation ».
 
 ---
 
@@ -137,12 +154,14 @@ Le livrable `output/<terrain>.omap` contient **exactement** ceci (`main.py::step
 | Courbes de niveau, falaises, buttes | Karttapullautin → DXF → CRT | contenu |
 | *(les couches 406/408/410 n'y sont plus — retirées du livrable)* | — | — |
 
-**Règle d'engagement** (c'est la règle de l'avenant n°02 §0 appliquée au livrable) :
+**Règle d'engagement, version 2** (la vectorisation étant obligatoire, le critère n'est plus
+une option mais la condition de sortie) :
 
 > Une piste ne s'engage que si elle nomme son chemin vers ce tableau — soit elle **améliore le
-> PNG** (paramètres, ordre, nettoyage des dalles d'entrée), soit elle **ajoute une couche**
-> jugée utile sur une planche, soit elle **franchit le critère de vectorisation** (longueur
-> médiane ≥ 32 m **et** couverture ≤ 10 m ≥ 64,5 %). À défaut : volet 2, sans exception.
+> PNG** (paramètres, ordre, nettoyage des dalles d'entrée), soit elle **conduit à des polygones
+> qui franchissent le critère** (longueur médiane ≥ 32 m **et** couverture ≤ 10 m ≥ 64,5 %),
+> soit elle **ajoute une couche** jugée utile sur une planche. À défaut : volet 2, sans
+> exception.
 
 Vérification, piste par piste :
 
@@ -152,14 +171,15 @@ Vérification, piste par piste :
 | Audit du contenu des dalles | conditionne le nettoyage d'overlap | **engagée (15 min)** |
 | Overage removal | nettoie les dalles d'entrée → PNG (et notre raster) | **engagée sous condition** : jugement à 1:10 000 sur le PNG, avant/après |
 | V5/V6 (ordre) | post-traitement possible du PNG avant assemblage | **engagée (1 h)** — mais seul un mieux **vu sur planche** la retient |
-| Banc vertical, Phase A | améliorent notre raster, pas le PNG | **en attente** : dépend de la relance de la vectorisation |
+| Vectorisation des aplats KP + généralisation ISOM | produit directement les polygones du `.omap` | **engagée (½ j)** — étape 1 |
+| Lissage de contours (§12.2/§12.3) | idem, sur les polygones | **engagée si 1–2 échouent (½ j)** |
+| Banc vertical, Phase A | améliorent le signal ; utiles seulement si la fragmentation est un symptôme de limites mal placées | **dégradée** : après 1–3, et seulement si le critère échoue encore |
 | B1/B2 intensité | couche d'essence en décalque supplémentaire | **en attente** : décision de contenu, sur planche |
 | Couche-indice ISOM, gap fraction, MNT/MNH, classes IGN 3/4/5, filtrage 65/66, doublons | aucun aujourd'hui | **volet 2** |
 
-**Conséquence opérationnelle** : le périmètre réellement engagé tient en **une demi-journée**
-(0a + 0b + test d'overage + V5/V6). Tout le reste attend la décision « on relance la
-vectorisation, ou on livre le fond de traçage en l'état ». C'est cette décision, pas une
-nouvelle piste, qui débloque la suite.
+**Conséquence opérationnelle** : le périmètre engagé tient en **une demi-journée à une
+journée** (0a + 0b + étape 1, avec 2 et 3 en réserve). Ces trois étapes ont en commun de
+n'exiger **aucune donnée nouvelle** : elles partent du PNG et des polygones déjà produits.
 
 ---
 
@@ -187,7 +207,8 @@ fait autrement.
 | IGN MNT/MNS/MNH + BD Forêt V2 | §4 : volet 2 parqué (validation sol, classes 3/4/5) |
 | NV5 (polygones 0,45–1,8 m) + OCAD Feature Map | §4 : couche-indice parquée |
 | MapAnt / bulle CO bénévole | §4 : « pas de concurrent à battre », priorité au livrable |
-| Question « qu'est-ce que ça apporte au `.omap` ? » (2026-10-08) | §6 : filtre d'engagement, colonne `.omap` au §5, périmètre engagé réduit à ½ j |
+| Question « qu'est-ce que ça apporte au `.omap` ? » (2026-10-08) | §6 : filtre d'engagement |
+| **Décision : vectorisation obligatoire en aval** (2026-10-08) | §0 : l'alternative est close, le critère devient l'objectif ; §5 : ordre v2, forme avant signal ; §6 : règle d'engagement v2 |
 
 ---
 
