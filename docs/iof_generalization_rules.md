@@ -85,9 +85,16 @@ Une carte de CO n'est **pas** une carte fidèle. C'est une représentation volon
 |---|---|---|---|
 | Terrain découvert (blanc) | 401 | ~50 m² | ~0.5 mm² |
 | Végétation basse (jaune) | 402–403 | ~50 m² | ~0.5 mm² |
-| Forêt dégagée (vert clair) | 406 | ~50 m² | ~0.5 mm² |
-| Sous-bois difficile (vert moyen) | 407–408 | ~30 m² | ~0.3 mm² |
-| Végétation très dense (vert foncé) | 410 | ~20 m² | ~0.2 mm² |
+| Forêt dégagée (vert clair) | 406 | **100 m²** | **1,0 mm²** |
+| Sous-bois difficile (vert moyen) | 407–408 | **49 m²** | **0,49 mm²** |
+| Végétation très dense (vert foncé) | 410 | **30 m²** | **0,30 mm²** |
+
+> **Correction du 2026-10-08** — les valeurs de la colonne « mm² » pour 406/408/410 étaient
+> fausses (0,5 / 0,3 / 0,2), et donc les surfaces en m² sous-estimées d'un facteur ≈ 2. Les
+> minima réels d'**ISOM 2017-2** (rev. 6) sont 1 × 1 mm (406), 0,7 × 0,7 mm (408) et
+> 0,55 × 0,55 mm (410) ; à l'échelle cible 1:10 000 (1 mm = 10 m) : **100 / 49 / 30 m²**, avec
+> des largeurs minimales de **4 / 3 / 2,5 m** (0,4 / 0,3 / 0,25 mm). Vérifié sur les fiches
+> symboles d'O-Map Wiki (ISOM 2017-2). Les valeurs 401/402–403 n'ont pas été re-vérifiées.
 
 > ⚠️ Valeurs à confirmer — source ISOM 2017-2 §12 (Vegetation)
 

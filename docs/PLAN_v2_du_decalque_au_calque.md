@@ -16,6 +16,11 @@
 > Corrections apportées : chaîne minimale bout-en-bout avant toute généralisation, **mapping
 > explicite tons → classes**, **surfaces minimales ISOM corrigées**, masques cumulatifs,
 > audit de matière première élargi, résolution sémantique de 3 m.
+>
+> **Révision 3 (2026-10-08, soir)** : seconde passe de la même revue. Corrections :
+> dimensionnement des noyaux (§0c, §3), protocole de calibration 1b renforcé (ROIs
+> indépendantes, validation tenue à part, monotonicité), décomposition suppression/fusion
+> (§2.3), et **décision écrite d'avance en cas d'échec de 1b** (§3).
 
 ---
 
@@ -93,7 +98,7 @@ composantes ; lisibilité à 1:10 000 sur planche.
 | Hypothèse | Statut | Comment on la tue vite |
 |---|---|---|
 | La généralisation cartographique (surfaces minimales + fusion + simplification) suffit à passer de 16–19 m à 32 m | **NON TESTÉ — hypothèse centrale** | étape 2 |
-| Peut-on associer les tons KP aux classes 406/408/410 de façon stable ? | **NON TESTÉ — risque n°1 selon la revue externe** | étape 1b, calibrée sur les zones FFCO (§3) |
+| Peut-on associer les tons KP aux classes 406/408/410 de façon stable ? | **NON TESTÉ — risque n°1** | étape 1b, ROIs FFCO avec validation tenue à part (§3) ; issue d'échec écrite d'avance |
 | Le PNG KP porte l'artefact de bande (mesuré sur **notre** raster : 84,6 vs 41,2 pts/m², jamais sur le PNG) | **NON TESTÉ** | étape 0c, à l'œil, 10 min |
 | La cascade de Trier défragmente sans aplatir | **NON TESTÉ sur le PNG** (codée, testée en synthétique) | étape 3 |
 | Le signal (banc vertical) est nécessaire derrière | **NON TESTÉ — parqué** | seulement si 1–4 échouent |
@@ -135,6 +140,12 @@ v2 (50/30/20 m²) **ne sont pas celles d'ISOM 2017-2**. Valeurs réelles (O-Map 
 la spec, rev. 6) converties à 1:10 000 — voir §2.2. La conséquence est favorable : les minima
 réels sont **deux fois plus agressifs** que ceux qu'on s'appliquait, ce qui va dans le sens de
 la longueur médiane recherchée.
+
+**Seconde passe de la même revue (révision 3)** — corrections acceptées : dimensionnement des
+noyaux (§0c : ma formulation « multiples de 3 m » était fausse ; le code, lui, paramétrait déjà
+en mètres), protocole 1b (ROIs, cellule = observation, validation à part, monotonicité),
+décomposition suppression/fusion (§2.3.3). Ajout demandé par la question utilisateur : la
+**décision d'échec de 1b** (§3), que ni la revue ni la révision 2 ne prévoyaient.
 
 **Réserves, documentées** :
 
@@ -186,7 +197,11 @@ Contraintes graphiques de la spec, converties à l'échelle cible 1:10 000 (1 mm
 1. **Surfaces** : totale et par ton, dans ±20 % de l'état actuel.
 2. **Plus grande composante** (`max_pct` de `qa.py`) : plafond d'évolution — empêche la
    nappe unique qui satisferait le critère en aplatissant.
-3. **Nombre de composantes par classe** : doit baisser par fusion, pas par disparition.
+3. **Nombre de composantes par classe, décomposé** : `n_avant → supprimées par les minima →
+   fusionnées par proximité → n_après`. La suppression par surface minimale est une opération
+   **légitime** — l'interdire serait absurde — mais il faut savoir d'où vient le gain de
+   longueur médiane : « 75 % suppression / 25 % fusion » et « 25 % / 75 % » ne racontent pas
+   la même histoire cartographique.
 4. **Lisibilité à 1:10 000** : jugée sur planche, avant/après, capture à l'appui.
 5. **Critère hérité re-vérifié** contre la référence FFCO avant d'être traité comme définitif.
 
@@ -208,11 +223,21 @@ présence de 65/66, `DTM_MAKER`/`DSM_MAKER`, bornes d'`Intensity`, et **présenc
 mais : résolution et origine du PGW, nature de l'image (indexée / palette), **histogramme des
 tons** (combien de verts distincts, surface par ton, nombre de régions par ton, taille médiane
 et plus grande région), présence de blanc / jaune / undergrowth.
-**Contrainte à acter** : KP décide la végétation sur des **blocs de 3 m**
-(`greendetectsize=3`) — la résolution *sémantique* du PNG n'est donc pas 1 m, même si le
-pixel l'est. Conséquence : (i) les frontières sont en escalier par blocs ; (ii) les noyaux
-morphologiques doivent s'exprimer en **multiples du bloc** (≥ 3 m ; 3 px = 1 bloc = sans
-effet utile).
+**Contrainte de résolution sémantique** : KP calcule la végétation sur une maille de **3 m**
+(`greendetectsize=3`), puis restitue l'information dans un PNG à **1 m/pixel** (vérifié :
+`_vege.pgw`). La maille de 3 m est donc la **résolution sémantique** effective, sans être la
+résolution physique du fichier. Conséquences : (i) les frontières sont en escalier par blocs
+de 3 m ; (ii) **une observation statistique = une cellule de 3 m**, pas ses 9 pixels
+(cf. protocole 1b).
+
+**Dimensionnement morphologique** : les noyaux se paramètrent en **mètres de terrain**, puis
+se convertissent selon la résolution réelle du PNG (`taille_px = 2·(rayon_m / résolution) + 1`)
+— c'est ce que fait déjà `_apply_cascade()` dans `scripts/diag/sweep_ordre_lissage.py`. À
+1 m/pixel : rayon 1 / 2 / 3 / 4 / 5 m → noyau 3 / 5 / 7 / 9 / 11 px. Un noyau 3×3 px a un
+rayon de **1 m** : ce n'est pas un opérateur « sans effet », c'est un opérateur
+**sub-cellulaire** (il agit sur le bord d'une cellule de 3 m, pas sur une cellule entière).
+**Le premier ordre de grandeur capable de fusionner deux cellules sémantiques voisines est un
+rayon de 3 m (noyau 7×7).**
 
 ### 1 — Chaîne minimale, bout-en-bout (½ j) — **la première chose à faire**
 
@@ -229,12 +254,27 @@ write_omap()
 
 - **1a — lecture** : si le PNG est indexé, exploiter directement la palette plutôt que refaire
   une classification RGB approximative.
-- **1b — mapping des tons → classes** : c'est **l'étape centrale**, et elle se calibre comme la
-  Phase A de v1 : 3–5 polygones homogènes par classe cible sur le FFCO (loin des bords), lire
-  la distribution des tons KP sur ces zones, **figer la règle d'agrégation avant de mesurer**,
-  puis vérifier sur une planche. **Si le mapping n'est pas stable entre zones, la piste
-  s'arrête là** — c'est le risque n°1 identifié par la revue externe, et il se réfute en
-  quelques heures.
+- **1b — mapping des tons → classes** : c'est **l'étape centrale**. Sa méthode vient de la
+  Phase A de v1, mais **le problème statistique a changé** : on ne cherche plus un seuil sur un
+  champ continu (HAG), on cherche une **relation entre des niveaux de teinte ordonnés et une
+  classe cartographique** — d'où un protocole durci :
+  - **6 à 10 ROIs indépendantes par classe** (406 / 408 / 410) sur le FFCO, homogènes, avec
+    une marge d'au moins une cellule sémantique par rapport aux bords ;
+  - **une observation = une cellule de 3 m** (jamais 9 pixels comme 9 observations
+    indépendantes) ;
+  - **séparation calibration / validation spatiale** : ~70 % des ROIs pour dériver la règle,
+    ~30 % **spatialement distinctes** pour la valider (sinon l'autocorrélation spatiale offre
+    une performance artificielle) ;
+  - **règle d'agrégation figée avant la validation**, puis mesures : matrice de confusion,
+    rappel et précision par classe, macro-F1, et surtout **monotonicité** attendue
+    (vert clair → 406, moyen → 408, foncé → 410).
+  - **Décision écrite d'avance en cas d'échec** : si les distributions se chevauchent trop
+    (règle non monotone ou séparation instable entre ROIs de validation), ce **n'est pas un
+    problème de réglage** — c'est la démonstration que **le ton KP ne porte pas la sémantique
+    406/408/410**. Issue alors, dans cet ordre : (a) réduire à **une seule classe de
+    végétation** (la limite extérieure du vert, que le cartographe trace déjà depuis le
+    décalque), (b) revenir au signal (étape 6) pour tenter les classes, (c) rester au PNG.
+    On ne « rattrape » pas un mapping instable en ajoutant des réglages.
 - **1c/1d — polygonisation et nettoyage** : sans généralisation cartographique à ce stade (elle
   arrive en 2), pour que la chaîne soit vérifiable de bout en bout.
 - **Sortie** : un `.omap` expérimental contenant des objets, **en parallèle** du fond PNG qui
@@ -253,10 +293,14 @@ pas de moteur de décision.
 
 ### 3 — Cascade de Trier, sur masques cumulatifs (1 h)
 
-Mêmes étapes que 2, mais l'agrégation se fait sur des **masques cumulatifs**
-(`M_i = ton ≥ seuil_i`, classes recomposées par différence), puis closing 7 → opening 3 →
-closing 9 → opening 5 → closing 11 → opening 7 (noyaux exprimés en multiples du bloc de 3 m,
-cf. 0c).
+Mêmes étapes que 2, mais l'agrégation se fait sur des **masques cumulatifs** (`M_i = ton ≥
+seuil_i`, classes recomposées par différence — `M1 − M2`, `M2 − M3`, `M3`), puis
+closing 7 → opening 3 → closing 9 → opening 5 → closing 11 → opening 7.
+**Dimensionnement (corrigé, cf. 0c)** : à 1 m/pixel, ces noyaux de Trier valent
+**7 / 3 / 9 / 5 / 11 / 7 mètres** de terrain — soit des rayons de 3 / 1 / 4 / 2 / 5 / 3 m.
+Ce ne sont donc **pas** des multiples du bloc sémantique de 3 m : la séquence est déjà à la
+bonne échelle pour fermer une séparation d'une cellule (~3 m, noyau 7×7) puis nettoyer les
+structures d'une demi-cellule (noyau 3×3, sub-cellulaire).
 **Protocole comparatif** : à partir de **la même étape 1b** que l'étape 2, sinon on compare
 deux chaînes et le gain n'est pas attribuable.
 **Écarté d'avance** : la variante « un médian de plus » — déjà mesurée, déjà perdante.
@@ -323,6 +367,7 @@ seulement. Paramètres = données (avenant n°02 §0 bis).
 | Chaîne PNG → polygones | 🟢 Faible | 1 |
 | Généraliser sans percolation | 🟠 Moyen — garde-fou `max_pct` existant | 2/3 |
 | Atteindre 32 m sans détruire l'information | 🟠/🔴 Élevé | 2/3/4 |
+| Le gain de longueur vient de la **suppression** et non de la fusion (chiffre satisfait, carte appauvrie) | 🟠 Moyen — se lit dans la décomposition §2.3.3 | 2/3 |
 | **Mapping tons → 406/408/410** | 🔴 **Risque n°1** — mais calibrable sur FFCO, réfutable en heures | 1b |
 | Résultat cartographiquement pertinent à 1:10 000 | 🔴 Élevé | planche, à chaque étape |
 
@@ -334,7 +379,8 @@ seulement. Paramètres = données (avenant n°02 §0 bis).
 | Critère 32 m / 64,5 % et état 16–19 m / 86,0–57,9 % | `docs/bilan_v0.md` §12.1 |
 | Garde-fous §2.3 | critique utilisateur ; `src/qa.py` (`max_pct`, garde-fou percolation) |
 | Vectorisation obligatoire | décision utilisateur 2026-10-08 |
-| Chaîne minimale d'abord ; mapping tons→classes ; masques cumulatifs ; audit 0b/0c élargi ; lissage = finition | revue externe ChatGPT 2026-10-08 (§1.8) |
+| Chaîne minimale d'abord ; mapping tons→classes ; masques cumulatifs ; audit 0b/0c élargi ; lissage = finition | revue externe ChatGPT 2026-10-08, 1re passe (§1.8) |
+| Dimensionnement des noyaux en mètres ; ROIs + validation tenue à part + monotonicité ; décomposition suppression/fusion ; décision d'échec de 1b | revue externe ChatGPT 2026-10-08, 2e passe (§1.8) |
 | **Minima ISOM 100/49/30 m², largeurs 4/3/2,5 m à 1:10 000** | O-Map Wiki (spec ISOM 2017-2 rev. 6), vérifié aux trois fiches symboles |
 | Écarté d'avance : médian supplémentaire | bilan §12.1 (mbs2=16) |
 | Cascade de Trier ; résolution sémantique 3 m (`greendetectsize`) | Trier 2015 §2.2 ; KP `src/vegetation.rs` |
