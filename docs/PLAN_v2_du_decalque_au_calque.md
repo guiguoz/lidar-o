@@ -220,15 +220,21 @@ Contraintes graphiques de la spec, converties à l'échelle cible 1:10 000 (1 mm
 
 1. **Surfaces** : totale et par ton, dans ±20 % de l'état actuel.
 2. **Plus grande composante** (`max_pct` de `qa.py` = surface de la plus grande composante ÷
-   surface totale de la classe, en %) : plafond **numérique, pré-engagé avant toute variante** —
-   `max_pct_variante ≤ min(1,5 × max_pct_1d ; seuil qa.py)`, où `max_pct_1d` est mesuré **une
-   fois** sur la chaîne minimale non généralisée (étape 1d), gelé, et où le `seuil qa.py` est
-   celui **déjà présent dans le code** : alerte percolation au-delà de **15 %** de `max%406`
-   (plancher mesuré 7,4 %). Dépassement = **rejet automatique**, quelle que soit la médiane
-   obtenue ; `k = 1,5` et le seuil ne s'ajustent **pas** après avoir vu un résultat (« ce run
+   surface totale de la classe, en %) : plafond **numérique, pré-engagé avant toute variante**.
+   Règle, à la lettre : `max_pct_variante ≤ max(1,5 × max_pct_1d ; 50 %)`, où `max_pct_1d` est
+   mesuré **une fois** sur la chaîne minimale non généralisée (étape 1d) et gelé.
+   La forme `max()` est **délibérée** : la borne relative seule bloquerait la **consolidation**,
+   qui est précisément le levier visé (une première rédaction en `min()` a été corrigée pour
+   cette raison) ; le plafond absolu de 50 % est ce qui attrape la **nappe** — une composante
+   qui avale la classe. Dépassement = **rejet automatique**, quelle que soit la médiane
+   obtenue ; `k = 1,5` et le plafond ne s'ajustent **pas** après avoir vu un résultat (« ce run
    fait 62 %, ça semble encore raisonnable » est précisément l'arbitrage a posteriori que le
-   plan cherche à éliminer). Pour 408/410 (pas de seuil existant), même borne relative ; au-delà,
-   jugement sur planche obligatoire.
+   plan cherche à éliminer).
+   **Second niveau, non automatique** : toute variante dont `max%406` dépasse **15 %** — le
+   seuil d'alerte **déjà présent dans `qa.py`** (plancher mesuré 7,4 %) — passe
+   **obligatoirement en revue planche**, car c'est la zone où un gain par aplatissement devient
+   plausible. Seuil d'alerte = signal ; 50 % = rejet. Pour 408/410, mêmes bornes (le code n'a
+   pas de seuil propre à ces classes).
 3. **Nombre de composantes par classe, décomposé** : `n_avant → supprimées par les minima →
    fusionnées par proximité → n_après`. La suppression par surface minimale est une opération
    **légitime** — l'interdire serait absurde — mais il faut savoir d'où vient le gain de
