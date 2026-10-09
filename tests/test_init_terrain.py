@@ -1,6 +1,10 @@
 """Tests pour src/init_terrain.py, src/providers/france.py et src/check_terrain.py."""
+import importlib.util
+import logging
 import math
 import pathlib
+import sys
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
@@ -341,3 +345,91 @@ class TestCmdCheck:
         cfg["terrains"]["test_t"]["kp_binary"] = str(fake_kp)
         result = cmd_check("test_t", cfg, tmp_path)
         assert result is True
+
+    # ── Tests P2+P3 ───────────────────────────────────────────────────────────
+
+    def test_hag_mode_fails_without_pdal(self, tmp_path, caplog):
+        cfg = self._make_cfg()
+        orig_find_spec = importlib.util.find_spec
+
+        def find_spec_no_pdal(name, *args, **kwargs):
+            return None if name == "pdal" else orig_find_spec(name, *args, **kwargs)
+
+        with patch("importlib.util.find_spec", side_effect=find_spec_no_pdal):
+            with caplog.at_level(logging.ERROR):
+                result = cmd_check("test_t", cfg, tmp_path, veg_mode="hag")
+        assert result is False
+        assert "mode hag" in caplog.text
+        assert "pdal" in caplog.text.lower()
+
+    def test_non_ign_tiles_emprise_non_verifiable(self, tmp_path, capsys):
+        from src.init_terrain import write_georef_xml
+
+        lidar = tmp_path / "LIDAR" / "test_t"
+        lidar.mkdir(parents=True)
+        assets = tmp_path / "assets"
+        assets.mkdir()
+
+        bbox = (424000, 6920000, 427000, 6922000)
+        write_georef_xml("test_t", bbox, 2154, assets)
+
+        # Dalles non-IGN : _ign_tile_extent retourne None, _laz_metadata aussi
+        for name in ["tile_A.laz", "tile_B.laz", "tile_C.laz"]:
+            (lidar / name).write_text("")
+
+        cfg = self._make_cfg(bbox=bbox)
+        cmd_check("test_t", cfg, tmp_path, veg_mode="kp")
+        out = capsys.readouterr().out
+        # La ligne du compte de dalles doit afficher ⚠, jamais ✓
+        dalle_line = next(
+            (l for l in out.splitlines() if "dalle" in l.lower()), ""
+        )
+        assert "⚠" in dalle_line
+        assert "emprise non vérifiable" in dalle_line
+
+    def test_crs_non_verifiable_sans_pdal(self, tmp_path, capsys):
+        from src.init_terrain import write_georef_xml
+        from src.check_terrain import _laz_metadata
+
+        lidar = tmp_path / "LIDAR" / "test_t"
+        lidar.mkdir(parents=True)
+        assets = tmp_path / "assets"
+        assets.mkdir()
+
+        bbox = (424000, 6920000, 427000, 6922000)
+        write_georef_xml("test_t", bbox, 2154, assets)
+
+        for tile in ["LHD_FXX_0424_6921_PTS_LAMB93_IGN69.copc.laz",
+                     "LHD_FXX_0424_6922_PTS_LAMB93_IGN69.copc.laz",
+                     "LHD_FXX_0425_6921_PTS_LAMB93_IGN69.copc.laz",
+                     "LHD_FXX_0425_6922_PTS_LAMB93_IGN69.copc.laz",
+                     "LHD_FXX_0426_6921_PTS_LAMB93_IGN69.copc.laz",
+                     "LHD_FXX_0426_6922_PTS_LAMB93_IGN69.copc.laz"]:
+            (lidar / tile).write_text("")
+
+        fake_kp = tmp_path / "pullauta.exe"
+        fake_kp.write_text("fake")
+        cfg = self._make_cfg(bbox=bbox)
+        cfg["terrains"]["test_t"]["kp_binary"] = str(fake_kp)
+
+        # Patcher _laz_metadata pour simuler PDAL absent (retourne None)
+        with patch("src.check_terrain._laz_metadata", return_value=None):
+            result = cmd_check("test_t", cfg, tmp_path, veg_mode="kp")
+        out = capsys.readouterr().out
+        assert result is True
+        assert "CRS non vérifiable" in out
+
+    def test_cmd_check_propagation_veg_mode(self, tmp_path):
+        import main as m
+
+        cfg = {"terrains": {"demo": {"vegetation_source": "hag",
+                                     "output_dir": str(tmp_path / "out")}}}
+        mock_check = MagicMock(return_value=True)
+        with (
+            patch.object(m, "_load_config", return_value=cfg),
+            patch("src.check_terrain.cmd_check", mock_check),
+            patch.object(sys, "argv", ["main.py", "demo"]),
+        ):
+            m._cmd_check()
+        _, kwargs = mock_check.call_args
+        assert kwargs.get("veg_mode") == "hag"

@@ -502,5 +502,7 @@ def cmd_setup(terrain: str, cfg: dict, root: pathlib.Path) -> bool:
 
     print("\n── Contrôle final ────────────────────────────────────────────")
     cfg_reloaded = _reload_cfg(root)
-    ok = cmd_check(terrain, cfg_reloaded, root, verbose=True)
+    from src.pipeline_mode import resolve_veg_source
+    veg_mode = resolve_veg_source(terrain, cfg_reloaded)
+    ok = cmd_check(terrain, cfg_reloaded, root, verbose=True, veg_mode=veg_mode)
     return ok

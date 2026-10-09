@@ -26,14 +26,18 @@ _REQUIRED_MODULES: list[tuple[str, str]] = [
 ]
 
 
-def check_deps() -> bool:
+def check_deps(require_pdal: bool = True) -> bool:
     """Verify required Python modules are importable (no import — find_spec only).
 
+    require_pdal=False : exclut pdal de la liste (mode KP).
     Returns True if all critical modules are present.
     """
+    modules = _REQUIRED_MODULES if require_pdal else [
+        (m, h) for m, h in _REQUIRED_MODULES if m != "pdal"
+    ]
     missing = [
         (mod, hint)
-        for mod, hint in _REQUIRED_MODULES
+        for mod, hint in modules
         if importlib.util.find_spec(mod) is None
     ]
 
@@ -176,6 +180,7 @@ def cmd_check(
     lidar_dir: pathlib.Path | None = None,
     verbose: bool = True,
     force_kp_version: bool = False,
+    veg_mode: str = "kp",
 ) -> bool:
     """Contrôle pré-run complet du terrain. Retourne True si projet prêt.
 
@@ -184,7 +189,14 @@ def cmd_check(
     if skip_check:
         return True
 
-    if not check_deps():
+    require_pdal = (veg_mode == "hag")
+    if not check_deps(require_pdal=require_pdal):
+        if veg_mode == "hag":
+            log.error(
+                "mode hag → PDAL requis (module + binaire) : "
+                "conda install -c conda-forge python-pdal pdal\n"
+                "   Pour un run sans PDAL : vegetation_source: \"kp\"."
+            )
         return False
 
     terrain_cfg = (cfg.get("terrains") or {}).get(terrain, {})
@@ -284,8 +296,11 @@ def cmd_check(
                 _out(f"    Action : python main.py tiles {terrain}")
                 log.error("check : couverture bbox %.0f %% (< 90 %%)", cov)
                 all_ok = False
+        elif not extents:
+            _out(f"  ⚠ {len(unique_tiles)} dalle(s) — emprise non vérifiable"
+                 f" (PDAL absent ou dalles non-IGN)")
         else:
-            _out(f"  ✓ {len(unique_tiles)} dalle(s) (emprise non vérifiée)")
+            _out(f"  ⚠ {len(unique_tiles)} dalle(s) — emprise non vérifiée (bbox non configurée)")
 
         _out(f"  {lidar_dir_resolved}")
 
@@ -293,14 +308,17 @@ def cmd_check(
         if crs_declared:
             declared_epsg = int(crs_declared.split(":")[-1]) if ":" in crs_declared else None
             if declared_epsg:
-                for f, m in tile_metadatas.items():
-                    if m:
-                        tile_epsg = _epsg_from_metadata(m)
-                        if tile_epsg and tile_epsg != declared_epsg:
-                            log.warning(
-                                "check : CRS dalle %s → EPSG:%d ≠ config EPSG:%d",
-                                f.name, tile_epsg, declared_epsg,
-                            )
+                if not any(m is not None for m in tile_metadatas.values()):
+                    _out("  ⚠ CRS non vérifiable (métadonnées PDAL indisponibles)")
+                else:
+                    for f, m in tile_metadatas.items():
+                        if m:
+                            tile_epsg = _epsg_from_metadata(m)
+                            if tile_epsg and tile_epsg != declared_epsg:
+                                log.warning(
+                                    "check : CRS dalle %s → EPSG:%d ≠ config EPSG:%d",
+                                    f.name, tile_epsg, declared_epsg,
+                                )
 
     # ── BD TOPO ───────────────────────────────────────────────────────────────
 

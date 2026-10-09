@@ -926,7 +926,9 @@ def _cmd_check() -> None:
     args = parser.parse_args()
 
     cfg = _load_config()
-    ok = cmd_check(args.terrain, cfg, ROOT, force_kp_version=args.force_kp)
+    from src.pipeline_mode import resolve_veg_source
+    veg_mode = resolve_veg_source(args.terrain, cfg)
+    ok = cmd_check(args.terrain, cfg, ROOT, force_kp_version=args.force_kp, veg_mode=veg_mode)
     if not ok:
         sys.exit(1)
 
@@ -994,7 +996,7 @@ def _cmd_run() -> None:
 
     if not args.skip_check:
         tiles_path = pathlib.Path(args.tiles_dir) if args.tiles_dir else None
-        if not cmd_check(args.terrain, cfg, ROOT, lidar_dir=tiles_path, force_kp_version=args.force_kp):
+        if not cmd_check(args.terrain, cfg, ROOT, lidar_dir=tiles_path, force_kp_version=args.force_kp, veg_mode=veg_mode):
             sys.exit(
                 "\nProjet incomplet — corriger les points ci-dessus.\n"
                 f"  python main.py setup {args.terrain}"
