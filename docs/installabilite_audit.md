@@ -1,7 +1,7 @@
 # Audit installabilité — Lidar'O V2
 
 > Audit initial : 2026-09-26 — lecture seule, aucun code modifié.  
-> Mis à jour : 2026-10-09 — état d'implémentation ajouté (§0).  
+> Mis à jour : 2026-10-09 — état d'implémentation ajouté (§0) ; §0/1.3/4 corrigés après fix faux succès BD TOPO.
 > Objectif : supprimer les manipulations techniques sans rendre Lidar'O dépendant
 > d'URLs et APIs externes.
 
@@ -15,7 +15,7 @@
 | Téléchargement automatique KP | §4.3 | **Implémenté** — `src/kp_install.py` (v2.12.1 épinglée) |
 | Vérification conditionnelle PDAL par mode | non prévu | **Implémenté** — PLAN 4 (P2+P3, commit 8d8e972) |
 | `lidar_dir` / `bdtopo_path` persistés en config | §3.1 | **Implémenté** — via `setup` |
-| Validation BD TOPO complète | §4.2 | Partiel — couverture géographique vérifiée ; couches individuelles non vérifiées |
+| Validation BD TOPO complète | §4.2 | Partiel — quatre couches requises vérifiées via pyogrio ; couverture via `total_bounds` de `troncon_de_route` ; CRS non vérifié ; contrôles impossibles → `non_verifie` explicite |
 | Dalles manquantes par nom (`list_tiles` vs présentes) | §3.4 | Non implémenté |
 | Mode incomplet (`run` sans données) | §4.4 | Non implémenté |
 
@@ -74,7 +74,20 @@ Ce qui est déjà fait :
 Ce qui reste à faire (état audit initial, toujours valide) :
 - **Dalles manquantes par nom** : seulement un contrôle de couverture globale, pas de diff `list_tiles()` vs présentes
 - **Dalles hors-emprise ou en trop** : non détectées
-- **BD TOPO** : validation des couches individuelles non implémentée
+
+**État de la validation BD TOPO après correctif (commit `0b906a2`) :**
+
+Quatre couches requises identiques dans `src/check_terrain.py` et `src/setup_terrain.py` (`troncon_de_route`, `batiment`, `surface_hydrographique`, `troncon_hydrographique`). Ces quatre couches correspondent à la liste dans le code — elles ne correspondent pas aux huit couches non optionnelles de `config.yaml` (cinq `priority`, trois `masque`). L'écart n'est pas résolu par ce correctif.
+
+Les contrôles retournent désormais un résultat explicite à trois états (`ok` / `anomalie` / `non_verifie`) :
+- **Couches** : lecture des noms via `pyogrio.list_layers()`. Pyogrio absent ou GPKG illisible → `non_verifie`, jamais de liste vide interprétée comme succès.
+- **Couverture** : `total_bounds` de la couche `troncon_de_route` via `pyogrio.read_info()`. Exception, `total_bounds=None` ou bbox absente → `non_verifie`, jamais `True` par défaut.
+- **CRS BD TOPO** : non vérifié (hors périmètre).
+- **`bdtopo_path` déclaré mais absent** : blocage existant conservé, `all_ok=False`.
+- **Département configuré sans `bdtopo_path`** : avertissement non bloquant.
+- **`✓` global du GPKG** : affiché uniquement si couches `ok` ET couverture `ok`.
+
+Les tests correspondants sont dans `tests/test_bdtopo_checks.py` (25 tests, tous simulés — aucune BD TOPO réelle utilisée).
 
 ### 1.4 `main.py run` → `_cmd_run()`
 
@@ -199,30 +212,29 @@ Puis :
 
 ---
 
-## 4. MANQUANT — à créer
+## 4. SETUP et VALIDATION BD TOPO — état actuel
 
-### 4.1 Commande `setup` (cœur du plan V2)
+> Note : le titre original « MANQUANT — à créer » est obsolète. `main.py setup` et
+> `src/setup_terrain.py` existent depuis la V2. Ce §4 décrit l'état réel.
 
-```
-python main.py ma_foret setup
-```
+### 4.1 Commande `setup` — implémentée
 
-Mode interactif CLI permettant de :
-1. Montrer ce qui est nécessaire (LiDAR, BD TOPO, KP)
-2. Demander le chemin du dossier LiDAR
-3. Scanner le dossier, valider les dalles, afficher manquants
-4. Demander le chemin du fichier BD TOPO
-5. Valider le GPKG (format, couches, couverture)
-6. Gérer KP (détecter existant → sinon télécharger automatiquement)
-7. Stocker les chemins validés dans config.yaml
-8. Afficher le résultat du `check` final
+`main.py setup <terrain>` → `src/setup_terrain.py:cmd_setup()`.
 
-### 4.2 Validation BD TOPO complète
+Fonctions présentes et leur périmètre :
+- `_setup_lidar()` : demande ou confirme le chemin `lidar_dir`, scanne les dalles, affiche la grille ASCII.
+- `_setup_bdtopo()` : demande ou confirme le chemin `bdtopo_path`, extrait les archives `.7z` (py7zr ou 7z CLI), vérifie les quatre couches requises via pyogrio, vérifie la couverture via `total_bounds`. Affiche `Chemin déjà configuré (fichier présent)` et les statuts séparés couches/couverture.
+- `_setup_kp()` : détecte le binaire existant ou appelle `src/kp_install.py:install_kp()`.
+- `cmd_setup()` : orchestre les trois étapes, persiste les champs dans `config.yaml` via `patch_terrain_yaml()`, lance `cmd_check` final.
 
-Dans `src/check_terrain.py` :
-- Couches nécessaires présentes (`troncon_de_route`, `zone_d_habitation`, `batiment`, `plan_d_eau`, `cours_d_eau`, `surface_de_transport`, `zone_de_vegetation`)
-- CRS lisible
-- Couverture géographique ⊇ bbox terrain (via `bbox` de la couche, pas lecture complète)
+Limites restantes :
+- Pas de diff dalles manquantes par nom (`list_tiles()` vs présentes) — §3.4 toujours ouvert.
+- CRS BD TOPO non vérifié.
+- Validation des couches limitée aux quatre couches du code, pas aux huit couches non optionnelles de `config.yaml`.
+
+### 4.2 Validation BD TOPO — partielle
+
+Écart de liste de couches non résolu : le code vérifie `troncon_de_route`, `batiment`, `surface_hydrographique`, `troncon_hydrographique` (quatre couches). La liste audit originale (§4.2 original) citait sept couches différentes : `troncon_de_route`, `zone_d_habitation`, `batiment`, `plan_d_eau`, `cours_d_eau`, `surface_de_transport`, `zone_de_vegetation`. Ni l'une ni l'autre ne correspond aux huit couches non optionnelles de `config.yaml`. `surface_de_transport` figure dans ce document mais ni dans le code ni dans la configuration. L'écart est signalé sans être résolu ici.
 
 ### 4.3 Téléchargement automatique KP
 
@@ -240,24 +252,13 @@ Dans `src/run_engine.py` ou nouveau `src/kp_install.py` :
 - Confirmation utilisateur avant téléchargement (afficher taille)
 - Écriture du chemin dans config
 
-### 4.4 Mode incomplet (run sans données)
+### 4.4 Mode incomplet (run sans données) — non implémenté
 
-`main.py run` sans données complètes doit produire :
+`main.py run` sans données complètes retourne dès la première erreur via `cmd_check`. Le comportement décrit dans l'audit original (affichage structuré des manques) n'est pas implémenté.
 
-```
-LiDAR HD
-  ✗ 0/6 dalles
+Pour observer le comportement actuel de `main.py run` sans données, utiliser un répertoire temporaire hors du dépôt (par exemple `tempfile.mkdtemp()` en Python ou `$env:TEMP` en PowerShell) afin de ne pas altérer la copie de travail. Ne pas exécuter ce test dans le répertoire du dépôt.
 
-BD TOPO
-  ✗ absente
-
-Karttapullautin
-  ✗ absent
-
-Projet incomplet — lancer : python main.py ma_foret setup
-```
-
-Au lieu d'un exit abrupt sur la première erreur.
+`cmd_check` gère déjà : LiDAR absent ou couverture insuffisante (bloquant), `bdtopo_path` déclaré mais absent (bloquant), KP absent ou version incorrecte (bloquant). Ce qui reste à implémenter : l'affichage récapitulatif de tous les manques avant de bloquer.
 
 ---
 
