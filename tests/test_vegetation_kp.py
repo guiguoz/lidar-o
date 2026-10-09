@@ -265,17 +265,22 @@ def test_step_vegetation_kp_raises_if_outKp_present_no_png(tmp_path: pathlib.Pat
 def test_step_vegetation_kp_silent_if_outKp_absent(
     tmp_path: pathlib.Path, caplog
 ) -> None:
-    """out_kp/ absent → log.info + return, aucune exception (KP non lancé)."""
+    """Mode hag explicite + out_kp/ absent → log.info + return, aucune exception.
+
+    Contrat KP par défaut (PLAN 4) : en mode kp (défaut ou explicite), out_kp/ absent
+    lève RuntimeError — voir TestGardeStepVegetationKp dans test_pipeline_mode.py.
+    """
     import logging
     from unittest.mock import patch
     import main as m
 
+    cfg = {"terrains": {"test": {"vegetation_source": "hag"}}}
     with patch.object(m, "ROOT", tmp_path), \
          patch.object(m, "OUTPUT", tmp_path / "output"):
         with caplog.at_level(logging.INFO, logger="main"):
-            m.step_vegetation_kp("test", {}, force=True)  # ne doit pas lever
+            m.step_vegetation_kp("test", cfg, force=True)  # ne doit pas lever
 
-    assert "KP non lancé" in caplog.text
+    assert "étape ignorée (mode hag)" in caplog.text
 
 
 def test_step_assemble_raises_if_outKp_present_no_gpkg(tmp_path: pathlib.Path) -> None:

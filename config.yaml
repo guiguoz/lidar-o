@@ -3,7 +3,7 @@ scale: 10000                  # 1:10000 par défaut ; accepté : 10000 | 15000
 max_area_km2: 9.0             # Emprise max v1 — rejet bloquant au-delà (une carte CO = 1-5 km²)
 
 vegetation:
-  # Source par terrain : terrains.<nom>.vegetation_source = "kp" | "hag" | absente (legacy).
+  # Source par terrain : terrains.<nom>.vegetation_source = "kp" | "hag" | absente (= KP par défaut).
   # Contrat des modes : docs/pipeline_vegetation_kp.md. Pas de clé globale (P1b).
   # "hag" ne signifie PAS « HAG uniquement » : vegetation_kp.gpkg reste la végétation de l'OMAP.
   resolution_m: 1.0             # Cap 1 m — sous-métrique inutile à 1:15000 et explose polygonize

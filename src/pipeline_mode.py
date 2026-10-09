@@ -1,18 +1,16 @@
 """Résolution du mode de pipeline végétation par terrain.
 
-Contrat des modes (PLAN 4, option A — routage inchangé, messages distincts) :
+Contrat des modes (KP par défaut — décision porteur) :
 
-- ``"kp"`` : branche HAG désactivée (pdal, process_hag, vegetation, mask) ;
-  chemin KP conservé. ``--from-step`` HAG refusé.
-- ``"hag"`` : mode EXPLICITEMENT demandé. Routage identique à ``None`` ;
-  message INFO, pas d'avertissement de migration. ``"hag"`` ne signifie PAS
-  « HAG uniquement » et ne signifie PAS que HAG alimente l'OMAP :
-  ``vegetation_kp.gpkg`` reste la seule source de végétation de l'OMAP
-  (``step_assemble``) ; la branche HAG garde son rôle analytique et sa QA
-  (repli QA si ``vegetation_kp.gpkg`` est absent).
-- ``None`` (legacy) : aucune clé ``vegetation_source`` ; comportement historique
-  conservé (chaîne HAG + KP) avec avertissement de migration en attente.
-  Un terrain sans clé n'est JAMAIS classé implicitement en HAG ou en KP.
+- ``"kp"`` ou clé ABSENTE (KP par défaut) : branche HAG désactivée
+  (pdal, process_hag, vegetation, mask) ; chemin KP actif. ``out_kp_<terrain>/``
+  doit exister, sinon ``step_vegetation_kp`` lève une erreur explicite.
+- ``"hag"`` : mode HAG EXPLICITEMENT demandé. La chaîne HAG est exécutée.
+  Message INFO. ``"hag"`` ne signifie PAS « HAG uniquement » et ne signifie PAS
+  que HAG alimente l'OMAP : ``vegetation_kp.gpkg`` reste la seule source de
+  végétation de l'OMAP (``step_assemble``) ; la branche HAG garde son rôle
+  analytique et sa QA (repli QA si ``vegetation_kp.gpkg`` est absent).
+- valeur inconnue : erreur explicite (pas de repli silencieux).
 
 La source se lit uniquement dans ``terrains.<terrain>.vegetation_source``.
 Il n'existe plus de clé globale ``vegetation.source`` (supprimée en P1b).
@@ -24,33 +22,35 @@ from typing import Literal
 
 log = logging.getLogger(__name__)
 
-VegMode = Literal["kp", "hag"] | None
+VegMode = Literal["kp", "hag"]
 
-_HAG_INFO = (
-    "vegetation_source: hag pour %r — mode HAG explicite (routage identique au legacy). "
-    "vegetation_kp.gpkg reste la végétation de l'OMAP ; la branche HAG alimente l'analyse et la QA."
+_KP_DEFAUT_INFO = (
+    "vegetation_source absente pour %r — KP par défaut. "
+    "Pour la chaîne HAG, déclarer vegetation_source: \"hag\" explicitement."
 )
 
-_LEGACY_WARNING = (
-    "⚠ aucune clé vegetation_source pour %s — comportement hérité (HAG + KP), migration en attente.\n"
-    "   Pour un run de production sans PDAL : ajouter vegetation_source: \"kp\"."
+_HAG_INFO = (
+    "vegetation_source: hag pour %r — mode HAG explicite. "
+    "vegetation_kp.gpkg reste la végétation de l'OMAP ; la branche HAG alimente l'analyse et la QA."
 )
 
 
 def resolve_veg_source(terrain: str, cfg: dict) -> VegMode:
-    """Retourne le mode pipeline pour le terrain : 'kp', 'hag', ou None (legacy).
+    """Retourne le mode pipeline pour le terrain : 'kp' ou 'hag'.
 
+    Clé absente = 'kp' (défaut). Valeur inconnue = ValueError.
     Voir le contrat des modes en tête de module.
     """
     source = cfg.get("terrains", {}).get(terrain, {}).get("vegetation_source")
+    if source is None:
+        log.info(_KP_DEFAUT_INFO, terrain)
+        return "kp"
     if source == "kp":
         return "kp"
     if source == "hag":
         log.info(_HAG_INFO, terrain)
         return "hag"
-    if source is not None:
-        log.warning(
-            "vegetation_source=%r pour %r non reconnu — mode legacy", source, terrain
-        )
-    log.warning(_LEGACY_WARNING, terrain)
-    return None
+    raise ValueError(
+        f"vegetation_source={source!r} pour {terrain!r} : valeur inconnue "
+        "(attendu : 'kp' ou 'hag', ou clé absente pour KP par défaut)"
+    )

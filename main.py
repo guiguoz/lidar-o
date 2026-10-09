@@ -213,8 +213,16 @@ def step_vegetation_kp(terrain: str, cfg: dict, force: bool) -> None:
 
     if not png_files:
         if not out_kp.exists():
-            # KP jamais lancé : skip silencieux — pas d'anomalie
-            log.info("vegetation_kp : %s absent — étape ignorée (KP non lancé)", f"out_kp_{terrain}/")
+            from src.pipeline_mode import resolve_veg_source
+
+            if resolve_veg_source(terrain, cfg) == "kp":
+                raise RuntimeError(
+                    f"vegetation_kp : mode KP (défaut ou explicite) mais {out_kp.name}/ absent — "
+                    "lancer Karttapullautin (étape relief) avant, ou déclarer "
+                    "vegetation_source: \"hag\" explicitement pour ce terrain."
+                )
+            # Mode HAG explicite et KP non lancé : étape ignorée, végétation KP omise de l'OMAP.
+            log.info("vegetation_kp : %s absent — étape ignorée (mode hag)", f"out_kp_{terrain}/")
             return
         raise RuntimeError(
             f"vegetation_kp : {out_kp.name}/ existe mais aucun *_vege*.png trouvé — "

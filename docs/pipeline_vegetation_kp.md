@@ -21,25 +21,29 @@ une `RuntimeError` est levée (état anormal — vérifier `vege_bitmode` dans `
 
 ---
 
-## Contrat des modes `vegetation_source` (PLAN 4)
+## Contrat des modes `vegetation_source` (PLAN 4, KP par défaut)
 
 La clé se lit **par terrain** : `terrains.<nom>.vegetation_source`. Il n'existe plus de clé globale `vegetation.source` (supprimée en P1b).
 
 | Valeur | Routage | Message | Signification |
 |---|---|---|---|
-| `"kp"` | Branche HAG désactivée (`pdal`, `process_hag`, `vegetation`, `mask`) ; chemin KP actif | aucun | Terrain porté en KP (grimbosq, validé porteur). |
-| `"hag"` | Identique à l'absence de clé | INFO « mode HAG explicite » | Demande explicite de la branche HAG. **Ne signifie pas HAG uniquement.** |
-| absente | Identique à `"hag"` : chaîne HAG + KP | WARNING « migration en attente » | Comportement historique. **Ne classe pas le terrain.** |
+| `"kp"` | Branche HAG désactivée (`pdal`, `process_hag`, `vegetation`, `mask`) ; chemin KP actif | aucun | Terrain en KP explicitement. `out_kp_<terrain>/` doit exister. |
+| absente | Identique à `"kp"` | INFO « KP par défaut » | Décision porteur : KP est la méthode par défaut. |
+| `"hag"` | Chaîne HAG exécutée (`pdal`, `process_hag`, `vegetation`, `mask`) | INFO « mode HAG explicite » | Demande explicite de la branche HAG. **Ne signifie pas HAG uniquement.** |
+| autre valeur | — | **erreur** | Valeur inconnue : arrêt explicite, pas de repli silencieux. |
 
 Règles :
 
-- `vegetation_source: "hag"` **ne signifie pas HAG uniquement** : la chaîne HAG tourne, et `vegetation_kp` s'exécute dès que `out_kp_<terrain>/` existe (sinon ignoré silencieusement).
+- **KP est la méthode par défaut.** Un terrain sans clé est traité en KP. Pour utiliser la chaîne HAG, il faut l'écrire explicitement : `vegetation_source: "hag"`.
+- **Sans sorties KP, pas de carte silencieuse.** En mode KP (défaut ou explicite), si `out_kp_<terrain>/` est absent, `step_vegetation_kp` lève une erreur qui demande de lancer Karttapullautin (étape relief) ou de déclarer `hag`. Le mode `hag` ignore cette étape sans erreur.
+- `vegetation_source: "hag"` **ne signifie pas HAG uniquement** : la chaîne HAG tourne, et `vegetation_kp` s'exécute dès que `out_kp_<terrain>/` existe.
+- `vegetation_kp` s'exécute dès que `out_kp_<terrain>/` existe, quel que soit le mode.
 - **HAG n'alimente pas l'OMAP** : `step_assemble` ne lit que `vegetation_kp.gpkg`. `vegetation.gpkg` (HAG) alimente l'analyse et la QA ; la QA bascule sur la branche HAG uniquement si `vegetation_kp.gpkg` est absent.
 - `vegetation_kp.gpkg` reste la source unique de la végétation de l'OMAP, quel que soit le mode.
-- Un terrain sans clé n'est jamais classé implicitement en HAG ou en KP.
+- `hag` ne signifie pas que la carte contient de la végétation HAG : sans sorties KP, la carte est produite sans végétation.
 - Le mode HAG seul (sans branche KP) est hors périmètre tant qu'un besoin concret ne le justifie pas.
 
-Le routage est figé par `tests/test_pipeline_mode.py` (`TestContratModesPlan4`).
+Le routage est figé par `tests/test_pipeline_mode.py` (`TestContratModesPlan4`, `TestGardeStepVegetationKp`).
 
 ---
 
