@@ -193,8 +193,8 @@ class TestP1bCleGlobaleSupprimee:
         assert "source" not in cfg["vegetation"], "clé globale vegetation.source réintroduite"
 
     def test_config_reelle_inventaire_arbitre(self):
-        """Seul grimbosq est porté en kp ; les autres restent legacy (aucune
-        attribution implicite HAG/KP)."""
+        """grimbosq et sainte_honorine sont portés en kp (décisions porteur) ; les
+        autres entrées restantes sont legacy (aucune attribution implicite)."""
         import pathlib
         import yaml
 
@@ -203,6 +203,7 @@ class TestP1bCleGlobaleSupprimee:
         terrains = cfg.get("terrains") or {}
         attendu = {n: None for n in terrains}
         attendu["grimbosq"] = "kp"
+        attendu["sainte_honorine"] = "kp"
         assert {n: resolve_veg_source(n, cfg) for n in terrains} == attendu
 
 

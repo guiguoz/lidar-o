@@ -271,6 +271,7 @@ terrains:
     bdtopo_path: "data/bdtopo/BDT_3-5_GPKG_LAMB93_D014-ED2026-06-15.gpkg"
     kp_binary: "karttapullautin-x86_64-win.tar/pullauta.exe"
     kp_version: "2.12.1"
+    vegetation_source: "kp"       # décision porteur : KP = seule source de végétation de la carte
 
   grimbosq:
     bbox: [448000, 6886000, 450001, 6889001]
