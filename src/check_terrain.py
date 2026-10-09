@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import xml.etree.ElementTree as ET
+from typing import NamedTuple
 
 log = logging.getLogger(__name__)
 
@@ -169,6 +170,21 @@ REQUIRED_BDTOPO_LAYERS = [
     "surface_hydrographique",
     "troncon_hydrographique",
 ]
+
+
+class BdtopoLayerResult(NamedTuple):
+    """Résultat du contrôle des couches BD TOPO."""
+
+    status: str  # "ok" | "anomalie" | "non_verifie"
+    missing: list[str]  # couches manquantes (vide si ok ou non_verifie)
+    reason: str  # libellé affiché à l'utilisateur
+
+
+class BdtopoCoverageResult(NamedTuple):
+    """Résultat du contrôle de couverture BD TOPO."""
+
+    status: str  # "ok" | "anomalie" | "non_verifie"
+    reason: str  # libellé affiché à l'utilisateur
 
 
 def cmd_check(
@@ -336,24 +352,29 @@ def cmd_check(
             log.error("check : bdtopo_path absent : %s", bdtopo_p)
             all_ok = False
         else:
-            missing_layers = _check_bdtopo_layers(bdtopo_p)
-            covers = True
+            layer_res = _check_bdtopo_layers(bdtopo_p)
             if bbox:
-                try:
-                    import fiona
-                    with fiona.open(str(bdtopo_p), layer="troncon_de_route") as src:
-                        b = src.bounds
-                    bx1, by1, bx2, by2 = bbox
-                    covers = b[0] <= bx1 and b[1] <= by1 and b[2] >= bx2 and b[3] >= by2
-                except Exception:
-                    pass
-
-            if missing_layers:
-                _out(f"  ⚠ couches manquantes : {', '.join(missing_layers)}")
-            elif not covers:
-                _out(f"  ⚠ couverture spatiale insuffisante")
+                cov_res = _check_bdtopo_coverage(bdtopo_p, tuple(bbox))
             else:
+                cov_res = BdtopoCoverageResult("non_verifie", "non vérifié (couverture) : bbox absente")
+
+            layers_ok = layer_res.status == "ok"
+            coverage_ok = cov_res.status == "ok"
+
+            if layers_ok and coverage_ok:
                 _out(f"  ✓ {bdtopo_p.name}")
+            else:
+                if layer_res.status == "anomalie":
+                    _out(f"  ⚠ couches manquantes : {', '.join(layer_res.missing)}")
+                elif layer_res.status == "non_verifie":
+                    _out(f"  ⚠ {layer_res.reason}")
+                else:
+                    _out(f"  ✓ couches : {bdtopo_p.name}")
+
+                if cov_res.status == "anomalie":
+                    _out(f"  ⚠ couverture spatiale insuffisante")
+                elif cov_res.status == "non_verifie":
+                    _out(f"  ⚠ {cov_res.reason}")
     elif dept:
         _out(f"  ⚠ département configuré ({dept}) mais bdtopo_path absent")
         _out(f"    Action : python main.py setup {terrain}")
@@ -456,13 +477,64 @@ def _check_agencement(
     return "trous ou groupes disjoints détectés"
 
 
-def _check_bdtopo_layers(gpkg_path: pathlib.Path) -> list[str]:
-    """Retourne les couches REQUIRED manquantes dans le GPKG."""
+def _check_bdtopo_layers(gpkg_path: pathlib.Path) -> BdtopoLayerResult:
+    """Retourne le résultat du contrôle des couches REQUIRED dans le GPKG."""
+    import warnings
     try:
-        import fiona
-        available = fiona.listlayers(str(gpkg_path))
-        return [l for l in REQUIRED_BDTOPO_LAYERS if l not in available]
+        import pyogrio
     except ImportError:
-        return []
-    except Exception:
-        return []
+        return BdtopoLayerResult(
+            "non_verifie",
+            [],
+            "non vérifié (couches) : pyogrio absent",
+        )
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            rows = pyogrio.list_layers(str(gpkg_path))
+        available = {row[0] for row in rows}
+        missing = [l for l in REQUIRED_BDTOPO_LAYERS if l not in available]
+        if missing:
+            return BdtopoLayerResult("anomalie", missing, f"couches manquantes : {', '.join(missing)}")
+        return BdtopoLayerResult("ok", [], "couches présentes")
+    except Exception as exc:
+        return BdtopoLayerResult(
+            "non_verifie",
+            [],
+            f"non vérifié (couches) : lecture GPKG échouée ({exc})",
+        )
+
+
+def _check_bdtopo_coverage(
+    gpkg_path: pathlib.Path,
+    bbox: tuple[float, float, float, float],
+) -> BdtopoCoverageResult:
+    """Retourne le résultat du contrôle de couverture de troncon_de_route."""
+    import warnings
+    try:
+        import pyogrio
+    except ImportError:
+        return BdtopoCoverageResult(
+            "non_verifie",
+            "non vérifié (couverture) : pyogrio absent",
+        )
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            info = pyogrio.read_info(str(gpkg_path), layer="troncon_de_route")
+        b = info.get("total_bounds")
+        if b is None:
+            return BdtopoCoverageResult(
+                "non_verifie",
+                "non vérifié (couverture) : total_bounds indisponible",
+            )
+        bx1, by1, bx2, by2 = bbox
+        covers = float(b[0]) <= bx1 and float(b[1]) <= by1 and float(b[2]) >= bx2 and float(b[3]) >= by2
+        if covers:
+            return BdtopoCoverageResult("ok", "couverture spatiale OK")
+        return BdtopoCoverageResult("anomalie", "couverture spatiale insuffisante")
+    except Exception as exc:
+        return BdtopoCoverageResult(
+            "non_verifie",
+            f"non vérifié (couverture) : lecture échouée ({exc})",
+        )

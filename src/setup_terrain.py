@@ -6,6 +6,7 @@ import pathlib
 import re
 import subprocess
 import sys
+from typing import NamedTuple
 
 import yaml
 
@@ -27,6 +28,21 @@ REQUIRED_BDTOPO_LAYERS = [
 ]
 
 
+class BdtopoLayerResult(NamedTuple):
+    """Résultat du contrôle des couches BD TOPO."""
+
+    status: str  # "ok" | "anomalie" | "non_verifie"
+    missing: list[str]  # couches manquantes (vide si ok ou non_verifie)
+    reason: str  # libellé affiché à l'utilisateur
+
+
+class BdtopoCoverageResult(NamedTuple):
+    """Résultat du contrôle de couverture BD TOPO."""
+
+    status: str  # "ok" | "anomalie" | "non_verifie"
+    reason: str  # libellé affiché à l'utilisateur
+
+
 # ── Utilitaires BD TOPO ───────────────────────────────────────────────────────
 
 def _extract_dept_from_filename(filename: str) -> str | None:
@@ -35,39 +51,68 @@ def _extract_dept_from_filename(filename: str) -> str | None:
     return m.group(1).lstrip("0") or m.group(1) if m else None
 
 
-def _validate_bdtopo_layers(gpkg_path: pathlib.Path) -> list[str]:
-    """Retourne la liste des couches REQUIRED manquantes dans le GPKG."""
+def _validate_bdtopo_layers(gpkg_path: pathlib.Path) -> BdtopoLayerResult:
+    """Retourne le résultat du contrôle des couches REQUIRED dans le GPKG."""
+    import warnings
     try:
-        import warnings
         import pyogrio
+    except ImportError:
+        log.warning("pyogrio non disponible — validation couches ignorée")
+        return BdtopoLayerResult(
+            "non_verifie",
+            [],
+            "non vérifié (couches) : pyogrio absent",
+        )
+    try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             available = {row[0] for row in pyogrio.list_layers(str(gpkg_path))}
-        return [l for l in REQUIRED_BDTOPO_LAYERS if l not in available]
-    except ImportError:
-        log.warning("pyogrio non disponible — validation couches ignorée")
-        return []
+        missing = [l for l in REQUIRED_BDTOPO_LAYERS if l not in available]
+        if missing:
+            return BdtopoLayerResult("anomalie", missing, f"couches manquantes : {', '.join(missing)}")
+        return BdtopoLayerResult("ok", [], "couches présentes")
     except Exception as exc:
         log.warning("Validation couches BD TOPO échouée : %s", exc)
-        return []
+        return BdtopoLayerResult(
+            "non_verifie",
+            [],
+            f"non vérifié (couches) : lecture GPKG échouée ({exc})",
+        )
 
 
 def _bdtopo_covers_bbox(
     gpkg_path: pathlib.Path,
     bbox: tuple[float, float, float, float],
-) -> bool:
-    """Vérifie que la couche 'troncon_de_route' du GPKG couvre la bbox terrain."""
+) -> BdtopoCoverageResult:
+    """Retourne le résultat du contrôle de couverture de troncon_de_route."""
+    import warnings
     try:
-        import warnings
         import pyogrio
+    except ImportError:
+        return BdtopoCoverageResult(
+            "non_verifie",
+            "non vérifié (couverture) : pyogrio absent",
+        )
+    try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             info = pyogrio.read_info(str(gpkg_path), layer="troncon_de_route")
-        b = info["total_bounds"]  # (minx, miny, maxx, maxy)
+        b = info.get("total_bounds")  # (minx, miny, maxx, maxy)
+        if b is None:
+            return BdtopoCoverageResult(
+                "non_verifie",
+                "non vérifié (couverture) : total_bounds indisponible",
+            )
         bx1, by1, bx2, by2 = bbox
-        return float(b[0]) <= bx1 and float(b[1]) <= by1 and float(b[2]) >= bx2 and float(b[3]) >= by2
-    except Exception:
-        return True  # bénéfice du doute
+        covers = float(b[0]) <= bx1 and float(b[1]) <= by1 and float(b[2]) >= bx2 and float(b[3]) >= by2
+        if covers:
+            return BdtopoCoverageResult("ok", "couverture spatiale OK")
+        return BdtopoCoverageResult("anomalie", "couverture spatiale insuffisante")
+    except Exception as exc:
+        return BdtopoCoverageResult(
+            "non_verifie",
+            f"non vérifié (couverture) : lecture échouée ({exc})",
+        )
 
 
 def _find_gpkg_in_dir(directory: pathlib.Path) -> pathlib.Path | None:
@@ -306,16 +351,25 @@ def _setup_bdtopo(
     if existing:
         p = pathlib.Path(existing)
         if p.exists():
-            print(f"  ✓ déjà configuré : {p}")
-            missing_layers = _validate_bdtopo_layers(p)
-            if missing_layers:
-                print(f"  ⚠ Couches manquantes : {', '.join(missing_layers)}")
-            else:
+            print(f"  Chemin déjà configuré (fichier présent) : {p}")
+            layer_res = _validate_bdtopo_layers(p)
+            if layer_res.status == "ok":
                 print(f"  ✓ Couches BD TOPO validées")
+            elif layer_res.status == "anomalie":
+                print(f"  ⚠ Couches manquantes : {', '.join(layer_res.missing)}")
+            else:
+                print(f"  ⚠ {layer_res.reason}")
             bbox = terrain_cfg.get("bbox")
             if bbox:
-                covers = _bdtopo_covers_bbox(p, tuple(bbox))
-                print(f"  ✓ Couverture spatiale OK" if covers else f"  ⚠ Couverture spatiale insuffisante")
+                cov_res = _bdtopo_covers_bbox(p, tuple(bbox))
+                if cov_res.status == "ok":
+                    print(f"  ✓ Couverture spatiale OK")
+                elif cov_res.status == "anomalie":
+                    print(f"  ⚠ Couverture spatiale insuffisante")
+                else:
+                    print(f"  ⚠ {cov_res.reason}")
+            else:
+                print(f"  ⚠ non vérifié (couverture) : bbox absente")
             return p, _extract_dept_from_filename(p.name)
         print(f"  ✗ chemin invalide : {p}")
 
@@ -369,19 +423,25 @@ def _setup_bdtopo(
             print(f"  ✗ Format non reconnu (attendre .gpkg, .7z ou un dossier)")
             continue
 
-        missing_layers = _validate_bdtopo_layers(gpkg_path)
-        if missing_layers:
-            print(f"  ⚠ Couches manquantes : {', '.join(missing_layers)}")
-        else:
+        layer_res = _validate_bdtopo_layers(gpkg_path)
+        if layer_res.status == "ok":
             print(f"  ✓ Couches BD TOPO validées")
+        elif layer_res.status == "anomalie":
+            print(f"  ⚠ Couches manquantes : {', '.join(layer_res.missing)}")
+        else:
+            print(f"  ⚠ {layer_res.reason}")
 
         bbox = terrain_cfg.get("bbox")
         if bbox:
-            covers = _bdtopo_covers_bbox(gpkg_path, tuple(bbox))
-            if covers:
+            cov_res = _bdtopo_covers_bbox(gpkg_path, tuple(bbox))
+            if cov_res.status == "ok":
                 print(f"  ✓ Couverture spatiale OK")
-            else:
+            elif cov_res.status == "anomalie":
                 print(f"  ⚠ Couverture spatiale insuffisante — vérifier le département")
+            else:
+                print(f"  ⚠ {cov_res.reason}")
+        else:
+            print(f"  ⚠ non vérifié (couverture) : bbox absente")
 
         dept = _extract_dept_from_filename(gpkg_path.name)
         if dept:
