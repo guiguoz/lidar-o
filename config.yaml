@@ -284,26 +284,6 @@ terrains:
     crs: EPSG:2154
     departement: "14"
 
-  monthureux:
-    bbox: [920000, 6771000, 922000, 6773000]
-    crs: EPSG:2154
-    departement: "88"
-
-  luxeuil:
-    bbox: [952000, 6753000, 955000, 6755000]
-    crs: EPSG:2154
-    departement: "70"
-
-  bouhard:
-    bbox: [946000, 6671000, 949000, 6673000]
-    crs: EPSG:2154
-    departement: "25"
-
-  bas_des_conches:
-    bbox: [952000, 6669000, 954000, 6671000]
-    crs: EPSG:2154
-    departement: "25"
-
   sainte_honorine:
     bbox: [423000, 6922000, 425000, 6924000]
     crs: "EPSG:2154"
