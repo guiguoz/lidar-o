@@ -976,6 +976,9 @@ def _cmd_run() -> None:
 
     cfg = _load_config()
 
+    from src.pipeline_mode import resolve_veg_source
+    veg_mode = resolve_veg_source(args.terrain, cfg)
+
     if not args.tiles_dir and not args.tiles:
         lidar_dir_cfg = cfg.get("terrains", {}).get(args.terrain, {}).get("lidar_dir")
         if lidar_dir_cfg:
@@ -1007,7 +1010,15 @@ def _cmd_run() -> None:
     if should_run("fetch"):
         step_fetch(args.terrain, cfg, args.force)
 
-    if args.skip_pdal:
+    if veg_mode == "kp":
+        if args.skip_pdal:
+            log.info("--skip-pdal ignoré : mode kp")
+        if args.from_step in ("pdal", "process_hag", "vegetation", "mask"):
+            sys.exit(
+                f"ERREUR : --from-step {args.from_step!r} incompatible avec mode kp "
+                f"(vegetation_source: kp ne planifie pas les étapes HAG)."
+            )
+    elif args.skip_pdal:
         log.info("SKIP pdal (--skip-pdal)")
         log.info("SKIP process_hag (--skip-pdal)")
         hag = OUTPUT / "density_hag.tif"
@@ -1042,10 +1053,10 @@ def _cmd_run() -> None:
     if should_run("vegetation_kp"):
         step_vegetation_kp(args.terrain, cfg, args.force)
 
-    if should_run("vegetation"):
+    if veg_mode != "kp" and should_run("vegetation"):
         step_vegetation(args.terrain, cfg, args.force)
 
-    if should_run("mask"):
+    if veg_mode != "kp" and should_run("mask"):
         step_mask(args.terrain, cfg, args.force)
 
     if should_run("assemble"):

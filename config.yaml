@@ -320,3 +320,4 @@ terrains:
     kp_binary: "karttapullautin-x86_64-win.tar/pullauta.exe"
     kp_version: "2.12.1"
     ffco_gpkg: "grimbosq.gpkg"
+    vegetation_source: "kp"
