@@ -1,9 +1,27 @@
 # Audit installabilité — Lidar'O V2
 
-> Date : 2026-09-26  
+> Audit initial : 2026-09-26 — lecture seule, aucun code modifié.  
+> Mis à jour : 2026-10-09 — état d'implémentation ajouté (§0).  
 > Objectif : supprimer les manipulations techniques sans rendre Lidar'O dépendant
-> d'URLs et APIs externes.  
-> Périmètre : lecture seule du dépôt. Aucun code modifié.
+> d'URLs et APIs externes.
+
+---
+
+## 0. État d'implémentation au 2026-10-09
+
+| Item | §audit | État |
+|------|--------|------|
+| Commande `setup` (dialogue interactif) | §4.1 | **Implémenté** — `src/setup_terrain.py` |
+| Téléchargement automatique KP | §4.3 | **Implémenté** — `src/kp_install.py` (v2.12.1 épinglée) |
+| Vérification conditionnelle PDAL par mode | non prévu | **Implémenté** — PLAN 4 (P2+P3, commit 8d8e972) |
+| `lidar_dir` / `bdtopo_path` persistés en config | §3.1 | **Implémenté** — via `setup` |
+| Validation BD TOPO complète | §4.2 | Partiel — couverture géographique vérifiée ; couches individuelles non vérifiées |
+| Dalles manquantes par nom (`list_tiles` vs présentes) | §3.4 | Non implémenté |
+| Mode incomplet (`run` sans données) | §4.4 | Non implémenté |
+
+Les sections ci-dessous décrivent l'état original du dépôt à la date de l'audit.
+
+---
 
 ---
 
@@ -47,13 +65,16 @@ Ce qui est déjà fait :
 - Avertit si BD TOPO absent (non bloquant)
 - Info si KP absent (non bloquant)
 
-Ce qui manque ou pose problème :
-- **`lidar_dir` non persisté** : le check utilise `LIDAR/` par défaut — si les dalles sont ailleurs, il faut re-passer `--tiles-dir` à chaque run
-- **BD TOPO** : uniquement un warning, jamais une erreur — même si le département est déclaré et que le fichier est absent
-- **Validation BD TOPO** absente : pas de contrôle des couches, pas de contrôle de la couverture géographique
-- **KP** : uniquement une info, pas de détection active du binaire dans cette fonction (délégué à `run_engine.py`)
-- Pas de détection des dalles manquantes par nom — seulement un contrôle de couverture globale
-- Pas de détection des dalles hors-emprise ou en trop
+**Mis à jour PLAN 4 (P2+P3, 2026-10-09) :**
+- `cmd_check(..., veg_mode)` : conditionne l'exigence PDAL au mode de végétation.
+- Mode KP (défaut) : PDAL non requis. Emprise calculée depuis les noms de fichiers IGN. CRS affiché `⚠` si PDAL absent — avertissement, pas d'erreur.
+- Mode HAG : PDAL requis. Absence = erreur bloquante avec message `conda install`.
+- `veg_mode` propagé depuis `main._cmd_check`, `main._cmd_run`, `src/setup_terrain.py`.
+
+Ce qui reste à faire (état audit initial, toujours valide) :
+- **Dalles manquantes par nom** : seulement un contrôle de couverture globale, pas de diff `list_tiles()` vs présentes
+- **Dalles hors-emprise ou en trop** : non détectées
+- **BD TOPO** : validation des couches individuelles non implémentée
 
 ### 1.4 `main.py run` → `_cmd_run()`
 

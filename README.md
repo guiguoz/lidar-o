@@ -106,7 +106,7 @@ docker run --rm -v $(pwd):/app lidar-o init ma_foret --center 49.043 -0.421
 docker run --rm -v $(pwd):/app lidar-o ma_foret --tiles-dir LIDAR/ma_foret/
 ```
 
-Expected time: **30–60 min** on first run (LiDAR processing produces no output while running — this is normal). Subsequent runs with `--skip-pdal`: **5 min**.
+Expected time: **~45 min** on first run in KP mode (default) — most of it is Karttapullautin processing (~40 min for 6 tiles). HAG mode adds PDAL rasterisation (~20–35 min extra).
 
 Open `output/ma_foret.omap` in OpenOrienteering Mapper.
 
@@ -116,17 +116,28 @@ Open `output/ma_foret.omap` in OpenOrienteering Mapper.
 
 Expected time per step (6 tiles, ~6 km², modern laptop):
 
+**KP mode (default — `vegetation_source` absent or `"kp"`):**
+
 | Step | What it does | Time |
 |------|-------------|------|
 | `fetch` | Clips BD TOPO to bbox | < 1 min |
-| `pdal` | Rasterises HAG density from LiDAR | 20–35 min |
-| `process_hag` | Normalises and classifies raster (3 classes) | 1–2 min |
-| `vegetation` | Generalisation engine (dissolve → smooth → cut) | 3–5 min |
-| `mask` | Removes roads, buildings, farmland | 1–2 min |
+| `relief` | Karttapullautin batch → DXF contours + vegetation PNGs | ~40 min |
+| `vegetation_kp` | Reclassify + vectorize KP PNGs → `vegetation_kp.gpkg` | 1–2 min |
 | `assemble` | Merges all layers into one .omap | < 1 min |
 | `qa` | Prints recall metrics (if reference map declared) | < 1 min |
 
-> If the pipeline appears stuck at `pdal`, it is working — LiDAR processing is CPU-bound and produces no intermediate output. Wait at least 5 min per tile before concluding it has hung.
+> If the pipeline appears stuck at `relief`, it is working — Karttapullautin is CPU-bound and produces no intermediate output. Wait at least 5 min per tile before concluding it has hung.
+
+**HAG mode** (`vegetation_source: "hag"` in config.yaml) runs these additional steps before `relief`:
+
+| Step | What it does | Time |
+|------|-------------|------|
+| `pdal` | Rasterises HAG density from LiDAR (requires PDAL) | 20–35 min |
+| `process_hag` | Normalises and classifies raster | 1–2 min |
+| `vegetation` | CO Generalisation Engine (dissolve → smooth → cut) | 3–5 min |
+| `mask` | Removes roads, buildings, farmland from HAG layers | 1–2 min |
+
+HAG vegetation layers (`vegetation.gpkg`) feed the QA metrics only — the `.omap` always uses `vegetation_kp.gpkg`.
 
 A successful run ends with:
 
@@ -154,17 +165,21 @@ If the map appears blank or offset from the background, check that `declination`
 Geospatial dependencies require pre-built wheels — recommended via [miniconda](https://docs.conda.io/en/latest/miniconda.html):
 
 ```bash
-conda install -c conda-forge geopandas shapely scipy numpy python-pdal pdal
+# KP mode (default) — no PDAL required
+conda install -c conda-forge geopandas shapely scipy numpy rasterio pyogrio
 pip install pyyaml requests ezdxf
+
+# HAG mode only — add PDAL (conda-only, not pip-installable alone)
+conda install -c conda-forge python-pdal pdal
 ```
 
-Or from the repository (GDAL, python-pdal and pyogrio still need conda):
+Or from the repository (GDAL and pyogrio still need conda):
 
 ```bash
 pip install -e .
 ```
 
-[Karttapullautin](https://github.com/karttapullautin/karttapullautin) (optional, for contours) — install separately and set `KP_BINARY=/path/to/pullauta` or add to `PATH`. Included in the Docker image.
+[Karttapullautin](https://github.com/karttapullautin/karttapullautin) — required for the default KP mode. Install separately and set `KP_BINARY=/path/to/pullauta` or add to `PATH`. Included in the Docker image. `setup` can download it automatically.
 
 ### Declaring a terrain with explicit coordinates
 
@@ -182,7 +197,9 @@ Supported CRS: France (2154), Estonia (3301), Great Britain (27700), Finland (30
 python main.py check my_forest
 ```
 
-Verifies tiles, CRS, and `assets/georef_{terrain}.xml`. Called automatically at the start of each run — run it manually to diagnose problems before committing to a 30-min run.
+Verifies tiles, georef XML, and coverage. In KP mode (default), PDAL is not invoked — tile coverage is derived from IGN tile filenames. CRS metadata shows `⚠` rather than `✓` if PDAL is absent; this does not block the run. In HAG mode, PDAL is required and its absence is a hard error.
+
+Called automatically at the start of each run — run it manually to diagnose problems before starting a long run.
 
 ### Directory layout
 
@@ -202,7 +219,7 @@ lidar-o/
 | Option | Description |
 |--------|-------------|
 | `--tiles-dir DIR` | Directory containing `.copc.laz` tiles |
-| `--skip-pdal` | Skip PDAL (only if `density_hag_classified.tif` already exists from a previous run) |
+| `--skip-pdal` | HAG mode only — skip `pdal` and `process_hag` (reuse existing `density_hag_classified.tif`). Ignored in KP mode. |
 | `--from-step STEP` | Resume from: `fetch`, `pdal`, `process_hag`, `relief`, `vegetation_kp`, `vegetation`, `mask`, `assemble`, `qa` |
 | `--force` | Ignore freshness checks and rerun all steps |
 
@@ -339,18 +356,22 @@ The pipeline produces usable output within the documented limits. GitHub issues 
 ## Architecture
 
 ```
-main.py                      subcommands: init / tiles / check / run (8 steps)
+main.py                      subcommands: init / tiles / check / run (9 steps)
 config.yaml                  all parameters — thresholds, profiles, endpoints
 
 src/
-  vegetation.py              CO Generalization Engine (9 chained steps)
+  pipeline_mode.py           resolve vegetation_source per terrain → "kp" | "hag"
+  vegetation.py              CO Generalization Engine (9 chained steps) — HAG path
   omap_writer.py             .omap file generation (OOM XML)
   qa.py                      QA metrics + config snapshot
   guards.py                  config drift detection between runs
   metrics.py                 HAG density computation (ratio, NRD)
   run_engine.py              Karttapullautin: locate binary, build ini, run, verify DXF
+  kp_raster.py               KP PNG mosaicking, palette decoding, class raster
+  kp_install.py              KP binary: download from GitHub releases, version check
+  setup_terrain.py           setup: interactive LiDAR/BD TOPO/KP configuration
   init_terrain.py            init: CRS detection, bbox, georef XML, config.yaml
-  check_terrain.py           pre-flight validation (tiles, CRS, georef)
+  check_terrain.py           pre-flight validation (tiles, CRS, georef) — PDAL-conditional
   providers/                 tile auto-discovery by country — add a country: one new file here
     france.py                IGN LiDAR HD tile names from bbox (EPSG:2154)
 

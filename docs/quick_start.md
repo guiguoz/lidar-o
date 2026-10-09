@@ -55,26 +55,35 @@ PROJET PRÊT
 python main.py run <nom_terrain>
 ```
 
-Enchaîne les étapes dans l'ordre :
+**Mode KP (par défaut — `vegetation_source` absent ou `"kp"`)** :
 
 | Étape | Ce qui se passe | Durée indicative |
 |---|---|---|
 | `fetch` | Télécharge la BD TOPO si département connu | 10–30 s |
-| `pdal` | Calcul densité LiDAR → rasters HAG | ~20 min / 6 dalles |
-| `process_hag` | Classification → raster végétation | 1–2 min |
-| `relief` | KP batch → DXF courbes + végétation KP | ~40 min / 6 dalles |
-| `vegetation` | Polygonisation + généralisation → `vegetation.gpkg` | 1–2 min |
-| `mask` | Masquage BD TOPO + OSM → `vegetation_masked.gpkg` | 30 s |
+| `relief` | KP batch → DXF courbes + PNG végétation | ~40 min / 6 dalles |
+| `vegetation_kp` | Polygonisation + généralisation → `vegetation_kp.gpkg` | 1–2 min |
 | `assemble` | Assemblage → `output/<terrain>.omap` | 1–2 min |
 | `qa` | Contrôle qualité végétation (optionnel) | 10 s |
 
-**Durée totale sur 6 dalles (2×3 km) : environ 60–70 min** (dont 40 pour KP).
+**Durée totale en mode KP sur 6 dalles (2×3 km) : environ 45 min** (dominé par KP).
+
+**Mode HAG** (`vegetation_source: "hag"`) ajoute avant `relief` :
+
+| Étape | Ce qui se passe | Durée indicative |
+|---|---|---|
+| `pdal` | Calcul densité LiDAR → rasters HAG (requiert PDAL) | ~20 min / 6 dalles |
+| `process_hag` | Classification → raster végétation | 1–2 min |
+| `vegetation` | Polygonisation + généralisation → `vegetation.gpkg` | 1–2 min |
+| `mask` | Masquage BD TOPO + OSM | 30 s |
+
+Les couches HAG (`vegetation.gpkg`) alimentent la QA uniquement — le `.omap` utilise toujours `vegetation_kp.gpkg`.
 
 Pour reprendre après une étape déjà faite :
 
 ```
+python main.py run <terrain> --from-step vegetation_kp --force
+# Mode HAG uniquement — sauter pdal+process_hag si density_hag_classified.tif existe déjà :
 python main.py run <terrain> --skip-pdal
-python main.py run <terrain> --from-step vegetation --force
 ```
 
 ---

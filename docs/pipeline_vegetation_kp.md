@@ -45,6 +45,15 @@ Règles :
 
 Le routage est figé par `tests/test_pipeline_mode.py` (`TestContratModesPlan4`, `TestGardeStepVegetationKp`).
 
+### Contrôle pré-run (`check`) par mode
+
+| Mode | PDAL requis pour `check` | Emprise | CRS |
+|------|--------------------------|---------|-----|
+| `kp` (défaut) | Non | Calculée depuis les noms de fichiers IGN ; `⚠` si dalles non-IGN sans PDAL | `⚠ CRS non vérifiable` si PDAL absent — avertissement, pas une erreur bloquante |
+| `hag` | Oui — absence = erreur bloquante avec message `conda install` | Via PDAL (`pdal info`) | Via métadonnées PDAL |
+
+En mode KP, un `⚠` dans le rapport de `check` signifie que la vérification n'a pas pu être effectuée — pas que le terrain est invalide. Un `✓` CRS n'est affiché que si PDAL a réellement lu les métadonnées.
+
 ---
 
 ## 2. Chaîne de traitement
