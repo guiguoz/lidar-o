@@ -749,6 +749,91 @@ Commit df15ceb met à jour le Dockerfile (ligne 58 : `kp_raster`, `kp_install`, 
 
 ---
 
+## PLAN 4 — verdict final (2026-10-09)
+
+Objectif : faire de KP le chemin de production officiel et rendre PDAL optionnel pour le mode KP.
+
+### Validé
+
+Les points ci-dessous sont vérifiés par les tests ou par observation directe du code.
+
+**Indépendance KP/PDAL (P0)**
+
+- Audit statique (`src/run_engine.py`) : aucun appel à `pdal` dans le chemin KP.
+- Sonde d'exécution (P0.3, worktree a7db172, PATH sans `miniconda3/Library/bin`, leurre `pdal.bat` qui
+  enregistre ses invocations) : 42 DXF produits, log du leurre vide, comptes 406/408/410 = 1340/409/18
+  (identiques à PLAN 3). KP n'invoque pas PDAL à l'exécution.
+
+**Contrat `vegetation_source` (P1a + P1b, arena)**
+
+- `resolve_veg_source(terrain, cfg)` retourne `"kp"` ou `"hag"` selon la clé
+  `terrains.<t>.vegetation_source` ; une valeur inconnue lève `ValueError`.
+- Absent = KP par défaut (INFO). Aucune clé globale. Aucun mode `legacy`.
+- 15 tests couvrent le contrat dans `tests/test_pipeline_mode.py`.
+
+**Vérification conditionnelle PDAL (P2+P3)**
+
+- `check_deps(require_pdal=False)` : exclut `pdal` de la liste des modules requis.
+- `cmd_check(..., veg_mode="kp")` : n'exige pas PDAL ; `veg_mode="hag"` l'exige avec
+  message `conda install` explicite.
+- Emprise non vérifiable (dalles non-IGN sans PDAL) → `⚠` dans le rapport, jamais `✓`.
+- CRS non vérifiable (métadonnées PDAL indisponibles) → `⚠` dans le rapport.
+- `veg_mode` propagé dans les trois appelants : `main._cmd_check`, `main._cmd_run`,
+  `src/setup_terrain.py`.
+- 4 tests couvrent les cas dans `tests/test_init_terrain.py::TestCmdCheck`.
+
+**Suite de tests**
+
+| Commit | Collectés | Passés | Skippés | Échoués |
+|--------|-----------|--------|---------|---------|
+| `8d8e972` (origin/master) | 193 | 193 | 0 | 0 |
+
+Les 193 tests valident les contrats d'interface et les comportements unitaires listés ci-dessus.
+Ils ne valident pas les résultats cartographiques ni le pipeline end-to-end.
+
+---
+
+### Décidé (choix porteur)
+
+Ces points résultent de décisions d'architecture validées par le porteur du projet, pas de mesures.
+
+| Décision | Effet |
+|----------|-------|
+| `absent = KP par défaut` | Toute configuration sans `vegetation_source` est traitée en mode KP sans avertissement bloquant |
+| `vegetation_source: "kp"` pour grimbosq | Terrain de référence explicitement KP |
+| `sainte_honorine` → kp | Terrain basculé en KP (décision porteur 2026-10) |
+| 7 terrains retirés | `monthureux`, `luxeuil`, `bouhard`, `bas_des_conches`, `kilemaed`, `kuti`, `port_en_bessin` supprimés de `config.yaml` — sans usage actif |
+| Terrain KP non-IGN sans PDAL → continuer avec `⚠` | Pas une erreur bloquante ; le pipeline peut continuer sans contrôle d'emprise |
+
+---
+
+### Non vérifié
+
+Les points suivants ne sont pas couverts par les tests ni par la sonde d'exécution.
+
+- **Pipeline end-to-end en mode HAG** : aucun terrain `vegetation_source: "hag"` n'est configuré dans
+  `config.yaml`. Le chemin HAG n'a pas été exercé depuis le pivot KP.
+- **PDAL absent en production** : les tests patchent `importlib.util.find_spec`. Le comportement réel
+  avec PDAL réellement absent de l'environnement conda n'a pas été vérifié en dehors de la sonde P0.3.
+- **Georef et contrôles sur terrains non-IGN** : la logique `⚠ emprise non vérifiable` est couverte par
+  test avec noms arbitraires mais n'a pas été exercée sur un terrain réel non-IGN.
+- **Docker** : le Dockerfile (commit df15ceb, PLAN 3) n'a pas été reconstruit depuis le pivot KP.
+  La conformité Dockerfile/image n'est pas vérifiée pour PLAN 4.
+
+---
+
+### Restant à faire
+
+- **P4 Documentation** : `README`, `docs/quick_start.md`, `docs/pipeline_vegetation_kp.md`,
+  `docs/installabilite_audit.md` — à mettre en cohérence avec KP par défaut, PDAL optionnel en KP,
+  PDAL requis en HAG.
+- **Test de portabilité HAG** : valider le chemin HAG sur au moins un terrain réel pour confirmer que
+  le routage `veg_mode="hag"` aboutit bien à un run complet avec PDAL.
+- **Docker** : reconstruire l'image et vérifier que les dépendances sont cohérentes avec les modes
+  KP et HAG.
+
+---
+
 ## Annexe — Inventaire des réfutations
 
 | # | Levier | Test | Résultat |
