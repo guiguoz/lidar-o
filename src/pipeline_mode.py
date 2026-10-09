@@ -17,8 +17,10 @@ _LEGACY_WARNING = (
 def resolve_veg_source(terrain: str, cfg: dict) -> VegMode:
     """Retourne le mode pipeline pour le terrain : 'kp', 'hag', ou None (legacy).
 
-    La clé globale vegetation.source est ignorée — elle sera supprimée en P1b.
+    La source se lit uniquement dans terrains.<terrain>.vegetation_source.
+    Il n'existe plus de clé globale vegetation.source (supprimée en P1b).
     None = état de migration : comportement historique complet + warning.
+    Un terrain sans clé n'est JAMAIS classé implicitement en HAG ou en KP.
     """
     source = cfg.get("terrains", {}).get(terrain, {}).get("vegetation_source")
     if source == "kp":

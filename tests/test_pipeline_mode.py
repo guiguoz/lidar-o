@@ -147,3 +147,60 @@ class TestCmdRunRouting:
         mocks["step_vegetation"].assert_called_once()
         mocks["step_mask"].assert_called_once()
         mocks["step_vegetation_kp"].assert_called_once()
+
+
+# ── P1b : suppression de la clé globale vestigiale vegetation.source ──────────
+
+_ETATS = {
+    "kp": {"vegetation_source": "kp"},
+    "hag": {"vegetation_source": "hag"},
+    "legacy": {},  # pas de clé terrain → legacy + warning
+}
+
+
+class TestP1bCleGlobaleSupprimee:
+    """Retirer vegetation.source ne doit changer la résolution d'aucun état."""
+
+    @pytest.mark.parametrize("etat", sorted(_ETATS))
+    @pytest.mark.parametrize("ancienne_valeur", [None, "pdal", "kp", "hag"])
+    def test_resolution_independante_de_la_cle_globale(self, etat, ancienne_valeur):
+        terrain_cfg = dict(_ETATS[etat])
+        base = {"terrains": {"t": dict(terrain_cfg)}, "vegetation": {"resolution_m": 1.0}}
+        avec_globale = {
+            "terrains": {"t": dict(terrain_cfg)},
+            "vegetation": {"resolution_m": 1.0},
+        }
+        if ancienne_valeur is not None:
+            avec_globale["vegetation"]["source"] = ancienne_valeur
+        assert resolve_veg_source("t", avec_globale) == resolve_veg_source("t", base)
+
+    def test_trois_etats_resolus_sans_cle_globale(self):
+        cfg = {"vegetation": {"resolution_m": 1.0}, "terrains": {
+            "k": {"vegetation_source": "kp"},
+            "h": {"vegetation_source": "hag"},
+            "l": {},
+        }}
+        assert resolve_veg_source("k", cfg) == "kp"
+        assert resolve_veg_source("h", cfg) == "hag"
+        assert resolve_veg_source("l", cfg) is None
+
+    def test_config_reelle_sans_vegetation_source(self):
+        import pathlib
+        import yaml
+
+        racine = pathlib.Path(__file__).resolve().parents[1]
+        cfg = yaml.safe_load((racine / "config.yaml").read_text(encoding="utf-8"))
+        assert "source" not in cfg["vegetation"], "clé globale vegetation.source réintroduite"
+
+    def test_config_reelle_inventaire_arbitre(self):
+        """Seul grimbosq est porté en kp ; les autres restent legacy (aucune
+        attribution implicite HAG/KP)."""
+        import pathlib
+        import yaml
+
+        racine = pathlib.Path(__file__).resolve().parents[1]
+        cfg = yaml.safe_load((racine / "config.yaml").read_text(encoding="utf-8"))
+        terrains = cfg.get("terrains") or {}
+        attendu = {n: None for n in terrains}
+        attendu["grimbosq"] = "kp"
+        assert {n: resolve_veg_source(n, cfg) for n in terrains} == attendu

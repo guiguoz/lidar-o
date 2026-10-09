@@ -185,11 +185,11 @@ def inspect_kp_outputs(kp_outdir: Path) -> None:
         if p.name in ("undergrowth.png", "vegetation.png"):
             _audit_kp_png(p)
 
-    print("\n→ DÉCISION CRITIQUE pour config.vegetation.source :")
+    print("\n→ DÉCISION CRITIQUE pour terrains.<nom>.vegetation_source (par terrain) :")
     if rasters:
         print("  KP produit des rasters non-PNG → évaluer s'ils encodent une densité float continue")
-        print("  Si oui  → source: 'kp'   (défaut)")
-        print("  Si non  → source: 'pdal' (plan B)")
+        print("  Si oui  → vegetation_source: 'kp'   (à décider par terrain)")
+        print("  Si non  → vegetation_source: 'hag' (plan B)")
     else:
         print("  Aucun raster non-PNG trouvé → KP ne produit pas de densité réutilisable")
         print("  → source: 'pdal' (plan B activé)")
@@ -514,7 +514,7 @@ def main() -> None:
 
     print("\n=== Résumé ===")
     print("Compléter docs/etat_existant.md avec les résultats ci-dessus.")
-    print("Mettre à jour config.yaml (expected_dxf_layers, bd_topo.layers, vegetation.source).")
+    print("Mettre à jour config.yaml (expected_dxf_layers, bd_topo.layers, terrains.<nom>.vegetation_source).")
 
 
 if __name__ == "__main__":
