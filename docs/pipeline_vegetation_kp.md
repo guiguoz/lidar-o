@@ -21,6 +21,28 @@ une `RuntimeError` est levée (état anormal — vérifier `vege_bitmode` dans `
 
 ---
 
+## Contrat des modes `vegetation_source` (PLAN 4)
+
+La clé se lit **par terrain** : `terrains.<nom>.vegetation_source`. Il n'existe plus de clé globale `vegetation.source` (supprimée en P1b).
+
+| Valeur | Routage | Message | Signification |
+|---|---|---|---|
+| `"kp"` | Branche HAG désactivée (`pdal`, `process_hag`, `vegetation`, `mask`) ; chemin KP actif | aucun | Terrain porté en KP (grimbosq, validé porteur). |
+| `"hag"` | Identique à l'absence de clé | INFO « mode HAG explicite » | Demande explicite de la branche HAG. **Ne signifie pas HAG uniquement.** |
+| absente | Identique à `"hag"` : chaîne HAG + KP | WARNING « migration en attente » | Comportement historique. **Ne classe pas le terrain.** |
+
+Règles :
+
+- `vegetation_source: "hag"` **ne signifie pas HAG uniquement** : la chaîne HAG tourne, et `vegetation_kp` s'exécute dès que `out_kp_<terrain>/` existe (sinon ignoré silencieusement).
+- **HAG n'alimente pas l'OMAP** : `step_assemble` ne lit que `vegetation_kp.gpkg`. `vegetation.gpkg` (HAG) alimente l'analyse et la QA ; la QA bascule sur la branche HAG uniquement si `vegetation_kp.gpkg` est absent.
+- `vegetation_kp.gpkg` reste la source unique de la végétation de l'OMAP, quel que soit le mode.
+- Un terrain sans clé n'est jamais classé implicitement en HAG ou en KP.
+- Le mode HAG seul (sans branche KP) est hors périmètre tant qu'un besoin concret ne le justifie pas.
+
+Le routage est figé par `tests/test_pipeline_mode.py` (`TestContratModesPlan4`).
+
+---
+
 ## 2. Chaîne de traitement
 
 ```

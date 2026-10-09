@@ -204,3 +204,87 @@ class TestP1bCleGlobaleSupprimee:
         attendu = {n: None for n in terrains}
         attendu["grimbosq"] = "kp"
         assert {n: resolve_veg_source(n, cfg) for n in terrains} == attendu
+
+
+# ── PLAN 4 (option A) : contrat figé des trois états ─────────────────────────
+#
+# Routage INCHANGÉ : hag et legacy appellent les mêmes étapes.
+# Seuls les messages diffèrent : hag = INFO (mode explicite), legacy = WARNING
+# (migration en attente). vegetation_source: "hag" ne signifie PAS « HAG
+# uniquement » et ne fait PAS alimenter l'OMAP par HAG.
+
+_LOGGER = "src.pipeline_mode"
+
+
+class TestContratModesPlan4:
+    def test_hag_emet_info_et_pas_de_warning(self, caplog):
+        cfg = {"terrains": {"t": {"vegetation_source": "hag"}}}
+        with caplog.at_level(logging.INFO, logger=_LOGGER):
+            assert resolve_veg_source("t", cfg) == "hag"
+        niveaux = [r.levelno for r in caplog.records if r.name == _LOGGER]
+        assert logging.INFO in niveaux
+        assert logging.WARNING not in niveaux
+        assert "mode HAG explicite" in caplog.text
+        assert "migration en attente" not in caplog.text
+
+    def test_legacy_emet_warning_et_pas_de_message_hag(self, caplog):
+        cfg = {"terrains": {"t": {}}}
+        with caplog.at_level(logging.INFO, logger=_LOGGER):
+            assert resolve_veg_source("t", cfg) is None
+        niveaux = [r.levelno for r in caplog.records if r.name == _LOGGER]
+        assert logging.WARNING in niveaux
+        assert "migration en attente" in caplog.text
+        assert "mode HAG explicite" not in caplog.text
+
+    def test_kp_silencieux(self, caplog):
+        cfg = {"terrains": {"t": {"vegetation_source": "kp"}}}
+        with caplog.at_level(logging.INFO, logger=_LOGGER):
+            assert resolve_veg_source("t", cfg) == "kp"
+        assert [r for r in caplog.records if r.name == _LOGGER] == []
+
+    def test_hag_et_legacy_routage_identique(self, tmp_path):
+        """Mêmes étapes appelées, mêmes nombres d'appels, pour hag et legacy."""
+        run = TestCmdRunRouting()._run
+        mocks_hag = run(tmp_path / "hag", vegetation_source="hag")
+        mocks_leg = run(tmp_path / "leg", vegetation_source=None)
+        appels_hag = {k: v.call_count for k, v in mocks_hag.items()}
+        appels_leg = {k: v.call_count for k, v in mocks_leg.items()}
+        assert appels_hag == appels_leg
+        assert appels_hag["step_vegetation"] == 1
+        assert appels_hag["step_mask"] == 1
+        assert appels_hag["step_vegetation_kp"] == 1
+
+    def test_kp_desactive_la_branche_hag_seule(self, tmp_path):
+        mocks = TestCmdRunRouting()._run(tmp_path, vegetation_source="kp")
+        assert mocks["step_vegetation"].call_count == 0
+        assert mocks["step_mask"].call_count == 0
+        assert mocks["step_pdal"].call_count == 0
+        assert mocks["step_process_hag"].call_count == 0
+        assert mocks["step_vegetation_kp"].call_count == 1
+
+    def test_docstring_module_fige_le_contrat(self):
+        import src.pipeline_mode as pm
+
+        doc = pm.__doc__
+        assert "ne signifie PAS" in doc
+        assert "HAG uniquement" in doc
+        assert "vegetation_kp.gpkg" in doc
+        assert "migration en attente" in pm._LEGACY_WARNING
+
+    def test_assemble_lit_vegetation_kp_et_non_hag(self):
+        """L'OMAP ne lit que vegetation_kp.gpkg ; vegetation.gpkg (HAG) n'y entre pas."""
+        import inspect
+        import main as m
+
+        src = inspect.getsource(m.step_assemble)
+        assert "vegetation_kp.gpkg" in src
+        assert "vegetation.gpkg" not in src
+
+    def test_documentation_fige_le_contrat(self):
+        import pathlib
+
+        racine = pathlib.Path(__file__).resolve().parents[1]
+        doc = (racine / "docs" / "pipeline_vegetation_kp.md").read_text(encoding="utf-8")
+        assert "## Contrat des modes `vegetation_source` (PLAN 4)" in doc
+        assert "ne signifie pas HAG uniquement" in doc
+        assert "HAG n'alimente pas l'OMAP" in doc
