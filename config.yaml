@@ -263,27 +263,6 @@ terrains:
   # ─────────────────────────────────────────────────────────────────────────
 
 
-  kilemaed:
-    bbox: [411888, 6481712, 414255, 6484028]  # EPSG:3301, L-EST97
-    crs: EPSG:3301
-    reader: readers.las                        # .laz Maa-amet, pas COPC
-    output_dir: output_kilemaed                # répertoire de sortie existant
-    ffco_gpkg: "autres cartes/Kilemäed.gpkg"  # carte de référence (noms tables latin-1, voir portabilite.md H8)
-    ffco_layer: "Kilemäed_areas"              # couche surfacique — ogr2ogr échoue sur encodage latin-1
-
-  kuti:
-    bbox: [598117, 6436581, 601925, 6440937]  # EPSG:3301, L-EST97 — lu depuis Kuti.gpkg areas extent
-    crs: EPSG:3301
-    reader: readers.las                        # .laz Maa-amet, pas COPC
-    output_dir: output_kuti
-    ffco_gpkg: "autres cartes/Kuti.gpkg"
-    ffco_layer: "Kuti_areas"                  # ASCII — ogr2ogr fonctionne (pas de latin-1 contrairement à Kilemäed)
-
-  port_en_bessin:
-    bbox: [424000, 6920000, 427000, 6922000]  # EPSG:2154, Lambert 93 — 3×2 km, 5 tuiles COPC (0424/0425/0426 × 6921/6922) — tuiles nommées par bord NORD
-    crs: EPSG:2154
-    departement: "14"
-
   sainte_honorine:
     bbox: [423000, 6922000, 425000, 6924000]
     crs: "EPSG:2154"
