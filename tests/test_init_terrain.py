@@ -6,6 +6,9 @@ import pathlib
 import sys
 from unittest.mock import MagicMock, patch
 
+# Sentinel pour distinguer « clé absente » de « valeur None » dans les helpers de test
+_SENTINEL = object()
+
 import pytest
 import yaml
 
@@ -433,3 +436,179 @@ class TestCmdCheck:
             m._cmd_check()
         _, kwargs = mock_check.call_args
         assert kwargs.get("veg_mode") == "hag"
+
+    # ── Tests CRS (Commit 1) ──────────────────────────────────────────────────
+
+    def _make_lidar_dir(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        """Crée 2 dalles IGN factices dans lidar_dir et retourne le chemin."""
+        lidar = tmp_path / "LIDAR" / "test_t"
+        lidar.mkdir(parents=True)
+        (lidar / "LHD_FXX_0424_6921_PTS_LAMB93_IGN69.copc.laz").write_text("")
+        (lidar / "LHD_FXX_0424_6922_PTS_LAMB93_IGN69.copc.laz").write_text("")
+        return lidar
+
+    def _make_cfg_crs(self, tmp_path: pathlib.Path, crs: object = _SENTINEL) -> dict:
+        """Config avec bbox valide et CRS fourni (peut être None, non-string, ou absent si _SENTINEL)."""
+        from src.init_terrain import write_georef_xml
+        assets = tmp_path / "assets"
+        assets.mkdir(exist_ok=True)
+        bbox = (424000, 6920000, 427000, 6922000)
+        write_georef_xml("test_t", bbox, 2154, assets)
+        cfg: dict = {"terrains": {"test_t": {"bbox": list(bbox)}}}
+        if crs is not _SENTINEL:
+            cfg["terrains"]["test_t"]["crs"] = crs
+        fake_kp = tmp_path / "pullauta.exe"
+        fake_kp.write_text("fake")
+        cfg["terrains"]["test_t"]["kp_binary"] = str(fake_kp)
+        return cfg
+
+    def test_crs_ignf_2154_non_verifiable(self, tmp_path, capsys):
+        """IGNF:2154 n'est pas accepté comme EPSG:2154 — ⚠ déclaration non EPSG."""
+        lidar = self._make_lidar_dir(tmp_path)
+        cfg = self._make_cfg_crs(tmp_path, "IGNF:2154")
+        with patch("src.check_terrain._laz_metadata", return_value=None):
+            cmd_check("test_t", cfg, tmp_path, lidar_dir=lidar)
+        out = capsys.readouterr().out
+        assert "CRS non vérifiable" in out
+        assert "non EPSG" in out
+        assert "CRS non déclaré" not in out
+
+    def test_crs_epsg_minuscule_accepte(self, tmp_path, capsys):
+        """epsg:2154 (casse minuscule) doit être accepté — vérification normale."""
+        lidar = self._make_lidar_dir(tmp_path)
+        cfg = self._make_cfg_crs(tmp_path, "epsg:2154")
+        # Métadonnées présentes, CRS conforme
+        fake_meta = {"srs": {}}
+        with (
+            patch("src.check_terrain._laz_metadata", return_value=fake_meta),
+            patch("src.check_terrain._epsg_from_metadata", return_value=2154),
+        ):
+            cmd_check("test_t", cfg, tmp_path, lidar_dir=lidar)
+        out = capsys.readouterr().out
+        # Aucun ⚠ lié au CRS (ni mismatch, ni non vérifiable, ni non déclaré)
+        crs_lines = [l for l in out.splitlines() if "CRS" in l]
+        assert all("⚠" not in l for l in crs_lines), (
+            f"epsg:2154 minuscule devrait être accepté, lignes CRS: {crs_lines}"
+        )
+
+    def test_crs_ignf_lamb93_non_verifiable(self, tmp_path, capsys):
+        """IGNF:LAMB93 — ⚠ déclaration non EPSG, pas de crash."""
+        lidar = self._make_lidar_dir(tmp_path)
+        cfg = self._make_cfg_crs(tmp_path, "IGNF:LAMB93")
+        with patch("src.check_terrain._laz_metadata", return_value=None):
+            # Ne doit pas lever d'exception
+            cmd_check("test_t", cfg, tmp_path, lidar_dir=lidar)
+        out = capsys.readouterr().out
+        assert "CRS non vérifiable" in out
+        assert "non EPSG" in out
+
+    def test_crs_sans_prefixe_non_verifiable(self, tmp_path, capsys):
+        """'2154' sans préfixe EPSG: → ⚠ déclaration non EPSG."""
+        lidar = self._make_lidar_dir(tmp_path)
+        cfg = self._make_cfg_crs(tmp_path, "2154")
+        with patch("src.check_terrain._laz_metadata", return_value=None):
+            cmd_check("test_t", cfg, tmp_path, lidar_dir=lidar)
+        out = capsys.readouterr().out
+        assert "CRS non vérifiable" in out
+        assert "non EPSG" in out
+
+    def test_crs_null_non_declare(self, tmp_path, capsys):
+        """crs: null (clé présente, valeur None) → ⚠ CRS non déclaré, pas de crash."""
+        lidar = self._make_lidar_dir(tmp_path)
+        cfg = self._make_cfg_crs(tmp_path, None)
+        with patch("src.check_terrain._laz_metadata", return_value=None):
+            cmd_check("test_t", cfg, tmp_path, lidar_dir=lidar)
+        out = capsys.readouterr().out
+        assert "CRS non déclaré" in out
+
+    def test_crs_zero_non_verifiable_pas_non_declare(self, tmp_path, capsys):
+        """crs: 0 → ⚠ non vérifiable (non EPSG), pas « non déclaré »."""
+        lidar = self._make_lidar_dir(tmp_path)
+        cfg = self._make_cfg_crs(tmp_path, 0)
+        with patch("src.check_terrain._laz_metadata", return_value=None):
+            cmd_check("test_t", cfg, tmp_path, lidar_dir=lidar)
+        out = capsys.readouterr().out
+        assert "CRS non déclaré" not in out
+        assert "CRS non vérifiable" in out
+
+    def test_crs_false_non_verifiable_pas_non_declare(self, tmp_path, capsys):
+        """crs: false → ⚠ non vérifiable (non EPSG), pas « non déclaré »."""
+        lidar = self._make_lidar_dir(tmp_path)
+        cfg = self._make_cfg_crs(tmp_path, False)
+        with patch("src.check_terrain._laz_metadata", return_value=None):
+            cmd_check("test_t", cfg, tmp_path, lidar_dir=lidar)
+        out = capsys.readouterr().out
+        assert "CRS non déclaré" not in out
+        assert "CRS non vérifiable" in out
+
+    def test_crs_absent_non_declare(self, tmp_path, capsys):
+        """Clé crs absente → ⚠ CRS non déclaré, pas de crash."""
+        lidar = self._make_lidar_dir(tmp_path)
+        cfg = self._make_cfg_crs(tmp_path, _SENTINEL)
+        with patch("src.check_terrain._laz_metadata", return_value=None):
+            cmd_check("test_t", cfg, tmp_path, lidar_dir=lidar)
+        out = capsys.readouterr().out
+        assert "CRS non déclaré" in out
+
+    def test_crs_meta_presente_epsg_illisible(self, tmp_path, capsys):
+        """Métadonnées présentes mais _epsg_from_metadata → None → ⚠ CRS non vérifiable (CRS illisible)."""
+        lidar = self._make_lidar_dir(tmp_path)
+        cfg = self._make_cfg_crs(tmp_path, "EPSG:2154")
+        fake_meta = {"srs": {}}
+        with (
+            patch("src.check_terrain._laz_metadata", return_value=fake_meta),
+            patch("src.check_terrain._epsg_from_metadata", return_value=None),
+        ):
+            cmd_check("test_t", cfg, tmp_path, lidar_dir=lidar)
+        out = capsys.readouterr().out
+        assert "CRS non vérifiable" in out
+        assert "CRS illisible" in out
+
+    def test_crs_partiel(self, tmp_path, capsys):
+        """2 dalles : 1 conforme + 1 sans CRS → ⚠ CRS partiel : 1/2."""
+        lidar = self._make_lidar_dir(tmp_path)
+        cfg = self._make_cfg_crs(tmp_path, "EPSG:2154")
+        # Première dalle : CRS lisible et conforme ; deuxième : None
+        side_effects = [{"srs": {}}, {"srs": {}}]
+        epsg_effects = [2154, None]
+        with (
+            patch("src.check_terrain._laz_metadata", side_effect=side_effects),
+            patch("src.check_terrain._epsg_from_metadata", side_effect=epsg_effects),
+        ):
+            cmd_check("test_t", cfg, tmp_path, lidar_dir=lidar)
+        out = capsys.readouterr().out
+        assert "CRS partiel" in out
+        assert "1/2" in out
+
+    def test_crs_mismatch_log_warning(self, tmp_path, capsys, caplog):
+        """Dalle EPSG:3857 vs déclaré EPSG:2154 → ⚠ dans rapport + log.warning."""
+        lidar = self._make_lidar_dir(tmp_path)
+        cfg = self._make_cfg_crs(tmp_path, "EPSG:2154")
+        fake_meta = {"srs": {}}
+        with (
+            patch("src.check_terrain._laz_metadata", return_value=fake_meta),
+            patch("src.check_terrain._epsg_from_metadata", return_value=3857),
+            caplog.at_level(logging.WARNING, logger="src.check_terrain"),
+        ):
+            cmd_check("test_t", cfg, tmp_path, lidar_dir=lidar)
+        out = capsys.readouterr().out
+        # ⚠ dans le rapport pour chaque dalle
+        assert "⚠ CRS dalle" in out
+        assert "3857" in out
+        assert "2154" in out
+        # Et le log.warning
+        assert "CRS dalle" in caplog.text
+
+    def test_crs_conforme_aucune_ligne_crs(self, tmp_path, capsys):
+        """Tout vérifié et conforme → aucune ligne ⚠ CRS, pas de crash."""
+        lidar = self._make_lidar_dir(tmp_path)
+        cfg = self._make_cfg_crs(tmp_path, "EPSG:2154")
+        fake_meta = {"srs": {}}
+        with (
+            patch("src.check_terrain._laz_metadata", return_value=fake_meta),
+            patch("src.check_terrain._epsg_from_metadata", return_value=2154),
+        ):
+            cmd_check("test_t", cfg, tmp_path, lidar_dir=lidar)
+        out = capsys.readouterr().out
+        crs_warn_lines = [l for l in out.splitlines() if "CRS" in l and "⚠" in l]
+        assert crs_warn_lines == [], f"Pas de ⚠ CRS attendu, obtenu: {crs_warn_lines}"

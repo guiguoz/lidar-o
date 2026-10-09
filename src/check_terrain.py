@@ -217,7 +217,13 @@ def cmd_check(
 
     terrain_cfg = (cfg.get("terrains") or {}).get(terrain, {})
     bbox = terrain_cfg.get("bbox")
-    crs_declared = terrain_cfg.get("crs", "")
+    crs_raw = terrain_cfg.get("crs")
+    if crs_raw is None:
+        crs_declared = ""
+    elif isinstance(crs_raw, str):
+        crs_declared = crs_raw.strip()
+    else:
+        crs_declared = str(crs_raw)
     all_ok = True
 
     def _out(msg: str = "") -> None:
@@ -321,20 +327,35 @@ def cmd_check(
         _out(f"  {lidar_dir_resolved}")
 
         # CRS consistency
-        if crs_declared:
-            declared_epsg = int(crs_declared.split(":")[-1]) if ":" in crs_declared else None
-            if declared_epsg:
-                if not any(m is not None for m in tile_metadatas.values()):
-                    _out("  ⚠ CRS non vérifiable (métadonnées PDAL indisponibles)")
+        m_epsg = re.fullmatch(r"EPSG:([1-9]\d*)", crs_declared, flags=re.IGNORECASE)
+        declared_epsg = int(m_epsg.group(1)) if m_epsg else None
+        if declared_epsg is None:
+            if crs_declared:
+                _out(f"  ⚠ CRS non vérifiable (déclaration non EPSG : {crs_declared})")
+            else:
+                _out("  ⚠ CRS non déclaré — non vérifié")
+        else:
+            n_verifie = 0
+            n_non_verifie = 0
+            for f, m in tile_metadatas.items():
+                tile_epsg = _epsg_from_metadata(m) if m else None
+                if tile_epsg is None:
+                    n_non_verifie += 1
+                    continue
+                n_verifie += 1
+                if tile_epsg != declared_epsg:
+                    _out(f"  ⚠ CRS dalle {f.name} : EPSG:{tile_epsg} ≠ déclaré EPSG:{declared_epsg}")
+                    log.warning(
+                        "check : CRS dalle %s → EPSG:%d ≠ config EPSG:%d",
+                        f.name, tile_epsg, declared_epsg,
+                    )
+            if n_verifie == 0:
+                if any(m is not None for m in tile_metadatas.values()):
+                    _out("  ⚠ CRS non vérifiable (métadonnées présentes mais CRS illisible)")
                 else:
-                    for f, m in tile_metadatas.items():
-                        if m:
-                            tile_epsg = _epsg_from_metadata(m)
-                            if tile_epsg and tile_epsg != declared_epsg:
-                                log.warning(
-                                    "check : CRS dalle %s → EPSG:%d ≠ config EPSG:%d",
-                                    f.name, tile_epsg, declared_epsg,
-                                )
+                    _out("  ⚠ CRS non vérifiable (métadonnées PDAL indisponibles)")
+            elif n_non_verifie:
+                _out(f"  ⚠ CRS partiel : {n_verifie}/{len(tile_metadatas)} dalle(s) vérifiée(s)")
 
     # ── BD TOPO ───────────────────────────────────────────────────────────────
 
