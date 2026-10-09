@@ -8,10 +8,14 @@ import tkinter as tk
 import tkinter.filedialog as fd
 import tkinter.messagebox as mb
 import tkinter.scrolledtext as st
+from typing import TYPE_CHECKING
 
 import yaml
 
 from gui.worker import Done, PipelineWorker, Progress
+
+if TYPE_CHECKING:
+    from src.check_terrain import BdtopoCoverageResult, BdtopoLayerResult
 
 log = logging.getLogger(__name__)
 
@@ -20,6 +24,37 @@ _COLOR_PRESENT = "#4caf50"
 _COLOR_MISSING = "#f44336"
 _COLOR_UNKNOWN = "#9e9e9e"
 _COLOR_BG = "#fafafa"
+_COLOR_UNVERIFIED = "#ff9800"
+
+
+def _bdtopo_status(
+    layer_res: BdtopoLayerResult,
+    cov_res: BdtopoCoverageResult,
+    name: str,
+) -> tuple[str, str]:
+    """Label (texte, couleur fg) pour l'état BD TOPO.
+
+    Règle : aucun ✓ si un contrôle n'est pas ok. Vert uniquement si les deux
+    contrôles sont ok ; rouge dès qu'un contrôle constate une anomalie ;
+    orange si aucune anomalie mais au moins un contrôle non_verifie.
+    Les raisons des deux contrôles sont conservées (label multi-lignes).
+    """
+    if layer_res.status == "ok" and cov_res.status == "ok":
+        return f"✓ {name}", _COLOR_PRESENT
+    anomalie = False
+    lines: list[str] = []
+    if layer_res.status == "anomalie":
+        anomalie = True
+        lines.append(f"⚠ couches manquantes : {', '.join(layer_res.missing)}")
+    elif layer_res.status == "non_verifie":
+        lines.append(f"⚠ {layer_res.reason}")
+    if cov_res.status == "anomalie":
+        anomalie = True
+        lines.append("⚠ couverture spatiale insuffisante")
+    elif cov_res.status == "non_verifie":
+        lines.append(f"⚠ {cov_res.reason}")
+    color = _COLOR_MISSING if anomalie else _COLOR_UNVERIFIED
+    return "\n".join(lines), color
 
 
 class LidarOApp:
@@ -67,7 +102,7 @@ class LidarOApp:
         right.pack(side=tk.LEFT, fill=tk.Y)
 
         tk.Label(right, text="État BD TOPO :", bg=_COLOR_BG).pack(anchor=tk.W)
-        self._bdtopo_label = tk.Label(right, text="— non chargée", bg=_COLOR_BG, fg="#888")
+        self._bdtopo_label = tk.Label(right, text="— non chargée", bg=_COLOR_BG, fg="#888", justify=tk.LEFT)
         self._bdtopo_label.pack(anchor=tk.W)
 
         tk.Label(right, text="Karttapullautin :", bg=_COLOR_BG).pack(anchor=tk.W, pady=(8, 0))
@@ -197,16 +232,26 @@ class LidarOApp:
         self._bdtopo_path = bdtopo_path
         self._log(f"BD TOPO : {bdtopo_path.name}")
 
-        try:
-            import fiona
-            layers = fiona.listlayers(str(bdtopo_path))
-            self._bdtopo_label.config(text=f"✓ {bdtopo_path.name}", fg="#4caf50")
-            self._log(f"  {len(layers)} couche(s) disponible(s)")
-        except ImportError:
-            self._bdtopo_label.config(text=f"✓ {bdtopo_path.name} (non validé)", fg="#ff9800")
-        except Exception as exc:
-            self._bdtopo_label.config(text=f"⚠ erreur lecture", fg="#f44336")
-            self._log(f"  Erreur : {exc}")
+        from src.check_terrain import (
+            BdtopoCoverageResult,
+            _check_bdtopo_coverage,
+            _check_bdtopo_layers,
+        )
+
+        layer_res = _check_bdtopo_layers(bdtopo_path)
+        terrain_cfg = (self._cfg.get("terrains") or {}).get(self._terrain_var.get(), {})
+        bbox = terrain_cfg.get("bbox")
+        if bbox:
+            cov_res = _check_bdtopo_coverage(bdtopo_path, tuple(bbox))
+        else:
+            cov_res = BdtopoCoverageResult(
+                "non_verifie",
+                "non vérifié (couverture) : bbox absente (terrain non sélectionné ou sans bbox)",
+            )
+        text, fg = _bdtopo_status(layer_res, cov_res, bdtopo_path.name)
+        self._bdtopo_label.config(text=text, fg=fg)
+        self._log(f"  couches : {layer_res.reason}")
+        self._log(f"  couverture : {cov_res.reason}")
 
         self._refresh_run_button()
 
@@ -221,7 +266,7 @@ class LidarOApp:
             if version == KP_PINNED_VERSION:
                 self._kp_label.config(text=f"✓ v{version}", fg="#4caf50")
             else:
-                self._kp_label.config(text=f"⚠ v{version} (attendu v{KP_PINNED_VERSION})", fg="#ff9800")
+                self._kp_label.config(text=f"⚠ v{version} (attendu v{KP_PINNED_VERSION})", fg=_COLOR_UNVERIFIED)
             self._kp_binary = binary
         except Exception as exc:
             self._kp_label.config(text=f"⚠ erreur : {exc}", fg="#f44336")
