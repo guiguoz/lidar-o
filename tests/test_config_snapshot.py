@@ -9,6 +9,7 @@ import json
 import pathlib
 
 import pytest
+import yaml
 
 from src.guards import check_config_snapshot
 from src.qa import write_config_snapshot
@@ -185,3 +186,57 @@ def test_snapshot_contains_git_hash(tmp_path: pathlib.Path) -> None:
     write_config_snapshot(cfg, tmp_path)
     snap = _read_snapshot(tmp_path)
     assert "git_hash" in snap
+
+
+# ── Intégration split dans write_config_snapshot ────────────────────────────
+
+def test_snapshot_split_absent_no_crash(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Module split présent, fichier de données absent → snapshot optionnel, pas de crash.
+
+    Simule un clone frais où experiments/v0/split.yaml n'a pas encore été créé.
+    """
+    import src.split as split_mod
+    monkeypatch.setattr(split_mod, "_DEFAULT_YAML", tmp_path / "nonexistent_split.yaml")
+
+    cfg = _base_cfg()
+    write_config_snapshot(cfg, tmp_path)
+
+    snap = _read_snapshot(tmp_path)
+    assert "split" in snap
+    assert snap["split"] is None
+
+
+def test_snapshot_split_present(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Module split présent + données disponibles → snapshot intègre le découpage.
+
+    Le fichier de données est fabriqué en tmp_path pour rester autonome —
+    ne dépend pas du split.yaml non suivi de l'arbre de travail.
+    """
+    import src.split as split_mod
+
+    split_yaml = tmp_path / "split.yaml"
+    split_yaml.write_text(
+        yaml.dump({
+            "split_y": 6887771.0,
+            "validation_side": "north",
+            "calibration_side": "south",
+            "buffer": {"buffer_half_width_m": 30.0, "status": "provisional"},
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(split_mod, "_DEFAULT_YAML", split_yaml)
+
+    cfg = _base_cfg()
+    output_dir = tmp_path / "run_out"
+    output_dir.mkdir()
+    write_config_snapshot(cfg, output_dir)
+
+    snap = _read_snapshot(output_dir)
+    assert snap["split"] is not None
+    assert snap["split"]["split_y"] == 6887771.0
+    assert snap["split"]["buffer_total_m"] == pytest.approx(60.0)
+    assert snap["split"]["validation_y_min"] == pytest.approx(6887771.0 + 30.0)
