@@ -97,3 +97,50 @@ def test_split_as_snapshot_dict(tmp_path: pathlib.Path) -> None:
     assert d["split_y"] == 6887771.0
     assert d["buffer_total_m"] == pytest.approx(60.0)
     assert d["validation_y_min"] == pytest.approx(6887771.0 + 30.0)
+
+
+# ── Validation de l'orientation ───────────────────────────────────────────────
+
+def test_split_north_south_valid(tmp_path: pathlib.Path) -> None:
+    """La convention north/south actuelle reste valide."""
+    sc = load_split(_minimal_yaml(tmp_path))
+    assert sc.validation_side == "north"
+    assert sc.calibration_side == "south"
+
+
+def test_split_inverted_sides_raises() -> None:
+    """Côtés inversés (south/north) → ValueError à la construction directe."""
+    with pytest.raises(ValueError, match="non prise en charge"):
+        SplitConfig(
+            split_y=6887771.0,
+            validation_side="south",
+            calibration_side="north",
+            buffer_half_width_m=30.0,
+            buffer_status="provisional",
+        )
+
+
+def test_split_unsupported_sides_raises() -> None:
+    """Côtés non reconnus → ValueError à la construction directe."""
+    with pytest.raises(ValueError, match="non prise en charge"):
+        SplitConfig(
+            split_y=6887771.0,
+            validation_side="east",
+            calibration_side="west",
+            buffer_half_width_m=30.0,
+            buffer_status="provisional",
+        )
+
+
+def test_split_inverted_yaml_raises(tmp_path: pathlib.Path) -> None:
+    """YAML avec validation_side=south → ValueError via load_split()."""
+    data = {
+        "split_y": 6887771.0,
+        "validation_side": "south",
+        "calibration_side": "north",
+        "buffer": {"buffer_half_width_m": 30.0, "status": "provisional"},
+    }
+    p = tmp_path / "inverted.yaml"
+    p.write_text(yaml.dump(data), encoding="utf-8")
+    with pytest.raises(ValueError, match="non prise en charge"):
+        load_split(p)

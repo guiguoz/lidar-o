@@ -8,6 +8,11 @@ Convention buffer :
   buffer_half_width_m = demi-largeur ; chaque zone commence à split_y ± cette valeur.
   Buffer total = 2 × buffer_half_width_m.
 
+Hypothèse d'orientation (seule convention prise en charge) :
+  validation_side == "north"  →  validation_y_min = split_y + buffer_half_width_m
+  calibration_side == "south" →  calibration_y_max = split_y - buffer_half_width_m
+  Toute autre combinaison lève un ValueError à la construction.
+
 Si buffer.status == "provisional", tout rapport de métrique finale doit inclure
 l'avertissement retourné par provisional_flag().
 """
@@ -34,6 +39,14 @@ class SplitConfig:
     calibration_side: str
     buffer_half_width_m: float
     buffer_status: str
+
+    def __post_init__(self) -> None:
+        if self.validation_side != "north" or self.calibration_side != "south":
+            raise ValueError(
+                f"Orientation non prise en charge : validation_side={self.validation_side!r}, "
+                f"calibration_side={self.calibration_side!r}. "
+                "Seule la convention north/south est supportée."
+            )
 
     @property
     def validation_y_min(self) -> float:
