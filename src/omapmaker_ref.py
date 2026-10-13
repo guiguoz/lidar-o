@@ -30,7 +30,6 @@ import pathlib
 from typing import Any
 
 import numpy as np
-import pdal
 import rasterio
 from rasterio.crs import CRS
 from rasterio.transform import from_bounds, rowcol
@@ -70,6 +69,7 @@ def _read_points(
     expression : filtre PDAL optionnel avant le crop (ex. "Classification == 2").
     Retourne un tableau structuré numpy avec au moins X, Y, Z, Classification.
     """
+    import pdal  # requis uniquement pour l'exécution du pipeline (lecture des points)
     xmin, ymin, xmax, ymax = bbox
     stages: list[dict] = []
     for p in copc_paths:
@@ -130,6 +130,8 @@ def _write_tif(
     }
     if nodata is not None:
         profile["nodata"] = nodata
+        if np.issubdtype(arr.dtype, np.floating):
+            arr = np.where(np.isnan(arr), nodata, arr)
 
     with rasterio.open(path, "w", **profile) as dst:
         for i in range(count):
@@ -144,6 +146,32 @@ def _write_tif(
 # ─────────────────────────────────────────────────────────────────────────────
 # Étapes du pipeline
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _grid(
+    bbox: tuple[float, float, float, float],
+) -> tuple[int, int, Any]:
+    """Calcule (rows, cols, transform) pour une grille exactement à _RES_M m/px.
+
+    L'ancrage sud-ouest (xmin, ymin) est conservé. La grille est étendue vers
+    l'est et le nord en multiples exacts de _RES_M pour garantir une taille de
+    pixel = _RES_M sur les deux axes.
+    """
+    xmin, ymin, xmax, ymax = bbox
+    cols = int(np.ceil((xmax - xmin) / _RES_M))
+    rows = int(np.ceil((ymax - ymin) / _RES_M))
+    xmax_g = xmin + cols * _RES_M
+    ymax_g = ymin + rows * _RES_M
+    transform = from_bounds(xmin, ymin, xmax_g, ymax_g, cols, rows)
+    res_x = abs(transform.a)
+    res_y = abs(transform.e)
+    ext_x = xmax_g - xmax
+    ext_y = ymax_g - ymax
+    log.info(
+        "Grille : %d x %d px, résolution %.9f x %.9f m/px, extension E=%.4f m N=%.4f m",
+        cols, rows, res_x, res_y, ext_x, ext_y,
+    )
+    return rows, cols, transform
+
 
 def _update_dtm(
     dtm: np.ndarray,
@@ -167,11 +195,21 @@ def _finalize_dtm(dtm: np.ndarray) -> None:
 
     [DEVIATION-DTM] Approximation de natural-neighbor. Négligeable à haute densité.
     """
-    holes = dtm == np.inf
+    finite = np.isfinite(dtm)
+    if not finite.any():
+        raise RuntimeError(
+            "Aucun point sol (classes 2/9) dans l'emprise — DTM impossible"
+        )
+    holes = ~finite
     n_holes = int(holes.sum())
     if n_holes:
         _, idx = distance_transform_edt(holes, return_indices=True)
         dtm[holes] = dtm[idx[0][holes], idx[1][holes]]
+        if not np.isfinite(dtm).all():
+            raise RuntimeError(
+                "DTM : des cellules non finies subsistent après hole-fill — "
+                "vérifier les données sol"
+            )
         log.info("DTM : %d cellules sans point sol comblées", n_holes)
     log.info(
         "DTM : min=%.1f m, max=%.1f m, median=%.1f m",
@@ -303,11 +341,7 @@ def run(
     output_dir.mkdir(parents=True, exist_ok=True)
     copc_paths = [pathlib.Path(p) for p in copc_paths]
 
-    xmin, ymin, xmax, ymax = bbox
-    cols = int(np.ceil((xmax - xmin) / _RES_M))
-    rows = int(np.ceil((ymax - ymin) / _RES_M))
-    transform = from_bounds(xmin, ymin, xmax, ymax, cols, rows)
-    log.info("Grille : %d x %d px (%.0f x %.0f m)", cols, rows, xmax - xmin, ymax - ymin)
+    rows, cols, transform = _grid(bbox)
 
     # ── Passe 1 : DTM depuis class 2 + 9 (une tuile à la fois) ─────────────
     log.info("Passe 1/%d : DTM (class 2+9)...", len(copc_paths))
@@ -329,7 +363,7 @@ def run(
         del gx, gy, gz
 
     _finalize_dtm(dtm)
-    _write_tif(dtm, output_dir / "omapmaker_dtm.tif", transform, crs, nodata=-9999.0)
+    _write_tif(dtm, output_dir / "omapmaker_dtm.tif", transform, crs)
 
     # ── Passe 2 : HAG + comptages (une tuile à la fois) ─────────────────────
     log.info("Passe 2/%d : HAG + strates...", len(copc_paths))
@@ -354,7 +388,7 @@ def run(
     log.info("Strates totales : g=%d low=%d med=%d high=%d", *totals)
 
     _write_tif(
-        raw_counts, output_dir / "omapmaker_strates.tif", transform, crs, nodata=-1.0,
+        raw_counts, output_dir / "omapmaker_strates.tif", transform, crs,
         descriptions=["ground_raw_lt0.2m", "low_raw_0.2-1.5m",
                        "med_raw_1.5-3.0m", "high_raw_ge3.0m"],
     )
@@ -377,9 +411,9 @@ def run(
     # ── Seuillage → classes ──────────────────────────────────────────────────
     classes = _classify(ndvd_smooth)
     del ndvd_smooth
-    _write_tif(classes, output_dir / "omapmaker_classes.tif", transform, crs, nodata=0)
+    _write_tif(classes, output_dir / "omapmaker_classes.tif", transform, crs)
     # classes_gen = classes (aucune morphologie raster dans omapmaker)
-    _write_tif(classes, output_dir / "omapmaker_classes_gen.tif", transform, crs, nodata=0)
+    _write_tif(classes, output_dir / "omapmaker_classes_gen.tif", transform, crs)
 
     paths = {
         "dtm": output_dir / "omapmaker_dtm.tif",
