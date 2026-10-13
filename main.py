@@ -79,23 +79,46 @@ def step_check_config(cfg: dict) -> None:
 
 # ── Étape 1 : fetch ───────────────────────────────────────────────────────────
 
+def _run_fetch_script(terrain: str) -> None:
+    subprocess.run([PYTHON, str(SCRIPTS / "fetch.py"), terrain], check=True)
+
+
 def step_fetch(terrain: str, cfg: dict, force: bool) -> None:
-    dept = cfg.get("terrains", {}).get(terrain, {}).get("departement")
-    if not dept:
-        log.info("fetch : pas de 'departement' pour '%s' — étape ignorée (terrain non français ?)", terrain)
+    tcfg = cfg.get("terrains", {}).get(terrain, {})
+    bdtopo_path = tcfg.get("bdtopo_path")
+    dept = tcfg.get("departement")
+
+    # Résoudre la source avec la même priorité que scripts/fetch.py :
+    # 1. bdtopo_path explicite → erreur si absent
+    # 2. departement → find_gpkg dans data/bdtopo/ (même sélection que fetch.py)
+    # 3. aucun des deux → terrain sans BD TOPO, étape ignorée
+    source: pathlib.Path | None = None
+    if bdtopo_path:
+        source = pathlib.Path(bdtopo_path)
+        if not source.exists():
+            log.error("fetch : bdtopo_path configuré mais fichier absent : %s", source)
+            sys.exit(1)
+    elif dept:
+        from scripts.fetch import find_gpkg
+        try:
+            source = find_gpkg(DATA / "bdtopo", dept)
+        except FileNotFoundError:
+            source = None  # SKIP si sortie existe, sinon fetch produira son erreur
+    else:
+        log.info(
+            "fetch : ni 'bdtopo_path' ni 'departement' pour '%s' — étape ignorée",
+            terrain,
+        )
         return
 
     out = DATA / f"{terrain}_bdtopo.gpkg"
-    gpkg_sources = sorted((DATA / "bdtopo").glob(f"*D0{dept}*.gpkg"))
-    ref = gpkg_sources[-1] if gpkg_sources else None
-
     if not force and out.exists():
-        if ref is None or _is_fresh(out, ref):
+        if source is None or _is_fresh(out, source):
             log.info("SKIP fetch — %s à jour", out.name)
             return
-        log.warning("fetch : %s périmé (< %s) — relance", out.name, ref.name)
+        log.warning("fetch : %s périmé (< %s) — relance", out.name, source.name)
 
-    subprocess.run([PYTHON, str(SCRIPTS / "fetch.py"), terrain], check=True)
+    _run_fetch_script(terrain)
 
 
 # ── Étape 2 : pdal ────────────────────────────────────────────────────────────
