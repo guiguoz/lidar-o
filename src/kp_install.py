@@ -157,7 +157,8 @@ def locate_binary(
     Ordre de recherche :
       1. config terrain kp_binary
       2. variable d'environnement KP_BINARY
-      3. PATH (shutil.which)
+      3. bin/pullauta[.exe] à la racine du projet
+      4. PATH (shutil.which)
     """
     if cfg is not None and terrain is not None:
         kp_binary_cfg = (
@@ -175,6 +176,11 @@ def locate_binary(
         if p.exists():
             return p
         log.warning("KP_BINARY='%s' défini mais absent", env_path)
+
+    exe_name = "pullauta.exe" if sys.platform == "win32" else "pullauta"
+    project_bin = pathlib.Path(__file__).parent.parent / "bin" / exe_name
+    if project_bin.exists():
+        return project_bin
 
     which = shutil.which("pullauta")
     if which:
