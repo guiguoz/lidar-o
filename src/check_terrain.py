@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import xml.etree.ElementTree as ET
+from typing import NamedTuple
 
 log = logging.getLogger(__name__)
 
@@ -26,14 +27,18 @@ _REQUIRED_MODULES: list[tuple[str, str]] = [
 ]
 
 
-def check_deps() -> bool:
+def check_deps(require_pdal: bool = True) -> bool:
     """Verify required Python modules are importable (no import — find_spec only).
 
+    require_pdal=False : exclut pdal de la liste (mode KP).
     Returns True if all critical modules are present.
     """
+    modules = _REQUIRED_MODULES if require_pdal else [
+        (m, h) for m, h in _REQUIRED_MODULES if m != "pdal"
+    ]
     missing = [
         (mod, hint)
-        for mod, hint in _REQUIRED_MODULES
+        for mod, hint in modules
         if importlib.util.find_spec(mod) is None
     ]
 
@@ -46,11 +51,6 @@ def check_deps() -> bool:
             "pas pip seul. Voir README § Requirements."
         )
         return False
-
-    # KP binary — optional, info only
-    kp = os.environ.get("KP_BINARY") or shutil.which("pullauta")
-    if not kp:
-        log.info("Info : binaire Karttapullautin (pullauta) absent — relief non disponible")
 
     return True
 
@@ -164,6 +164,29 @@ def _validate_georef_xml(path: pathlib.Path) -> bool:
         return False
 
 
+REQUIRED_BDTOPO_LAYERS = [
+    "troncon_de_route",
+    "batiment",
+    "surface_hydrographique",
+    "troncon_hydrographique",
+]
+
+
+class BdtopoLayerResult(NamedTuple):
+    """Résultat du contrôle des couches BD TOPO."""
+
+    status: str  # "ok" | "anomalie" | "non_verifie"
+    missing: list[str]  # couches manquantes (vide si ok ou non_verifie)
+    reason: str  # libellé affiché à l'utilisateur
+
+
+class BdtopoCoverageResult(NamedTuple):
+    """Résultat du contrôle de couverture BD TOPO."""
+
+    status: str  # "ok" | "anomalie" | "non_verifie"
+    reason: str  # libellé affiché à l'utilisateur
+
+
 def cmd_check(
     terrain: str,
     cfg: dict,
@@ -171,137 +194,368 @@ def cmd_check(
     *,
     skip_check: bool = False,
     lidar_dir: pathlib.Path | None = None,
+    verbose: bool = True,
+    force_kp_version: bool = False,
+    veg_mode: str = "kp",
 ) -> bool:
-    """Run all pre-flight checks for terrain. Returns True if all critical checks pass.
+    """Contrôle pré-run complet du terrain. Retourne True si projet prêt.
 
-    Errors:  tiles absent, coverage < 90 %, georef XML missing/invalid
-    Warnings: BD TOPO absent when departement declared, CRS mismatch
-    Info:     KP output absent (relief optional)
-
-    lidar_dir: override for the tiles directory (defaults to root/LIDAR).
-               When supplied by --tiles-dir, tile presence check uses that path.
+    Affiche le rapport structuré sur stdout si verbose=True.
     """
     if skip_check:
         return True
 
-    if not check_deps():
+    require_pdal = (veg_mode == "hag")
+    if not check_deps(require_pdal=require_pdal):
+        if veg_mode == "hag":
+            log.error(
+                "mode hag → PDAL requis (module + binaire) : "
+                "conda install -c conda-forge python-pdal pdal\n"
+                "   Pour un run sans PDAL : vegetation_source: \"kp\"."
+            )
         return False
 
     terrain_cfg = (cfg.get("terrains") or {}).get(terrain, {})
     bbox = terrain_cfg.get("bbox")
-    crs_declared = terrain_cfg.get("crs", "")
-    dept = terrain_cfg.get("departement")
+    crs_raw = terrain_cfg.get("crs")
+    if crs_raw is None:
+        crs_declared = ""
+    elif isinstance(crs_raw, str):
+        crs_declared = crs_raw.strip()
+    else:
+        crs_declared = str(crs_raw)
     all_ok = True
 
-    # ── 1. LiDAR tiles ────────────────────────────────────────────────────────
+    def _out(msg: str = "") -> None:
+        if verbose:
+            print(msg)
 
-    lidar_dir = lidar_dir if lidar_dir is not None else root / "LIDAR"
+    _out(f"Lidar'O — contrôle du projet")
+    _out("=" * 44)
+
+    # ── Emprise ───────────────────────────────────────────────────────────────
+
+    _out()
+    _out("Emprise")
+
+    lidar_dir_resolved: pathlib.Path
+    lidar_dir_cfg = terrain_cfg.get("lidar_dir")
+    if lidar_dir is not None:
+        lidar_dir_resolved = lidar_dir
+    elif lidar_dir_cfg:
+        lidar_dir_resolved = pathlib.Path(lidar_dir_cfg)
+    else:
+        lidar_dir_resolved = root / "LIDAR" / terrain
+
+    if bbox:
+        bx1, by1, bx2, by2 = bbox
+        w_km = (bx2 - bx1) / 1000
+        h_km = (by2 - by1) / 1000
+        crs_short = crs_declared.split(":")[-1] if ":" in crs_declared else crs_declared
+        emprise_str = (
+            f"{int(bx1)} – {int(bx2)} × {int(by1)} – {int(by2)}"
+            f" · {w_km:.0f} × {h_km:.0f} km"
+            f" · {_crs_label(crs_declared)}"
+        )
+        _out(f"  ✓ {emprise_str}")
+    else:
+        _out("  ⚠ bbox non déclarée dans config.yaml")
+
+    # ── LiDAR HD ──────────────────────────────────────────────────────────────
+
+    _out()
+    _out("LiDAR HD")
+
     seen: set[str] = set()
     unique_tiles: list[pathlib.Path] = []
-    for f in sorted(lidar_dir.glob("*.copc.laz")) + sorted(lidar_dir.glob("*.laz")):
-        if f.name not in seen:
-            seen.add(f.name)
-            unique_tiles.append(f)
+    if lidar_dir_resolved.exists():
+        for f in sorted(lidar_dir_resolved.glob("*.copc.laz")) + sorted(lidar_dir_resolved.glob("*.laz")):
+            if f.name not in seen:
+                seen.add(f.name)
+                unique_tiles.append(f)
 
     if not unique_tiles:
-        log.error("ERREUR : aucune dalle LiDAR dans %s", lidar_dir)
-        log.error("  → python main.py tiles %s", terrain)
-        return False
+        _out(f"  ✗ aucune dalle LiDAR dans {lidar_dir_resolved}")
+        _out(f"    Action : python main.py setup {terrain}")
+        log.error("check : aucune dalle LiDAR dans %s", lidar_dir_resolved)
+        all_ok = False
+    else:
+        tile_metadatas: dict[pathlib.Path, dict | None] = {
+            f: _laz_metadata(f) for f in unique_tiles
+        }
+        tile_extents: dict[pathlib.Path, tuple[float, float, float, float] | None] = {
+            f: (_bbox_from_metadata(m) if m else None) or _ign_tile_extent(f.name)
+            for f, m in tile_metadatas.items()
+        }
+        extents = [e for e in tile_extents.values() if e is not None]
 
-    log.info("check : %d dalle(s) LiDAR", len(unique_tiles))
-
-    # ── 2. Tile coverage vs declared bbox ─────────────────────────────────────
-
-    tile_metadatas: dict[pathlib.Path, dict | None] = {
-        f: _laz_metadata(f) for f in unique_tiles
-    }
-    tile_extents: dict[pathlib.Path, tuple[float, float, float, float] | None] = {
-        f: (_bbox_from_metadata(m) if m else None) or _ign_tile_extent(f.name)
-        for f, m in tile_metadatas.items()
-    }
-    extents = [e for e in tile_extents.values() if e is not None]
-    unresolved = [f for f, e in tile_extents.items() if e is None]
-
-    if unresolved:
-        log.warning(
-            "check : %d dalle(s) sans emprise lisible (pdal info a échoué) : %s",
-            len(unresolved), ", ".join(f.name for f in unresolved),
-        )
-
-    if bbox is not None:
-        if extents:
+        if bbox is not None and extents:
             tiles_ext = _tiles_union(extents)
             cov = _coverage_pct(tuple(bbox), tiles_ext)
 
-            if cov < 90.0:
-                bx1, by1, bx2, by2 = bbox
-                tx1, ty1, tx2, ty2 = tiles_ext
-                log.error("ERREUR : les dalles ne couvrent pas la bbox déclarée.")
-                log.error("  bbox config   : X %d–%d  Y %d–%d", bx1, bx2, by1, by2)
-                log.error("  dalles LIDAR/ : X %d–%d  Y %d–%d", tx1, tx2, ty1, ty2)
-                log.error("  recouvrement  : %.0f %%", cov)
-                log.error("    Vérifiez avec : python main.py tiles %s", terrain)
-                all_ok = False
+            try:
+                from src.providers import find_tiles
+                expected_tiles, _ = find_tiles(tuple(bbox), crs_declared)
+                n_expected = len(expected_tiles)
+            except Exception:
+                n_expected = 0
+
+            n_present = len(unique_tiles)
+            if n_expected > 0:
+                tile_summary = f"{n_present}/{n_expected} dalles"
             else:
-                log.info("check : recouvrement bbox %.0f %% (OK)", cov)
+                tile_summary = f"{n_present} dalle(s)"
+
+            agencement = _check_agencement(extents)
+
+            if cov >= 90.0:
+                _out(f"  ✓ {tile_summary} · {agencement}")
+            else:
+                missing_n = max(0, n_expected - n_present) if n_expected > 0 else 0
+                _out(f"  ✗ {tile_summary} · couverture {cov:.0f} % (< 90 %)")
+                if missing_n > 0:
+                    _out(f"    {missing_n} dalle(s) manquante(s)")
+                _out(f"    Action : python main.py tiles {terrain}")
+                log.error("check : couverture bbox %.0f %% (< 90 %%)", cov)
+                all_ok = False
+        elif not extents:
+            _out(f"  ⚠ {len(unique_tiles)} dalle(s) — emprise non vérifiable"
+                 f" (PDAL absent ou dalles non-IGN)")
         else:
-            log.warning("check : recouvrement non vérifié — aucune emprise disponible")
+            _out(f"  ⚠ {len(unique_tiles)} dalle(s) — emprise non vérifiée (bbox non configurée)")
 
-    # ── 3. CRS consistency ────────────────────────────────────────────────────
+        _out(f"  {lidar_dir_resolved}")
 
-    if crs_declared:
-        declared_epsg = int(crs_declared.split(":")[-1]) if ":" in crs_declared else None
-        if declared_epsg:
-            mismatched = [
-                (f.name, epsg)
-                for f, m in tile_metadatas.items()
-                if m and (epsg := _epsg_from_metadata(m)) and epsg != declared_epsg
-            ]
-            if mismatched:
-                for fname, tile_epsg in mismatched:
+        # CRS consistency
+        m_epsg = re.fullmatch(r"EPSG:([1-9]\d*)", crs_declared, flags=re.IGNORECASE)
+        declared_epsg = int(m_epsg.group(1)) if m_epsg else None
+        if declared_epsg is None:
+            if crs_declared:
+                _out(f"  ⚠ CRS non vérifiable (déclaration non EPSG : {crs_declared})")
+            else:
+                _out("  ⚠ CRS non déclaré — non vérifié")
+        else:
+            n_verifie = 0
+            n_non_verifie = 0
+            for f, m in tile_metadatas.items():
+                tile_epsg = _epsg_from_metadata(m) if m else None
+                if tile_epsg is None:
+                    n_non_verifie += 1
+                    continue
+                n_verifie += 1
+                if tile_epsg != declared_epsg:
+                    _out(f"  ⚠ CRS dalle {f.name} : EPSG:{tile_epsg} ≠ déclaré EPSG:{declared_epsg}")
                     log.warning(
                         "check : CRS dalle %s → EPSG:%d ≠ config EPSG:%d",
-                        fname, tile_epsg, declared_epsg,
+                        f.name, tile_epsg, declared_epsg,
                     )
+            if n_verifie == 0:
+                if any(m is not None for m in tile_metadatas.values()):
+                    _out("  ⚠ CRS non vérifiable (métadonnées présentes mais CRS illisible)")
+                else:
+                    _out("  ⚠ CRS non vérifiable (métadonnées PDAL indisponibles)")
+            elif n_non_verifie:
+                _out(f"  ⚠ CRS partiel : {n_verifie}/{len(tile_metadatas)} dalle(s) vérifiée(s)")
 
-    ign_extents = [e for f, e in tile_extents.items()
-                   if e is not None and _ign_tile_extent(f.name) is not None]
-    if crs_declared and ign_extents:
-        if "2154" not in crs_declared:
-            log.warning(
-                "check : CRS déclaré %s mais dalles IGN Lambert-93 — vérifier config.yaml",
-                crs_declared,
-            )
+    # ── BD TOPO ───────────────────────────────────────────────────────────────
 
-    # ── 4. Georef XML ─────────────────────────────────────────────────────────
+    _out()
+    _out("BD TOPO")
 
-    georef_path = root / "assets" / f"georef_{terrain}.xml"
-    if _validate_georef_xml(georef_path):
-        log.info("check : %s présent et valide (OK)", georef_path.name)
+    bdtopo_path_cfg = terrain_cfg.get("bdtopo_path")
+    dept = terrain_cfg.get("departement")
+
+    if bdtopo_path_cfg:
+        bdtopo_p = pathlib.Path(bdtopo_path_cfg)
+        if not bdtopo_p.exists():
+            _out(f"  ✗ bdtopo_path déclaré mais absent : {bdtopo_p}")
+            _out(f"    Action : python main.py setup {terrain}")
+            log.error("check : bdtopo_path absent : %s", bdtopo_p)
+            all_ok = False
+        else:
+            layer_res = _check_bdtopo_layers(bdtopo_p)
+            if bbox:
+                cov_res = _check_bdtopo_coverage(bdtopo_p, tuple(bbox))
+            else:
+                cov_res = BdtopoCoverageResult("non_verifie", "non vérifié (couverture) : bbox absente")
+
+            layers_ok = layer_res.status == "ok"
+            coverage_ok = cov_res.status == "ok"
+
+            if layers_ok and coverage_ok:
+                _out(f"  ✓ {bdtopo_p.name}")
+            else:
+                if layer_res.status == "anomalie":
+                    _out(f"  ⚠ couches manquantes : {', '.join(layer_res.missing)}")
+                elif layer_res.status == "non_verifie":
+                    _out(f"  ⚠ {layer_res.reason}")
+                else:
+                    _out(f"  ✓ couches : {bdtopo_p.name}")
+
+                if cov_res.status == "anomalie":
+                    _out(f"  ⚠ couverture spatiale insuffisante")
+                elif cov_res.status == "non_verifie":
+                    _out(f"  ⚠ {cov_res.reason}")
+    elif dept:
+        _out(f"  ⚠ département configuré ({dept}) mais bdtopo_path absent")
+        _out(f"    Action : python main.py setup {terrain}")
+        log.warning("check : bdtopo_path absent (ancienne config département %s)", dept)
     else:
-        log.error("ERREUR : %s absent ou invalide", georef_path)
-        log.error("  → python main.py init %s --center lat lon", terrain)
+        _out("  — BD TOPO non configurée (masquage anthropique désactivé)")
+
+    # ── Karttapullautin ───────────────────────────────────────────────────────
+
+    _out()
+    _out("Karttapullautin")
+
+    from src.kp_install import (
+        KP_PINNED_VERSION,
+        locate_binary as _kp_locate,
+        read_binary_version,
+    )
+
+    binary = _kp_locate(cfg, terrain)
+    kp_version_expected = terrain_cfg.get("kp_version") or KP_PINNED_VERSION
+
+    if binary is None:
+        _out(f"  ✗ absent")
+        _out(f"    Action : python main.py setup {terrain}")
+        log.error("check : KP (pullauta) introuvable")
         all_ok = False
+    else:
+        actual_version = read_binary_version(binary)
+        if actual_version is None:
+            _out(f"  ⚠ version illisible ({binary})")
+        elif actual_version == kp_version_expected:
+            _out(f"  ✓ v{actual_version}")
+        else:
+            if force_kp_version:
+                _out(f"  ⚠ v{actual_version} (attendu : v{kp_version_expected}) — ignoré (--force-kp)")
+                log.warning(
+                    "check : KP version %s ≠ attendu %s — ignoré par --force-kp",
+                    actual_version, kp_version_expected,
+                )
+            else:
+                _out(f"  ✗ v{actual_version} ≠ attendu v{kp_version_expected}")
+                _out(f"    Action : python main.py setup {terrain}")
+                log.error(
+                    "check : KP version %s ≠ attendu %s",
+                    actual_version, kp_version_expected,
+                )
+                all_ok = False
 
-    # ── 5. BD TOPO (avertissement) ────────────────────────────────────────────
+    # ── Résumé ────────────────────────────────────────────────────────────────
 
-    if dept:
-        data_dir = root / "data"
-        bdtopo_cache = data_dir / f"{terrain}_bdtopo.gpkg"
-        bdtopo_raw = sorted((data_dir / "bdtopo").glob(f"*D0{dept}*.gpkg")) if (data_dir / "bdtopo").exists() else []
-        if not bdtopo_cache.exists() and not bdtopo_raw:
-            log.warning(
-                "Avertissement : BD TOPO introuvable pour département %s "
-                "(masquage anthropique désactivé — pipeline continue sans)",
-                dept,
-            )
-
-    # ── 6. Karttapullautin (information) ─────────────────────────────────────
-
-    out_kp = root / f"out_kp_{terrain}"
-    if not out_kp.exists():
-        out_kp = root / "out_kp"
-    if not out_kp.exists() or not any(out_kp.glob("*.dxf")):
-        log.info("Info : out_kp/ absent — relief non inclus (optionnel)")
+    _out()
+    _out("─" * 40)
+    if all_ok:
+        _out("PROJET PRÊT")
+    else:
+        _out("PROJET INCOMPLET")
+    _out("─" * 40)
 
     return all_ok
+
+
+def _crs_label(crs: str) -> str:
+    """Retourne un nom court pour l'affichage."""
+    labels = {
+        "EPSG:2154": "Lambert-93",
+        "EPSG:25832": "UTM 32N",
+        "EPSG:25833": "UTM 33N",
+        "EPSG:3067": "TM35FIN",
+        "EPSG:27700": "BNG",
+        "EPSG:2056": "CH1903+",
+        "EPSG:3301": "L-EST97",
+    }
+    return labels.get(crs, crs)
+
+
+def _check_agencement(
+    extents: list[tuple[float, float, float, float]],
+) -> str:
+    """Vérifie la jointivité approximative des tuiles."""
+    if len(extents) <= 1:
+        return "dalle unique"
+
+    xs = sorted({e[0] for e in extents} | {e[2] for e in extents})
+    ys = sorted({e[1] for e in extents} | {e[3] for e in extents})
+
+    if len(xs) < 2 or len(ys) < 2:
+        return "dalles jointives"
+
+    cell_w = xs[1] - xs[0]
+    cell_h = ys[1] - ys[0]
+
+    expected_xs = {xs[0] + i * cell_w for i in range(len(xs) - 1)}
+    expected_ys = {ys[0] + i * cell_h for i in range(len(ys) - 1)}
+
+    actual_xs = {e[0] for e in extents}
+    actual_ys = {e[1] for e in extents}
+
+    if actual_xs == expected_xs and actual_ys == expected_ys:
+        return "dalles jointives"
+    return "trous ou groupes disjoints détectés"
+
+
+def _check_bdtopo_layers(gpkg_path: pathlib.Path) -> BdtopoLayerResult:
+    """Retourne le résultat du contrôle des couches REQUIRED dans le GPKG."""
+    import warnings
+    try:
+        import pyogrio
+    except ImportError:
+        return BdtopoLayerResult(
+            "non_verifie",
+            [],
+            "non vérifié (couches) : pyogrio absent",
+        )
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            rows = pyogrio.list_layers(str(gpkg_path))
+        available = {row[0] for row in rows}
+        missing = [l for l in REQUIRED_BDTOPO_LAYERS if l not in available]
+        if missing:
+            return BdtopoLayerResult("anomalie", missing, f"couches manquantes : {', '.join(missing)}")
+        return BdtopoLayerResult("ok", [], "couches présentes")
+    except Exception as exc:
+        return BdtopoLayerResult(
+            "non_verifie",
+            [],
+            f"non vérifié (couches) : lecture GPKG échouée ({exc})",
+        )
+
+
+def _check_bdtopo_coverage(
+    gpkg_path: pathlib.Path,
+    bbox: tuple[float, float, float, float],
+) -> BdtopoCoverageResult:
+    """Retourne le résultat du contrôle de couverture de troncon_de_route."""
+    import warnings
+    try:
+        import pyogrio
+    except ImportError:
+        return BdtopoCoverageResult(
+            "non_verifie",
+            "non vérifié (couverture) : pyogrio absent",
+        )
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            info = pyogrio.read_info(str(gpkg_path), layer="troncon_de_route")
+        b = info.get("total_bounds")
+        if b is None:
+            return BdtopoCoverageResult(
+                "non_verifie",
+                "non vérifié (couverture) : total_bounds indisponible",
+            )
+        bx1, by1, bx2, by2 = bbox
+        covers = float(b[0]) <= bx1 and float(b[1]) <= by1 and float(b[2]) >= bx2 and float(b[3]) >= by2
+        if covers:
+            return BdtopoCoverageResult("ok", "couverture spatiale OK")
+        return BdtopoCoverageResult("anomalie", "couverture spatiale insuffisante")
+    except Exception as exc:
+        return BdtopoCoverageResult(
+            "non_verifie",
+            f"non vérifié (couverture) : lecture échouée ({exc})",
+        )

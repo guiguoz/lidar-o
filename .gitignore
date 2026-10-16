@@ -9,15 +9,22 @@ build/
 .env
 
 # Données raster et vecteur lourdes
-output/
-output_airelles/
-output_*/
+/output/
+/output_airelles/
+/output_*/
 LIDAR/
 Port en Bessin/
 debug/
 debug_*/
 temp/
-work/
+work/*
+!work/expe/
+work/expe/*
+!work/expe/vectorisation/
+
+# Rasters LiDAR lourds (expériences)
+*.tif
+*.tiff
 
 # Dalles LiDAR (volumineuses)
 *.copc.laz
@@ -32,12 +39,15 @@ work/
 comparatif.png
 !docs/images/*.png
 !docs/images/*.jpg
+!experiments/**/*.png
+!work/expe/vectorisation/*.png
 
 # Données terrain (non versionnées — trop lourdes ou manuelles)
 data/bdtopo/
 data/*_bdtopo.gpkg
 data/osm_landuse_*.json
 *.gpkg
+!work/expe/vectorisation/*.gpkg
 airelles.json
 out_kp/
 out_kp*/

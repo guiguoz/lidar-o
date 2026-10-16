@@ -293,15 +293,16 @@ class TestLoadGeoref:
         from src.omap_writer import load_georef
         georef = load_georef(ASSETS / "georef_grimbosq.xml")
         assert georef.scale == 10_000
-        assert georef.ref_x == 450_000.0
+        assert georef.ref_x == 449_000.0   # centre bbox (448000..450001) arrondi au km
         assert georef.ref_y == 6_888_000.0
 
     def test_load_coherent_avec_cas_verifie(self) -> None:
-        """Le GeoRef chargé depuis georef_grimbosq.xml reproduit le cas de conversion validé."""
+        """Le GeoRef chargé depuis georef_grimbosq.xml produit des coordonnées cohérentes."""
         from src.omap_writer import load_georef
         georef = load_georef(ASSETS / "georef_grimbosq.xml")
         ox, oy = _to_omap(448_906.9, 6_888_775.1, georef)
-        assert ox == -109_310
+        # ref_x=449000 → ox = round((448906.9-449000)*100) = -9310
+        assert ox == -9_310
         assert oy == -77_510
 
 

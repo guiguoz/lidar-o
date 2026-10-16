@@ -3,7 +3,9 @@ scale: 10000                  # 1:10000 par défaut ; accepté : 10000 | 15000
 max_area_km2: 9.0             # Emprise max v1 — rejet bloquant au-delà (une carte CO = 1-5 km²)
 
 vegetation:
-  source: "pdal"                # HAG 0.3–3 m — fixé au spike Phase 1 (2026-06-24)
+  # Source par terrain : terrains.<nom>.vegetation_source = "kp" | "hag" | absente (= KP par défaut).
+  # Contrat des modes : docs/pipeline_vegetation_kp.md. Pas de clé globale (P1b).
+  # "hag" ne signifie PAS « HAG uniquement » : vegetation_kp.gpkg reste la végétation de l'OMAP.
   resolution_m: 1.0             # Cap 1 m — sous-métrique inutile à 1:15000 et explose polygonize
   majority_radius: 3            # Filtre majoritaire post-polygonize dans vegetation.py (pixels)
 
@@ -190,6 +192,23 @@ karttapullautin:
     lightgreentone: 160             # ton du vert clair dans vegetation.png (défaut KP : 200 ≈ quasi-blanc)
     template_opacity_pct: 50        # opacité du template OOM 0–100 (100 = opaque, défaut)
     medianboxsize2: 16              # 2e passe filtre médian végétation — validé TEST A 2026-09 (1=désactivé, 16=zones nettes)
+  vectorization:
+    input: auto                     # "bit" (*_vege_bit.png), "rgb" (*_vege.png), "auto" (bit si présent, sinon rgb)
+    # shade_to_isom : table gelée (KP v2.12.1, lightgreentone=160, greenshades 11 entrées dont 4 à 99).
+    # Indices bit KP : 2=greenshades[0]=0.2 pt/m², 3=0.35, 4=0.5, 5=0.7, 6=1.3, 7=2.6, 8=4.0
+    # Bits 9-12 (greenshades 99) : inatteignables, jamais présents dans le PNG.
+    # Bit 2 → 0 : teinte la plus claire volontairement laissée blanche (décision de calibration,
+    #   pas une perte de données — voir V1 round-trip report).
+    shade_to_isom:
+      2: 0    # volontairement blanc — forêt courable, greenshades[0]=0.2 pt/m²
+      3: 406
+      4: 406
+      5: 408
+      6: 408
+      7: 410
+      8: 410
+    coverage_simplify_m: 2.0  # tolérance coverage_simplify — validé V3 bras C
+    keep_template: true        # inclure vegetation.png comme template OOM (opacité template_opacity_pct)
   cliff:
     cliffheight: null               # m — hauteur minimale de falaise (défaut KP si null)
     cliffangle: null                # ° — angle minimal de falaise (défaut KP si null)
@@ -243,49 +262,24 @@ terrains:
   #   ffco_gpkg: "my_reference.gpkg"  # optional: reference map for QA metrics
   # ─────────────────────────────────────────────────────────────────────────
 
+
+  sainte_honorine:
+    bbox: [423000, 6922000, 425000, 6924000]
+    crs: "EPSG:2154"
+    departement: "14"
+    lidar_dir: "E:/RunningRaid/Cartographie/ça te dit 2027/carte Sainte Honorine"
+    bdtopo_path: "data/bdtopo/BDT_3-5_GPKG_LAMB93_D014-ED2026-06-15.gpkg"
+    kp_binary: "karttapullautin-x86_64-win.tar/pullauta.exe"
+    kp_version: "2.12.1"
+    vegetation_source: "kp"       # décision porteur : KP = seule source de végétation de la carte
+
   grimbosq:
-    bbox: [448000, 6886000, 450001, 6889001]  # EPSG:2154, Lambert 93
-    crs: EPSG:2154
+    bbox: [448000, 6886000, 450001, 6889001]
+    crs: "EPSG:2154"
     departement: "14"
-    ffco_gpkg: "grimbosq.gpkg"               # carte de référence (recall QA — optionnel)
-
-  kilemaed:
-    bbox: [411888, 6481712, 414255, 6484028]  # EPSG:3301, L-EST97
-    crs: EPSG:3301
-    reader: readers.las                        # .laz Maa-amet, pas COPC
-    output_dir: output_kilemaed                # répertoire de sortie existant
-    ffco_gpkg: "autres cartes/Kilemäed.gpkg"  # carte de référence (noms tables latin-1, voir portabilite.md H8)
-    ffco_layer: "Kilemäed_areas"              # couche surfacique — ogr2ogr échoue sur encodage latin-1
-
-  kuti:
-    bbox: [598117, 6436581, 601925, 6440937]  # EPSG:3301, L-EST97 — lu depuis Kuti.gpkg areas extent
-    crs: EPSG:3301
-    reader: readers.las                        # .laz Maa-amet, pas COPC
-    output_dir: output_kuti
-    ffco_gpkg: "autres cartes/Kuti.gpkg"
-    ffco_layer: "Kuti_areas"                  # ASCII — ogr2ogr fonctionne (pas de latin-1 contrairement à Kilemäed)
-
-  port_en_bessin:
-    bbox: [424000, 6920000, 427000, 6922000]  # EPSG:2154, Lambert 93 — 3×2 km, 5 tuiles COPC (0424/0425/0426 × 6921/6922) — tuiles nommées par bord NORD
-    crs: EPSG:2154
-    departement: "14"
-
-  monthureux:
-    bbox: [920000, 6771000, 922000, 6773000]
-    crs: EPSG:2154
-    departement: "88"
-
-  luxeuil:
-    bbox: [952000, 6753000, 955000, 6755000]
-    crs: EPSG:2154
-    departement: "70"
-
-  bouhard:
-    bbox: [946000, 6671000, 949000, 6673000]
-    crs: EPSG:2154
-    departement: "25"
-
-  bas_des_conches:
-    bbox: [952000, 6669000, 954000, 6671000]
-    crs: EPSG:2154
-    departement: "25"
+    lidar_dir: "LIDAR/grimbosq"
+    bdtopo_path: "data/bdtopo/BDT_3-5_GPKG_LAMB93_D014-ED2026-06-15.gpkg"
+    kp_binary: "karttapullautin-x86_64-win.tar/pullauta.exe"
+    kp_version: "2.12.1"
+    ffco_gpkg: "grimbosq.gpkg"
+    vegetation_source: "kp"

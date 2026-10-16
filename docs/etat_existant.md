@@ -47,7 +47,7 @@ Action : ~~reporter dans `config.yaml → karttapullautin.expected_dxf_layers`~~
 
 > Le raster de densité de KP est-il un float continu réutilisable, ou seulement un PNG rendu ?
 
-- [ ] **KP expose un raster de densité float continu** → `config.vegetation.source: "kp"` (défaut)
+- [ ] **KP expose un raster de densité float continu** → `terrains.<nom>.vegetation_source: "kp"` (par terrain ; la clé globale `vegetation.source` a été supprimée en P1b)
 - [x] **KP ne produit que du PNG** → option `"kp"` continue **éliminée**
 
 KP produit uniquement des PNG géoréférencés (`.pgw`) : `undergrowth.png`, `undergrowth_bit.png`, `vegetation.png`. Aucun raster float.
@@ -186,7 +186,7 @@ Action : ~~remplacer les `PLACEHOLDER_*` dans `config.yaml → bd_topo.layers` e
 
 - [x] `karttapullautin.version` (v2.12.1)
 - [x] `karttapullautin.expected_dxf_layers`
-- [x] `vegetation.source` → `"pdal"` (fixé spike Phase 1)
+- [x] `vegetation.source` → `"pdal"` (fixé spike Phase 1 ; clé globale supprimée en P1b, remplacée par `terrains.<nom>.vegetation_source`)
 - [x] `bd_topo.layers` (confirmés 2026-06-23)
 - [x] `symbols_isom.yaml → bd_topo_mapping` (confirmés 2026-06-23)
 
@@ -246,5 +246,5 @@ Export GeoJSON → import OOM  ← vérification visuelle avant tout writer nati
 
 ### Config fixée
 
-- `config.vegetation.source: "pdal"` ✓
+- `config.vegetation.source: "pdal"` ✓ (historique — remplacé par `terrains.<nom>.vegetation_source` ; voir P1a/P1b)
 - Prochaine priorité : Phase 6 vectorisation — pas les paramètres raster

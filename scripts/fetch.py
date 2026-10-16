@@ -119,13 +119,29 @@ def main() -> None:
     terrain_cfg = terrains[args.terrain]
     bbox: tuple[float, float, float, float] = tuple(terrain_cfg["bbox"])  # type: ignore[assignment]
     crs: str = terrain_cfg["crs"]
-    departement: str = str(terrain_cfg["departement"])
 
-    # GPKG source
-    gpkg_dir = ROOT / cfg["bd_topo"]["gpkg_dir"]
-    gpkg_dir.mkdir(parents=True, exist_ok=True)
-    gpkg_path = find_gpkg(gpkg_dir, departement)
-    log.info("Source : %s", gpkg_path.name)
+    # Priorité : bdtopo_path depuis config (V2)
+    bdtopo_path_cfg = terrain_cfg.get("bdtopo_path")
+    if bdtopo_path_cfg:
+        gpkg_path = pathlib.Path(bdtopo_path_cfg)
+        if not gpkg_path.exists():
+            sys.exit(
+                f"bdtopo_path configuré mais absent : {gpkg_path}\n"
+                f"Relancer : python main.py setup {args.terrain}"
+            )
+        log.info("Source (bdtopo_path) : %s", gpkg_path.name)
+    else:
+        # Repli V1 : recherche par département
+        departement: str = str(terrain_cfg.get("departement", ""))
+        if not departement:
+            sys.exit(
+                f"Ni bdtopo_path ni departement dans config pour '{args.terrain}'.\n"
+                f"Lancer : python main.py setup {args.terrain}"
+            )
+        gpkg_dir = ROOT / cfg["bd_topo"]["gpkg_dir"]
+        gpkg_dir.mkdir(parents=True, exist_ok=True)
+        gpkg_path = find_gpkg(gpkg_dir, departement)
+        log.info("Source (département %s) : %s", departement, gpkg_path.name)
     log.info("Emprise : %s (bbox=%s)", crs, bbox)
 
     # Calques demandés

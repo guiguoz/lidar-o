@@ -9,6 +9,7 @@ import json
 import pathlib
 
 import pytest
+import yaml
 
 from src.guards import check_config_snapshot
 from src.qa import write_config_snapshot
@@ -40,6 +41,11 @@ def _base_cfg(**overrides) -> dict:
                 "lightgreentone": 160,
                 "medianboxsize2": 16,
                 "template_opacity_pct": 50,
+            },
+            "vectorization": {
+                "shade_to_isom": {2: 0, 3: 406, 4: 406, 5: 408, 6: 408, 7: 410, 8: 410},
+                "coverage_simplify_m": 2.0,
+                "keep_template": True,
             },
         },
     }
@@ -131,9 +137,106 @@ def test_check_no_diff_on_same_config(tmp_path: pathlib.Path) -> None:
     assert diffs == []
 
 
+# ── P2 : vectorisation KP — garde-fou §3 PLAN 3 ─────────────────────────────
+
+def test_shade_to_isom_zero_no_false_drift(tmp_path: pathlib.Path) -> None:
+    """shade_to_isom[2]=0 (valeur falsy) ne déclenche aucune fausse dérive (§3 PLAN 3)."""
+    cfg = _base_cfg()
+    write_config_snapshot(cfg, tmp_path)
+    diffs = check_config_snapshot(cfg, tmp_path / "run_metadata.json")
+    assert diffs == [], f"Fausse dérive sur valeur 0 : {diffs}"
+
+
+def test_shade_to_isom_change_detected(tmp_path: pathlib.Path) -> None:
+    """Un changement dans shade_to_isom est nommément signalé."""
+    cfg_ref = _base_cfg()
+    write_config_snapshot(cfg_ref, tmp_path)
+
+    cfg_new = _base_cfg()
+    cfg_new["karttapullautin"]["vectorization"]["shade_to_isom"][2] = 406
+    diffs = check_config_snapshot(cfg_new, tmp_path / "run_metadata.json")
+    assert any("kp_shade_to_isom" in d for d in diffs), diffs
+
+
+def test_snapshot_captures_coverage_simplify_m(tmp_path: pathlib.Path) -> None:
+    """Un changement de coverage_simplify_m produit deux snapshots distincts."""
+    cfg_a = _base_cfg(**{"karttapullautin.vectorization.coverage_simplify_m": 2.0})
+    cfg_b = _base_cfg(**{"karttapullautin.vectorization.coverage_simplify_m": 4.0})
+    dir_a = tmp_path / "a"; dir_a.mkdir()
+    dir_b = tmp_path / "b"; dir_b.mkdir()
+    write_config_snapshot(cfg_a, dir_a)
+    write_config_snapshot(cfg_b, dir_b)
+    assert _read_snapshot(dir_a)["kp_coverage_simplify_m"] == 2.0
+    assert _read_snapshot(dir_b)["kp_coverage_simplify_m"] == 4.0
+
+
+def test_snapshot_captures_keep_template(tmp_path: pathlib.Path) -> None:
+    """Un changement de keep_template est signalé par check_config_snapshot."""
+    cfg_ref = _base_cfg()
+    write_config_snapshot(cfg_ref, tmp_path)
+
+    cfg_new = _base_cfg(**{"karttapullautin.vectorization.keep_template": False})
+    diffs = check_config_snapshot(cfg_new, tmp_path / "run_metadata.json")
+    assert any("kp_keep_template" in d for d in diffs), diffs
+
+
 def test_snapshot_contains_git_hash(tmp_path: pathlib.Path) -> None:
     """Le snapshot inclut git_hash (peut être None hors dépôt git)."""
     cfg = _base_cfg()
     write_config_snapshot(cfg, tmp_path)
     snap = _read_snapshot(tmp_path)
     assert "git_hash" in snap
+
+
+# ── Intégration split dans write_config_snapshot ────────────────────────────
+
+def test_snapshot_split_absent_no_crash(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Module split présent, fichier de données absent → snapshot optionnel, pas de crash.
+
+    Simule un clone frais où experiments/v0/split.yaml n'a pas encore été créé.
+    """
+    import src.split as split_mod
+    monkeypatch.setattr(split_mod, "_DEFAULT_YAML", tmp_path / "nonexistent_split.yaml")
+
+    cfg = _base_cfg()
+    write_config_snapshot(cfg, tmp_path)
+
+    snap = _read_snapshot(tmp_path)
+    assert "split" in snap
+    assert snap["split"] is None
+
+
+def test_snapshot_split_present(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Module split présent + données disponibles → snapshot intègre le découpage.
+
+    Le fichier de données est fabriqué en tmp_path pour rester autonome —
+    ne dépend pas du split.yaml non suivi de l'arbre de travail.
+    """
+    import src.split as split_mod
+
+    split_yaml = tmp_path / "split.yaml"
+    split_yaml.write_text(
+        yaml.dump({
+            "split_y": 6887771.0,
+            "validation_side": "north",
+            "calibration_side": "south",
+            "buffer": {"buffer_half_width_m": 30.0, "status": "provisional"},
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(split_mod, "_DEFAULT_YAML", split_yaml)
+
+    cfg = _base_cfg()
+    output_dir = tmp_path / "run_out"
+    output_dir.mkdir()
+    write_config_snapshot(cfg, output_dir)
+
+    snap = _read_snapshot(output_dir)
+    assert snap["split"] is not None
+    assert snap["split"]["split_y"] == 6887771.0
+    assert snap["split"]["buffer_total_m"] == pytest.approx(60.0)
+    assert snap["split"]["validation_y_min"] == pytest.approx(6887771.0 + 30.0)
