@@ -1,647 +1,1759 @@
-[
-  {
-    "exp": "A_med9-16_t01",
-    "label": "A — med9/16 thresold=0.1",
-    "decode": {
-      "path": "E:\\Vikazim\\Ovector\\out_kp_bois_dupont\\LHD_FXX_0425_6923_PTS_LAMB93_IGN69.copc.laz_vege.png",
-      "sha256": "87447dcc57e7e8032d55a8703a45dfdbcb705288f63bd5dfc462ab45528c083f",
-      "mode": "RGB",
-      "size": [
-        1000,
-        1000
+{
+  "results": [
+    {
+      "exp": "A_med9-16_t01",
+      "label": "A med9/16 t=0.1",
+      "decode": {
+        "path": "E:\\Vikazim\\Ovector\\out_kp_bois_dupont\\LHD_FXX_0425_6923_PTS_LAMB93_IGN69.copc.laz_vege.png",
+        "sha256_png": "87447dcc57e7e8032d55a8703a45dfdbcb705288f63bd5dfc462ab45528c083f",
+        "sha256_ini": "dde0aa43be88ec53c72bd579e0c4b3dbe48fd3c9fb7e2378abb3c74fe7eefcec",
+        "mode": "RGB",
+        "size_wh": [
+          1000,
+          1000
+        ],
+        "n_shades": 11,
+        "lightgreentone": 160,
+        "expected_greens": [
+          [
+            160,
+            254,
+            160
+          ],
+          [
+            144,
+            246,
+            144
+          ],
+          [
+            128,
+            239,
+            128
+          ],
+          [
+            112,
+            231,
+            112
+          ],
+          [
+            96,
+            224,
+            96
+          ],
+          [
+            80,
+            217,
+            80
+          ],
+          [
+            64,
+            209,
+            64
+          ],
+          [
+            48,
+            202,
+            48
+          ]
+        ],
+        "palette_observed": {
+          "(64, 209, 64)": 1523,
+          "(80, 217, 80)": 9974,
+          "(96, 224, 96)": 36946,
+          "(112, 231, 112)": 38789,
+          "(128, 239, 128)": 20827,
+          "(144, 246, 144)": 23985,
+          "(160, 254, 160)": 43432,
+          "(255, 219, 166)": 575649,
+          "(255, 255, 255)": 248875
+        },
+        "n_unknown_px": 0,
+        "palette_ok": true
+      },
+      "pgw": {
+        "A": 1.0,
+        "D": 0.0,
+        "B": 0.0,
+        "E": -1.0,
+        "C": 425000.5,
+        "F": 6922999.49,
+        "pixel_m2": 1.0,
+        "res_m": 1.0
+      },
+      "shade_to_isom": {
+        "2": 0,
+        "3": 406,
+        "4": 406,
+        "5": 408,
+        "6": 408,
+        "7": 410,
+        "8": 410
+      },
+      "fenetre_NE_bbox": [
+        425550,
+        6922660,
+        425920,
+        6923000
       ],
-      "n_shades": 11,
-      "lightgreentone": 160,
-      "ini_path": "E:\\Vikazim\\Ovector\\out_kp_bois_dupont\\pullauta.ini",
-      "n_unknown": 0,
-      "unknown_colors": [],
-      "palette_ok": true
-    },
-    "pgw": {
-      "A": 1.0,
-      "D": 0.0,
-      "B": 0.0,
-      "E": -1.0,
-      "C": 425000.5,
-      "F": 6922999.49,
-      "pixel_m2": 1.0,
-      "res_m": 1.0
-    },
-    "parcel_bbox": [
-      425550,
-      6922660,
-      425920,
-      6923000
-    ],
-    "surface_full": {
-      "total_px": 1000000,
-      "pixel_m2": 1.0,
-      "px_blanc": 248875,
-      "ha_blanc": 24.8875,
-      "pct_blanc": 24.8875,
-      "px_jaune": 575649,
-      "ha_jaune": 57.5649,
-      "pct_jaune": 57.5649,
-      "px_vert0": 43432,
-      "ha_vert0": 4.3432,
-      "pct_vert0": 4.3432,
-      "px_406": 44812,
-      "ha_406": 4.4812,
-      "pct_406": 4.4812,
-      "px_408": 75735,
-      "ha_408": 7.5735,
-      "pct_408": 7.5735,
-      "px_410": 11497,
-      "ha_410": 1.1497,
-      "pct_410": 1.1497,
-      "px_vert": 132044,
-      "ha_vert": 13.2044,
-      "pct_vert": 13.2044,
-      "pct_vert_sur_nonjaune": 31.1167,
-      "px_inconnu": 0,
-      "ha_inconnu": 0.0
-    },
-    "cc_full": [
-      {
-        "connectivity": 4,
-        "isom": 406,
-        "n_cc": 686,
-        "n_cc_border": 10,
-        "n_cc_interior": 676,
-        "median_m2": 2.0,
-        "mean_m2": 60.39,
-        "max_m2": 1981.0
+      "bois_mask_path": "scripts\\bois_NE_mask.npy",
+      "surface_full": {
+        "total_px": 1000000,
+        "total_ha": 100.0,
+        "pixel_m2": 1.0,
+        "px_blanc": 248875,
+        "ha_blanc": 24.8875,
+        "pct_blanc": 24.8875,
+        "px_jaune": 575649,
+        "ha_jaune": 57.5649,
+        "pct_jaune": 57.5649,
+        "px_vert0": 43432,
+        "ha_vert0": 4.3432,
+        "pct_vert0": 4.3432,
+        "px_406": 44812,
+        "ha_406": 4.4812,
+        "pct_406": 4.4812,
+        "px_408": 75735,
+        "ha_408": 7.5735,
+        "pct_408": 7.5735,
+        "px_410": 11497,
+        "ha_410": 1.1497,
+        "pct_410": 1.1497,
+        "px_vert": 132044,
+        "ha_vert": 13.2044,
+        "pct_vert": 13.2044,
+        "pct_vert_sur_nonjaune": 31.1167,
+        "px_inconnu": 0
       },
-      {
-        "connectivity": 8,
-        "isom": 406,
-        "n_cc": 397,
-        "n_cc_border": 10,
-        "n_cc_interior": 387,
-        "median_m2": 14.0,
-        "mean_m2": 105.45,
-        "max_m2": 2017.0
-      },
-      {
-        "connectivity": 4,
-        "isom": 408,
-        "n_cc": 123,
-        "n_cc_border": 6,
-        "n_cc_interior": 117,
-        "median_m2": 87.0,
-        "mean_m2": 554.73,
-        "max_m2": 20999.0
-      },
-      {
-        "connectivity": 8,
-        "isom": 408,
-        "n_cc": 115,
-        "n_cc_border": 6,
-        "n_cc_interior": 109,
-        "median_m2": 102.0,
-        "mean_m2": 595.44,
-        "max_m2": 20999.0
-      },
-      {
-        "connectivity": 4,
-        "isom": 410,
-        "n_cc": 26,
-        "n_cc_border": 0,
-        "n_cc_interior": 26,
-        "median_m2": 89.0,
-        "mean_m2": 442.19,
-        "max_m2": 3730.0
-      },
-      {
-        "connectivity": 8,
-        "isom": 410,
-        "n_cc": 26,
-        "n_cc_border": 0,
-        "n_cc_interior": 26,
-        "median_m2": 89.0,
-        "mean_m2": 442.19,
-        "max_m2": 3730.0
-      }
-    ],
-    "surface_parcel_NE": {
-      "total_px": 125800,
-      "pixel_m2": 1.0,
-      "px_blanc": 33180,
-      "ha_blanc": 3.318,
-      "pct_blanc": 26.3752,
-      "px_jaune": 50349,
-      "ha_jaune": 5.0349,
-      "pct_jaune": 40.0231,
-      "px_vert0": 8484,
-      "ha_vert0": 0.8484,
-      "pct_vert0": 6.744,
-      "px_406": 9229,
-      "ha_406": 0.9229,
-      "pct_406": 7.3362,
-      "px_408": 24204,
-      "ha_408": 2.4204,
-      "pct_408": 19.2401,
-      "px_410": 354,
-      "ha_410": 0.0354,
-      "pct_410": 0.2814,
-      "px_vert": 33787,
-      "ha_vert": 3.3787,
-      "pct_vert": 26.8577,
-      "pct_vert_sur_nonjaune": 44.7801,
-      "px_inconnu": 0,
-      "ha_inconnu": 0.0
-    },
-    "cc_parcel_NE": [
-      {
-        "connectivity": 4,
-        "isom": 406,
-        "n_cc": 113,
-        "n_cc_border": 10,
-        "n_cc_interior": 103,
-        "median_m2": 2.0,
-        "mean_m2": 63.77,
-        "max_m2": 1088.0
-      },
-      {
-        "connectivity": 8,
-        "isom": 406,
-        "n_cc": 80,
-        "n_cc_border": 8,
-        "n_cc_interior": 72,
-        "median_m2": 3.0,
-        "mean_m2": 90.69,
-        "max_m2": 1089.0
-      },
-      {
-        "connectivity": 4,
-        "isom": 408,
-        "n_cc": 20,
-        "n_cc_border": 4,
-        "n_cc_interior": 16,
-        "median_m2": 137.0,
-        "mean_m2": 1448.44,
-        "max_m2": 20999.0
-      },
-      {
-        "connectivity": 8,
-        "isom": 408,
-        "n_cc": 20,
-        "n_cc_border": 4,
-        "n_cc_interior": 16,
-        "median_m2": 137.0,
-        "mean_m2": 1448.44,
-        "max_m2": 20999.0
-      },
-      {
-        "connectivity": 4,
-        "isom": 410,
-        "n_cc": 5,
-        "n_cc_border": 0,
-        "n_cc_interior": 5,
-        "median_m2": 83.0,
-        "mean_m2": 70.8,
-        "max_m2": 114.0
-      },
-      {
-        "connectivity": 8,
-        "isom": 410,
-        "n_cc": 5,
-        "n_cc_border": 0,
-        "n_cc_interior": 5,
-        "median_m2": 83.0,
-        "mean_m2": 70.8,
-        "max_m2": 114.0
-      }
-    ]
-  },
-  {
-    "exp": "B_med1-1_t01",
-    "label": "B — med1/1 thresold=0.1",
-    "decode": {
-      "path": "E:\\Vikazim\\Ovector\\out_kp_bois_dupont\\test\\LHD_FXX_0425_6923_PTS_LAMB93_IGN69.copc.laz_vege.png",
-      "sha256": "727face73741e6fb6f498806060d76fde49fb2fa9601837772ac9ec515211a75",
-      "mode": "RGB",
-      "size": [
-        1000,
-        1000
+      "cc_full": [
+        {
+          "connectivity": 4,
+          "isom": 406,
+          "n_cc": 686,
+          "n_cc_border": 10,
+          "n_cc_interior": 676,
+          "median_m2": 2.0,
+          "mean_m2": 60.39,
+          "max_m2": 1981.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 406,
+          "n_cc": 397,
+          "n_cc_border": 10,
+          "n_cc_interior": 387,
+          "median_m2": 14.0,
+          "mean_m2": 105.45,
+          "max_m2": 2017.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 408,
+          "n_cc": 123,
+          "n_cc_border": 6,
+          "n_cc_interior": 117,
+          "median_m2": 87.0,
+          "mean_m2": 554.73,
+          "max_m2": 20999.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 408,
+          "n_cc": 115,
+          "n_cc_border": 6,
+          "n_cc_interior": 109,
+          "median_m2": 102.0,
+          "mean_m2": 595.44,
+          "max_m2": 20999.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 410,
+          "n_cc": 26,
+          "n_cc_border": 0,
+          "n_cc_interior": 26,
+          "median_m2": 89.0,
+          "mean_m2": 442.19,
+          "max_m2": 3730.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 410,
+          "n_cc": 26,
+          "n_cc_border": 0,
+          "n_cc_interior": 26,
+          "median_m2": 89.0,
+          "mean_m2": 442.19,
+          "max_m2": 3730.0
+        }
       ],
-      "n_shades": 11,
-      "lightgreentone": 160,
-      "ini_path": "E:\\Vikazim\\Ovector\\out_kp_bois_dupont\\test\\pullauta.ini",
-      "n_unknown": 0,
-      "unknown_colors": [],
-      "palette_ok": true
-    },
-    "pgw": {
-      "A": 1.0,
-      "D": 0.0,
-      "B": 0.0,
-      "E": -1.0,
-      "C": 425000.5,
-      "F": 6922999.49,
-      "pixel_m2": 1.0,
-      "res_m": 1.0
-    },
-    "parcel_bbox": [
-      425550,
-      6922660,
-      425920,
-      6923000
-    ],
-    "surface_full": {
-      "total_px": 1000000,
-      "pixel_m2": 1.0,
-      "px_blanc": 198027,
-      "ha_blanc": 19.8027,
-      "pct_blanc": 19.8027,
-      "px_jaune": 575649,
-      "ha_jaune": 57.5649,
-      "pct_jaune": 57.5649,
-      "px_vert0": 30375,
-      "ha_vert0": 3.0375,
-      "pct_vert0": 3.0375,
-      "px_406": 43713,
-      "ha_406": 4.3713,
-      "pct_406": 4.3713,
-      "px_408": 99441,
-      "ha_408": 9.9441,
-      "pct_408": 9.9441,
-      "px_410": 52795,
-      "ha_410": 5.2795,
-      "pct_410": 5.2795,
-      "px_vert": 195949,
-      "ha_vert": 19.5949,
-      "pct_vert": 19.5949,
-      "pct_vert_sur_nonjaune": 46.1762,
-      "px_inconnu": 0,
-      "ha_inconnu": 0.0
-    },
-    "cc_full": [
-      {
-        "connectivity": 4,
-        "isom": 406,
-        "n_cc": 3683,
-        "n_cc_border": 61,
-        "n_cc_interior": 3622,
-        "median_m2": 9.0,
-        "mean_m2": 11.9,
-        "max_m2": 99.0
+      "surface_fenetre_NE": {
+        "total_px": 125800,
+        "total_ha": 12.58,
+        "pixel_m2": 1.0,
+        "px_blanc": 33180,
+        "ha_blanc": 3.318,
+        "pct_blanc": 26.3752,
+        "px_jaune": 50349,
+        "ha_jaune": 5.0349,
+        "pct_jaune": 40.0231,
+        "px_vert0": 8484,
+        "ha_vert0": 0.8484,
+        "pct_vert0": 6.744,
+        "px_406": 9229,
+        "ha_406": 0.9229,
+        "pct_406": 7.3362,
+        "px_408": 24204,
+        "ha_408": 2.4204,
+        "pct_408": 19.2401,
+        "px_410": 354,
+        "ha_410": 0.0354,
+        "pct_410": 0.2814,
+        "px_vert": 33787,
+        "ha_vert": 3.3787,
+        "pct_vert": 26.8577,
+        "pct_vert_sur_nonjaune": 44.7801,
+        "px_inconnu": 0
       },
-      {
-        "connectivity": 8,
-        "isom": 406,
-        "n_cc": 2891,
-        "n_cc_border": 60,
-        "n_cc_interior": 2831,
-        "median_m2": 9.0,
-        "mean_m2": 15.1,
-        "max_m2": 207.0
-      },
-      {
-        "connectivity": 4,
-        "isom": 408,
-        "n_cc": 3537,
-        "n_cc_border": 70,
-        "n_cc_interior": 3467,
-        "median_m2": 9.0,
-        "mean_m2": 27.66,
-        "max_m2": 10608.0
-      },
-      {
-        "connectivity": 8,
-        "isom": 408,
-        "n_cc": 2091,
-        "n_cc_border": 53,
-        "n_cc_interior": 2038,
-        "median_m2": 18.0,
-        "mean_m2": 43.94,
-        "max_m2": 12469.0
-      },
-      {
-        "connectivity": 4,
-        "isom": 410,
-        "n_cc": 1559,
-        "n_cc_border": 27,
-        "n_cc_interior": 1532,
-        "median_m2": 9.0,
-        "mean_m2": 33.98,
-        "max_m2": 3177.0
-      },
-      {
-        "connectivity": 8,
-        "isom": 410,
-        "n_cc": 1198,
-        "n_cc_border": 27,
-        "n_cc_interior": 1171,
-        "median_m2": 18.0,
-        "mean_m2": 43.98,
-        "max_m2": 3303.0
-      }
-    ],
-    "surface_parcel_NE": {
-      "total_px": 125800,
-      "pixel_m2": 1.0,
-      "px_blanc": 28569,
-      "ha_blanc": 2.8569,
-      "pct_blanc": 22.7099,
-      "px_jaune": 50349,
-      "ha_jaune": 5.0349,
-      "pct_jaune": 40.0231,
-      "px_vert0": 5605,
-      "ha_vert0": 0.5605,
-      "pct_vert0": 4.4555,
-      "px_406": 8907,
-      "ha_406": 0.8907,
-      "pct_406": 7.0803,
-      "px_408": 22652,
-      "ha_408": 2.2652,
-      "pct_408": 18.0064,
-      "px_410": 9718,
-      "ha_410": 0.9718,
-      "pct_410": 7.725,
-      "px_vert": 41277,
-      "ha_vert": 4.1277,
-      "pct_vert": 32.8116,
-      "pct_vert_sur_nonjaune": 54.707,
-      "px_inconnu": 0,
-      "ha_inconnu": 0.0
-    },
-    "cc_parcel_NE": [
-      {
-        "connectivity": 4,
-        "isom": 406,
-        "n_cc": 737,
-        "n_cc_border": 24,
-        "n_cc_interior": 713,
-        "median_m2": 9.0,
-        "mean_m2": 12.23,
-        "max_m2": 63.0
-      },
-      {
-        "connectivity": 8,
-        "isom": 406,
-        "n_cc": 599,
-        "n_cc_border": 24,
-        "n_cc_interior": 575,
-        "median_m2": 9.0,
-        "mean_m2": 15.1,
-        "max_m2": 108.0
-      },
-      {
-        "connectivity": 4,
-        "isom": 408,
-        "n_cc": 555,
-        "n_cc_border": 28,
-        "n_cc_interior": 527,
-        "median_m2": 9.0,
-        "mean_m2": 41.98,
-        "max_m2": 10608.0
-      },
-      {
-        "connectivity": 8,
-        "isom": 408,
-        "n_cc": 333,
-        "n_cc_border": 28,
-        "n_cc_interior": 305,
-        "median_m2": 18.0,
-        "mean_m2": 71.69,
-        "max_m2": 12469.0
-      },
-      {
-        "connectivity": 4,
-        "isom": 410,
-        "n_cc": 355,
-        "n_cc_border": 15,
-        "n_cc_interior": 340,
-        "median_m2": 15.0,
-        "mean_m2": 26.6,
-        "max_m2": 360.0
-      },
-      {
-        "connectivity": 8,
-        "isom": 410,
-        "n_cc": 287,
-        "n_cc_border": 15,
-        "n_cc_interior": 272,
-        "median_m2": 18.0,
-        "mean_m2": 33.15,
-        "max_m2": 504.0
-      }
-    ]
-  },
-  {
-    "exp": "C_med1-1_t02",
-    "label": "C — med1/1 thresold=0.2",
-    "decode": {
-      "path": "E:\\Vikazim\\Ovector\\out_kp_bois_dupont\\exp_c\\LHD_FXX_0425_6923_PTS_LAMB93_IGN69.copc.laz_vege.png",
-      "sha256": "281fba603a15c8d5112c3f39aeb92ff30756176f0e1a8de694cda74f3028bfa4",
-      "mode": "RGB",
-      "size": [
-        1000,
-        1000
+      "cc_fenetre_NE": [
+        {
+          "connectivity": 4,
+          "isom": 406,
+          "n_cc": 113,
+          "n_cc_border": 10,
+          "n_cc_interior": 103,
+          "median_m2": 2.0,
+          "mean_m2": 63.77,
+          "max_m2": 1088.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 406,
+          "n_cc": 80,
+          "n_cc_border": 8,
+          "n_cc_interior": 72,
+          "median_m2": 3.0,
+          "mean_m2": 90.69,
+          "max_m2": 1089.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 408,
+          "n_cc": 20,
+          "n_cc_border": 4,
+          "n_cc_interior": 16,
+          "median_m2": 137.0,
+          "mean_m2": 1448.44,
+          "max_m2": 20999.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 408,
+          "n_cc": 20,
+          "n_cc_border": 4,
+          "n_cc_interior": 16,
+          "median_m2": 137.0,
+          "mean_m2": 1448.44,
+          "max_m2": 20999.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 410,
+          "n_cc": 5,
+          "n_cc_border": 0,
+          "n_cc_interior": 5,
+          "median_m2": 83.0,
+          "mean_m2": 70.8,
+          "max_m2": 114.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 410,
+          "n_cc": 5,
+          "n_cc_border": 0,
+          "n_cc_interior": 5,
+          "median_m2": 83.0,
+          "mean_m2": 70.8,
+          "max_m2": 114.0
+        }
       ],
-      "n_shades": 11,
-      "lightgreentone": 160,
-      "ini_path": "E:\\Vikazim\\Ovector\\out_kp_bois_dupont\\exp_c\\pullauta.ini",
-      "n_unknown": 0,
-      "unknown_colors": [],
-      "palette_ok": true
+      "surface_bois_NE": {
+        "total_px": 71962,
+        "total_ha": 7.1962,
+        "pixel_m2": 1.0,
+        "px_blanc": 21975,
+        "ha_blanc": 2.1975,
+        "pct_blanc": 30.537,
+        "px_jaune": 14931,
+        "ha_jaune": 1.4931,
+        "pct_jaune": 20.7485,
+        "px_vert0": 5981,
+        "ha_vert0": 0.5981,
+        "pct_vert0": 8.3113,
+        "px_406": 6589,
+        "ha_406": 0.6589,
+        "pct_406": 9.1562,
+        "px_408": 22150,
+        "ha_408": 2.215,
+        "pct_408": 30.7801,
+        "px_410": 336,
+        "ha_410": 0.0336,
+        "pct_410": 0.4669,
+        "px_vert": 29075,
+        "ha_vert": 2.9075,
+        "pct_vert": 40.4033,
+        "pct_vert_sur_nonjaune": 50.981,
+        "px_inconnu": 0
+      },
+      "cc_bois_NE": [
+        {
+          "connectivity": 4,
+          "isom": 406,
+          "n_cc": 59,
+          "n_cc_border": 21,
+          "n_cc_interior": 38,
+          "median_m2": 2.0,
+          "mean_m2": 59.63,
+          "max_m2": 676.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 406,
+          "n_cc": 45,
+          "n_cc_border": 21,
+          "n_cc_interior": 24,
+          "median_m2": 6.5,
+          "mean_m2": 94.12,
+          "max_m2": 676.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 408,
+          "n_cc": 16,
+          "n_cc_border": 5,
+          "n_cc_interior": 11,
+          "median_m2": 102.0,
+          "mean_m2": 123.36,
+          "max_m2": 242.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 408,
+          "n_cc": 16,
+          "n_cc_border": 5,
+          "n_cc_interior": 11,
+          "median_m2": 102.0,
+          "mean_m2": 123.36,
+          "max_m2": 242.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 410,
+          "n_cc": 4,
+          "n_cc_border": 1,
+          "n_cc_interior": 3,
+          "median_m2": 95.0,
+          "mean_m2": 84.33,
+          "max_m2": 114.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 410,
+          "n_cc": 4,
+          "n_cc_border": 1,
+          "n_cc_interior": 3,
+          "median_m2": 95.0,
+          "mean_m2": 84.33,
+          "max_m2": 114.0
+        }
+      ]
     },
-    "pgw": {
-      "A": 1.0,
-      "D": 0.0,
-      "B": 0.0,
-      "E": -1.0,
-      "C": 425000.5,
-      "F": 6922999.49,
-      "pixel_m2": 1.0,
-      "res_m": 1.0
+    {
+      "exp": "B_med1-1_t01",
+      "label": "B med1/1 t=0.1",
+      "decode": {
+        "path": "E:\\Vikazim\\Ovector\\out_kp_bois_dupont\\test\\LHD_FXX_0425_6923_PTS_LAMB93_IGN69.copc.laz_vege.png",
+        "sha256_png": "727face73741e6fb6f498806060d76fde49fb2fa9601837772ac9ec515211a75",
+        "sha256_ini": "9b35351178b1f504cf968a1ba3c94608c0fce481bec1879b4eb1e06fcef8b621",
+        "mode": "RGB",
+        "size_wh": [
+          1000,
+          1000
+        ],
+        "n_shades": 11,
+        "lightgreentone": 160,
+        "expected_greens": [
+          [
+            160,
+            254,
+            160
+          ],
+          [
+            144,
+            246,
+            144
+          ],
+          [
+            128,
+            239,
+            128
+          ],
+          [
+            112,
+            231,
+            112
+          ],
+          [
+            96,
+            224,
+            96
+          ],
+          [
+            80,
+            217,
+            80
+          ],
+          [
+            64,
+            209,
+            64
+          ],
+          [
+            48,
+            202,
+            48
+          ]
+        ],
+        "palette_observed": {
+          "(64, 209, 64)": 25169,
+          "(80, 217, 80)": 27626,
+          "(96, 224, 96)": 57337,
+          "(112, 231, 112)": 42104,
+          "(128, 239, 128)": 21431,
+          "(144, 246, 144)": 22282,
+          "(160, 254, 160)": 30375,
+          "(255, 219, 166)": 575649,
+          "(255, 255, 255)": 198027
+        },
+        "n_unknown_px": 0,
+        "palette_ok": true
+      },
+      "pgw": {
+        "A": 1.0,
+        "D": 0.0,
+        "B": 0.0,
+        "E": -1.0,
+        "C": 425000.5,
+        "F": 6922999.49,
+        "pixel_m2": 1.0,
+        "res_m": 1.0
+      },
+      "shade_to_isom": {
+        "2": 0,
+        "3": 406,
+        "4": 406,
+        "5": 408,
+        "6": 408,
+        "7": 410,
+        "8": 410
+      },
+      "fenetre_NE_bbox": [
+        425550,
+        6922660,
+        425920,
+        6923000
+      ],
+      "bois_mask_path": "scripts\\bois_NE_mask.npy",
+      "surface_full": {
+        "total_px": 1000000,
+        "total_ha": 100.0,
+        "pixel_m2": 1.0,
+        "px_blanc": 198027,
+        "ha_blanc": 19.8027,
+        "pct_blanc": 19.8027,
+        "px_jaune": 575649,
+        "ha_jaune": 57.5649,
+        "pct_jaune": 57.5649,
+        "px_vert0": 30375,
+        "ha_vert0": 3.0375,
+        "pct_vert0": 3.0375,
+        "px_406": 43713,
+        "ha_406": 4.3713,
+        "pct_406": 4.3713,
+        "px_408": 99441,
+        "ha_408": 9.9441,
+        "pct_408": 9.9441,
+        "px_410": 52795,
+        "ha_410": 5.2795,
+        "pct_410": 5.2795,
+        "px_vert": 195949,
+        "ha_vert": 19.5949,
+        "pct_vert": 19.5949,
+        "pct_vert_sur_nonjaune": 46.1762,
+        "px_inconnu": 0
+      },
+      "cc_full": [
+        {
+          "connectivity": 4,
+          "isom": 406,
+          "n_cc": 3683,
+          "n_cc_border": 61,
+          "n_cc_interior": 3622,
+          "median_m2": 9.0,
+          "mean_m2": 11.9,
+          "max_m2": 99.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 406,
+          "n_cc": 2891,
+          "n_cc_border": 60,
+          "n_cc_interior": 2831,
+          "median_m2": 9.0,
+          "mean_m2": 15.1,
+          "max_m2": 207.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 408,
+          "n_cc": 3537,
+          "n_cc_border": 70,
+          "n_cc_interior": 3467,
+          "median_m2": 9.0,
+          "mean_m2": 27.66,
+          "max_m2": 10608.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 408,
+          "n_cc": 2091,
+          "n_cc_border": 53,
+          "n_cc_interior": 2038,
+          "median_m2": 18.0,
+          "mean_m2": 43.94,
+          "max_m2": 12469.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 410,
+          "n_cc": 1559,
+          "n_cc_border": 27,
+          "n_cc_interior": 1532,
+          "median_m2": 9.0,
+          "mean_m2": 33.98,
+          "max_m2": 3177.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 410,
+          "n_cc": 1198,
+          "n_cc_border": 27,
+          "n_cc_interior": 1171,
+          "median_m2": 18.0,
+          "mean_m2": 43.98,
+          "max_m2": 3303.0
+        }
+      ],
+      "surface_fenetre_NE": {
+        "total_px": 125800,
+        "total_ha": 12.58,
+        "pixel_m2": 1.0,
+        "px_blanc": 28569,
+        "ha_blanc": 2.8569,
+        "pct_blanc": 22.7099,
+        "px_jaune": 50349,
+        "ha_jaune": 5.0349,
+        "pct_jaune": 40.0231,
+        "px_vert0": 5605,
+        "ha_vert0": 0.5605,
+        "pct_vert0": 4.4555,
+        "px_406": 8907,
+        "ha_406": 0.8907,
+        "pct_406": 7.0803,
+        "px_408": 22652,
+        "ha_408": 2.2652,
+        "pct_408": 18.0064,
+        "px_410": 9718,
+        "ha_410": 0.9718,
+        "pct_410": 7.725,
+        "px_vert": 41277,
+        "ha_vert": 4.1277,
+        "pct_vert": 32.8116,
+        "pct_vert_sur_nonjaune": 54.707,
+        "px_inconnu": 0
+      },
+      "cc_fenetre_NE": [
+        {
+          "connectivity": 4,
+          "isom": 406,
+          "n_cc": 737,
+          "n_cc_border": 24,
+          "n_cc_interior": 713,
+          "median_m2": 9.0,
+          "mean_m2": 12.23,
+          "max_m2": 63.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 406,
+          "n_cc": 599,
+          "n_cc_border": 24,
+          "n_cc_interior": 575,
+          "median_m2": 9.0,
+          "mean_m2": 15.1,
+          "max_m2": 108.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 408,
+          "n_cc": 555,
+          "n_cc_border": 28,
+          "n_cc_interior": 527,
+          "median_m2": 9.0,
+          "mean_m2": 41.98,
+          "max_m2": 10608.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 408,
+          "n_cc": 333,
+          "n_cc_border": 28,
+          "n_cc_interior": 305,
+          "median_m2": 18.0,
+          "mean_m2": 71.69,
+          "max_m2": 12469.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 410,
+          "n_cc": 355,
+          "n_cc_border": 15,
+          "n_cc_interior": 340,
+          "median_m2": 15.0,
+          "mean_m2": 26.6,
+          "max_m2": 360.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 410,
+          "n_cc": 287,
+          "n_cc_border": 15,
+          "n_cc_interior": 272,
+          "median_m2": 18.0,
+          "mean_m2": 33.15,
+          "max_m2": 504.0
+        }
+      ],
+      "surface_bois_NE": {
+        "total_px": 71962,
+        "total_ha": 7.1962,
+        "pixel_m2": 1.0,
+        "px_blanc": 19425,
+        "ha_blanc": 1.9425,
+        "pct_blanc": 26.9934,
+        "px_jaune": 14931,
+        "ha_jaune": 1.4931,
+        "pct_jaune": 20.7485,
+        "px_vert0": 4327,
+        "ha_vert0": 0.4327,
+        "pct_vert0": 6.0129,
+        "px_406": 6805,
+        "ha_406": 0.6805,
+        "pct_406": 9.4564,
+        "px_408": 18986,
+        "ha_408": 1.8986,
+        "pct_408": 26.3834,
+        "px_410": 7488,
+        "ha_410": 0.7488,
+        "pct_410": 10.4055,
+        "px_vert": 33279,
+        "ha_vert": 3.3279,
+        "pct_vert": 46.2452,
+        "pct_vert_sur_nonjaune": 58.3525,
+        "px_inconnu": 0
+      },
+      "cc_bois_NE": [
+        {
+          "connectivity": 4,
+          "isom": 406,
+          "n_cc": 548,
+          "n_cc_border": 33,
+          "n_cc_interior": 515,
+          "median_m2": 9.0,
+          "mean_m2": 12.56,
+          "max_m2": 63.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 406,
+          "n_cc": 440,
+          "n_cc_border": 37,
+          "n_cc_interior": 403,
+          "median_m2": 9.0,
+          "mean_m2": 15.72,
+          "max_m2": 108.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 408,
+          "n_cc": 395,
+          "n_cc_border": 68,
+          "n_cc_interior": 327,
+          "median_m2": 9.0,
+          "mean_m2": 20.69,
+          "max_m2": 306.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 408,
+          "n_cc": 239,
+          "n_cc_border": 55,
+          "n_cc_interior": 184,
+          "median_m2": 18.0,
+          "mean_m2": 26.59,
+          "max_m2": 236.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 410,
+          "n_cc": 296,
+          "n_cc_border": 48,
+          "n_cc_interior": 248,
+          "median_m2": 9.0,
+          "mean_m2": 25.9,
+          "max_m2": 360.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 410,
+          "n_cc": 242,
+          "n_cc_border": 45,
+          "n_cc_interior": 197,
+          "median_m2": 18.0,
+          "mean_m2": 31.84,
+          "max_m2": 504.0
+        }
+      ]
     },
-    "parcel_bbox": [
-      425550,
-      6922660,
-      425920,
-      6923000
-    ],
-    "surface_full": {
-      "total_px": 1000000,
-      "pixel_m2": 1.0,
-      "px_blanc": 236433,
-      "ha_blanc": 23.6433,
-      "pct_blanc": 23.6433,
-      "px_jaune": 575649,
-      "ha_jaune": 57.5649,
-      "pct_jaune": 57.5649,
-      "px_vert0": 35655,
-      "ha_vert0": 3.5655,
-      "pct_vert0": 3.5655,
-      "px_406": 46876,
-      "ha_406": 4.6876,
-      "pct_406": 4.6876,
-      "px_408": 89126,
-      "ha_408": 8.9126,
-      "pct_408": 8.9126,
-      "px_410": 16261,
-      "ha_410": 1.6261,
-      "pct_410": 1.6261,
-      "px_vert": 152263,
-      "ha_vert": 15.2263,
-      "pct_vert": 15.2263,
-      "pct_vert_sur_nonjaune": 35.8814,
-      "px_inconnu": 0,
-      "ha_inconnu": 0.0
+    {
+      "exp": "C_med1-1_t02",
+      "label": "C med1/1 t=0.2",
+      "decode": {
+        "path": "E:\\Vikazim\\Ovector\\out_kp_bois_dupont\\exp_c\\LHD_FXX_0425_6923_PTS_LAMB93_IGN69.copc.laz_vege.png",
+        "sha256_png": "281fba603a15c8d5112c3f39aeb92ff30756176f0e1a8de694cda74f3028bfa4",
+        "sha256_ini": "b5161c2e2e619502c61a6a0ea003cab1439c455464703db88153dcbe92cf0879",
+        "mode": "RGB",
+        "size_wh": [
+          1000,
+          1000
+        ],
+        "n_shades": 11,
+        "lightgreentone": 160,
+        "expected_greens": [
+          [
+            160,
+            254,
+            160
+          ],
+          [
+            144,
+            246,
+            144
+          ],
+          [
+            128,
+            239,
+            128
+          ],
+          [
+            112,
+            231,
+            112
+          ],
+          [
+            96,
+            224,
+            96
+          ],
+          [
+            80,
+            217,
+            80
+          ],
+          [
+            64,
+            209,
+            64
+          ],
+          [
+            48,
+            202,
+            48
+          ]
+        ],
+        "palette_observed": {
+          "(64, 209, 64)": 693,
+          "(80, 217, 80)": 15568,
+          "(96, 224, 96)": 36537,
+          "(112, 231, 112)": 52589,
+          "(128, 239, 128)": 22933,
+          "(144, 246, 144)": 23943,
+          "(160, 254, 160)": 35655,
+          "(255, 219, 166)": 575649,
+          "(255, 255, 255)": 236433
+        },
+        "n_unknown_px": 0,
+        "palette_ok": true
+      },
+      "pgw": {
+        "A": 1.0,
+        "D": 0.0,
+        "B": 0.0,
+        "E": -1.0,
+        "C": 425000.5,
+        "F": 6922999.49,
+        "pixel_m2": 1.0,
+        "res_m": 1.0
+      },
+      "shade_to_isom": {
+        "2": 0,
+        "3": 406,
+        "4": 406,
+        "5": 408,
+        "6": 408,
+        "7": 410,
+        "8": 410
+      },
+      "fenetre_NE_bbox": [
+        425550,
+        6922660,
+        425920,
+        6923000
+      ],
+      "bois_mask_path": "scripts\\bois_NE_mask.npy",
+      "surface_full": {
+        "total_px": 1000000,
+        "total_ha": 100.0,
+        "pixel_m2": 1.0,
+        "px_blanc": 236433,
+        "ha_blanc": 23.6433,
+        "pct_blanc": 23.6433,
+        "px_jaune": 575649,
+        "ha_jaune": 57.5649,
+        "pct_jaune": 57.5649,
+        "px_vert0": 35655,
+        "ha_vert0": 3.5655,
+        "pct_vert0": 3.5655,
+        "px_406": 46876,
+        "ha_406": 4.6876,
+        "pct_406": 4.6876,
+        "px_408": 89126,
+        "ha_408": 8.9126,
+        "pct_408": 8.9126,
+        "px_410": 16261,
+        "ha_410": 1.6261,
+        "pct_410": 1.6261,
+        "px_vert": 152263,
+        "ha_vert": 15.2263,
+        "pct_vert": 15.2263,
+        "pct_vert_sur_nonjaune": 35.8814,
+        "px_inconnu": 0
+      },
+      "cc_full": [
+        {
+          "connectivity": 4,
+          "isom": 406,
+          "n_cc": 3478,
+          "n_cc_border": 59,
+          "n_cc_interior": 3419,
+          "median_m2": 9.0,
+          "mean_m2": 13.51,
+          "max_m2": 171.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 406,
+          "n_cc": 2588,
+          "n_cc_border": 57,
+          "n_cc_interior": 2531,
+          "median_m2": 9.0,
+          "mean_m2": 18.15,
+          "max_m2": 468.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 408,
+          "n_cc": 2665,
+          "n_cc_border": 65,
+          "n_cc_interior": 2600,
+          "median_m2": 9.0,
+          "mean_m2": 33.76,
+          "max_m2": 14048.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 408,
+          "n_cc": 1693,
+          "n_cc_border": 59,
+          "n_cc_interior": 1634,
+          "median_m2": 18.0,
+          "mean_m2": 53.08,
+          "max_m2": 14253.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 410,
+          "n_cc": 684,
+          "n_cc_border": 9,
+          "n_cc_interior": 675,
+          "median_m2": 9.0,
+          "mean_m2": 23.91,
+          "max_m2": 486.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 410,
+          "n_cc": 577,
+          "n_cc_border": 9,
+          "n_cc_interior": 568,
+          "median_m2": 18.0,
+          "mean_m2": 28.41,
+          "max_m2": 666.0
+        }
+      ],
+      "surface_fenetre_NE": {
+        "total_px": 125800,
+        "total_ha": 12.58,
+        "pixel_m2": 1.0,
+        "px_blanc": 35703,
+        "ha_blanc": 3.5703,
+        "pct_blanc": 28.3808,
+        "px_jaune": 50349,
+        "ha_jaune": 5.0349,
+        "pct_jaune": 40.0231,
+        "px_vert0": 7378,
+        "ha_vert0": 0.7378,
+        "pct_vert0": 5.8649,
+        "px_406": 11492,
+        "ha_406": 1.1492,
+        "pct_406": 9.1351,
+        "px_408": 18166,
+        "ha_408": 1.8166,
+        "pct_408": 14.4404,
+        "px_410": 2712,
+        "ha_410": 0.2712,
+        "pct_410": 2.1558,
+        "px_vert": 32370,
+        "ha_vert": 3.237,
+        "pct_vert": 25.7313,
+        "pct_vert_sur_nonjaune": 42.902,
+        "px_inconnu": 0
+      },
+      "cc_fenetre_NE": [
+        {
+          "connectivity": 4,
+          "isom": 406,
+          "n_cc": 739,
+          "n_cc_border": 16,
+          "n_cc_interior": 723,
+          "median_m2": 9.0,
+          "mean_m2": 15.72,
+          "max_m2": 171.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 406,
+          "n_cc": 505,
+          "n_cc_border": 16,
+          "n_cc_interior": 489,
+          "median_m2": 9.0,
+          "mean_m2": 23.08,
+          "max_m2": 468.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 408,
+          "n_cc": 424,
+          "n_cc_border": 25,
+          "n_cc_interior": 399,
+          "median_m2": 16.0,
+          "mean_m2": 43.88,
+          "max_m2": 2527.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 408,
+          "n_cc": 267,
+          "n_cc_border": 24,
+          "n_cc_interior": 243,
+          "median_m2": 18.0,
+          "mean_m2": 71.21,
+          "max_m2": 9766.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 410,
+          "n_cc": 124,
+          "n_cc_border": 7,
+          "n_cc_interior": 117,
+          "median_m2": 9.0,
+          "mean_m2": 21.26,
+          "max_m2": 180.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 410,
+          "n_cc": 112,
+          "n_cc_border": 6,
+          "n_cc_interior": 106,
+          "median_m2": 17.5,
+          "mean_m2": 23.46,
+          "max_m2": 180.0
+        }
+      ],
+      "surface_bois_NE": {
+        "total_px": 71962,
+        "total_ha": 7.1962,
+        "pixel_m2": 1.0,
+        "px_blanc": 24897,
+        "ha_blanc": 2.4897,
+        "pct_blanc": 34.5974,
+        "px_jaune": 14931,
+        "ha_jaune": 1.4931,
+        "pct_jaune": 20.7485,
+        "px_vert0": 5660,
+        "ha_vert0": 0.566,
+        "pct_vert0": 7.8653,
+        "px_406": 9534,
+        "ha_406": 0.9534,
+        "pct_406": 13.2487,
+        "px_408": 15010,
+        "ha_408": 1.501,
+        "pct_408": 20.8582,
+        "px_410": 1930,
+        "ha_410": 0.193,
+        "pct_410": 2.682,
+        "px_vert": 26474,
+        "ha_vert": 2.6474,
+        "pct_vert": 36.7889,
+        "pct_vert_sur_nonjaune": 46.4204,
+        "px_inconnu": 0
+      },
+      "cc_bois_NE": [
+        {
+          "connectivity": 4,
+          "isom": 406,
+          "n_cc": 594,
+          "n_cc_border": 52,
+          "n_cc_interior": 542,
+          "median_m2": 9.0,
+          "mean_m2": 16.37,
+          "max_m2": 171.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 406,
+          "n_cc": 389,
+          "n_cc_border": 54,
+          "n_cc_interior": 335,
+          "median_m2": 9.0,
+          "mean_m2": 24.56,
+          "max_m2": 468.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 408,
+          "n_cc": 317,
+          "n_cc_border": 54,
+          "n_cc_interior": 263,
+          "median_m2": 9.0,
+          "mean_m2": 30.19,
+          "max_m2": 720.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 408,
+          "n_cc": 197,
+          "n_cc_border": 39,
+          "n_cc_interior": 158,
+          "median_m2": 18.0,
+          "mean_m2": 26.23,
+          "max_m2": 183.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 410,
+          "n_cc": 92,
+          "n_cc_border": 11,
+          "n_cc_interior": 81,
+          "median_m2": 9.0,
+          "mean_m2": 21.27,
+          "max_m2": 180.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 410,
+          "n_cc": 86,
+          "n_cc_border": 10,
+          "n_cc_interior": 76,
+          "median_m2": 9.0,
+          "mean_m2": 22.67,
+          "max_m2": 180.0
+        }
+      ]
     },
-    "cc_full": [
-      {
-        "connectivity": 4,
-        "isom": 406,
-        "n_cc": 3478,
-        "n_cc_border": 59,
-        "n_cc_interior": 3419,
-        "median_m2": 9.0,
-        "mean_m2": 13.51,
-        "max_m2": 171.0
+    {
+      "exp": "D_med3-5_t01",
+      "label": "D med3/5 t=0.1",
+      "decode": {
+        "path": "E:\\Vikazim\\Ovector\\out_kp_bois_dupont\\exp_d\\LHD_FXX_0425_6923_PTS_LAMB93_IGN69.copc.laz_vege.png",
+        "sha256_png": "196c3ead33f100dbd94190b8efd6001d422d74842057ae4fe8aeaffe7ea46af4",
+        "sha256_ini": "b5d7d10e2e1802a715f8b5094b228302fa30b93d86f37496a4b882881e874509",
+        "mode": "RGB",
+        "size_wh": [
+          1000,
+          1000
+        ],
+        "n_shades": 11,
+        "lightgreentone": 160,
+        "expected_greens": [
+          [
+            160,
+            254,
+            160
+          ],
+          [
+            144,
+            246,
+            144
+          ],
+          [
+            128,
+            239,
+            128
+          ],
+          [
+            112,
+            231,
+            112
+          ],
+          [
+            96,
+            224,
+            96
+          ],
+          [
+            80,
+            217,
+            80
+          ],
+          [
+            64,
+            209,
+            64
+          ],
+          [
+            48,
+            202,
+            48
+          ]
+        ],
+        "palette_observed": {
+          "(64, 209, 64)": 15472,
+          "(80, 217, 80)": 22897,
+          "(96, 224, 96)": 54719,
+          "(112, 231, 112)": 47336,
+          "(128, 239, 128)": 24467,
+          "(144, 246, 144)": 24311,
+          "(160, 254, 160)": 35026,
+          "(255, 219, 166)": 575649,
+          "(255, 255, 255)": 200123
+        },
+        "n_unknown_px": 0,
+        "palette_ok": true
       },
-      {
-        "connectivity": 8,
-        "isom": 406,
-        "n_cc": 2588,
-        "n_cc_border": 57,
-        "n_cc_interior": 2531,
-        "median_m2": 9.0,
-        "mean_m2": 18.15,
-        "max_m2": 468.0
+      "pgw": {
+        "A": 1.0,
+        "D": 0.0,
+        "B": 0.0,
+        "E": -1.0,
+        "C": 425000.5,
+        "F": 6922999.49,
+        "pixel_m2": 1.0,
+        "res_m": 1.0
       },
-      {
-        "connectivity": 4,
-        "isom": 408,
-        "n_cc": 2665,
-        "n_cc_border": 65,
-        "n_cc_interior": 2600,
-        "median_m2": 9.0,
-        "mean_m2": 33.76,
-        "max_m2": 14048.0
+      "shade_to_isom": {
+        "2": 0,
+        "3": 406,
+        "4": 406,
+        "5": 408,
+        "6": 408,
+        "7": 410,
+        "8": 410
       },
-      {
-        "connectivity": 8,
-        "isom": 408,
-        "n_cc": 1693,
-        "n_cc_border": 59,
-        "n_cc_interior": 1634,
-        "median_m2": 18.0,
-        "mean_m2": 53.08,
-        "max_m2": 14253.0
+      "fenetre_NE_bbox": [
+        425550,
+        6922660,
+        425920,
+        6923000
+      ],
+      "bois_mask_path": "scripts\\bois_NE_mask.npy",
+      "surface_full": {
+        "total_px": 1000000,
+        "total_ha": 100.0,
+        "pixel_m2": 1.0,
+        "px_blanc": 200123,
+        "ha_blanc": 20.0123,
+        "pct_blanc": 20.0123,
+        "px_jaune": 575649,
+        "ha_jaune": 57.5649,
+        "pct_jaune": 57.5649,
+        "px_vert0": 35026,
+        "ha_vert0": 3.5026,
+        "pct_vert0": 3.5026,
+        "px_406": 48778,
+        "ha_406": 4.8778,
+        "pct_406": 4.8778,
+        "px_408": 102055,
+        "ha_408": 10.2055,
+        "pct_408": 10.2055,
+        "px_410": 38369,
+        "ha_410": 3.8369,
+        "pct_410": 3.8369,
+        "px_vert": 189202,
+        "ha_vert": 18.9202,
+        "pct_vert": 18.9202,
+        "pct_vert_sur_nonjaune": 44.5862,
+        "px_inconnu": 0
       },
-      {
-        "connectivity": 4,
-        "isom": 410,
-        "n_cc": 684,
-        "n_cc_border": 9,
-        "n_cc_interior": 675,
-        "median_m2": 9.0,
-        "mean_m2": 23.91,
-        "max_m2": 486.0
+      "cc_full": [
+        {
+          "connectivity": 4,
+          "isom": 406,
+          "n_cc": 3621,
+          "n_cc_border": 48,
+          "n_cc_interior": 3573,
+          "median_m2": 7.0,
+          "mean_m2": 13.32,
+          "max_m2": 277.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 406,
+          "n_cc": 2086,
+          "n_cc_border": 48,
+          "n_cc_interior": 2038,
+          "median_m2": 12.0,
+          "mean_m2": 23.03,
+          "max_m2": 873.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 408,
+          "n_cc": 1839,
+          "n_cc_border": 30,
+          "n_cc_interior": 1809,
+          "median_m2": 13.0,
+          "mean_m2": 50.73,
+          "max_m2": 16405.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 408,
+          "n_cc": 1276,
+          "n_cc_border": 29,
+          "n_cc_interior": 1247,
+          "median_m2": 19.0,
+          "mean_m2": 72.95,
+          "max_m2": 16475.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 410,
+          "n_cc": 745,
+          "n_cc_border": 9,
+          "n_cc_interior": 736,
+          "median_m2": 17.0,
+          "mean_m2": 51.72,
+          "max_m2": 3462.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 410,
+          "n_cc": 729,
+          "n_cc_border": 9,
+          "n_cc_interior": 720,
+          "median_m2": 17.0,
+          "mean_m2": 52.43,
+          "max_m2": 3462.0
+        }
+      ],
+      "surface_fenetre_NE": {
+        "total_px": 125800,
+        "total_ha": 12.58,
+        "pixel_m2": 1.0,
+        "px_blanc": 27883,
+        "ha_blanc": 2.7883,
+        "pct_blanc": 22.1645,
+        "px_jaune": 50349,
+        "ha_jaune": 5.0349,
+        "pct_jaune": 40.0231,
+        "px_vert0": 6516,
+        "ha_vert0": 0.6516,
+        "pct_vert0": 5.1797,
+        "px_406": 9252,
+        "ha_406": 0.9252,
+        "pct_406": 7.3545,
+        "px_408": 25525,
+        "ha_408": 2.5525,
+        "pct_408": 20.2901,
+        "px_410": 6275,
+        "ha_410": 0.6275,
+        "pct_410": 4.9881,
+        "px_vert": 41052,
+        "ha_vert": 4.1052,
+        "pct_vert": 32.6328,
+        "pct_vert_sur_nonjaune": 54.4088,
+        "px_inconnu": 0
       },
-      {
-        "connectivity": 8,
-        "isom": 410,
-        "n_cc": 577,
-        "n_cc_border": 9,
-        "n_cc_interior": 568,
-        "median_m2": 18.0,
-        "mean_m2": 28.41,
-        "max_m2": 666.0
-      }
-    ],
-    "surface_parcel_NE": {
-      "total_px": 125800,
-      "pixel_m2": 1.0,
-      "px_blanc": 35703,
-      "ha_blanc": 3.5703,
-      "pct_blanc": 28.3808,
-      "px_jaune": 50349,
-      "ha_jaune": 5.0349,
-      "pct_jaune": 40.0231,
-      "px_vert0": 7378,
-      "ha_vert0": 0.7378,
-      "pct_vert0": 5.8649,
-      "px_406": 11492,
-      "ha_406": 1.1492,
-      "pct_406": 9.1351,
-      "px_408": 18166,
-      "ha_408": 1.8166,
-      "pct_408": 14.4404,
-      "px_410": 2712,
-      "ha_410": 0.2712,
-      "pct_410": 2.1558,
-      "px_vert": 32370,
-      "ha_vert": 3.237,
-      "pct_vert": 25.7313,
-      "pct_vert_sur_nonjaune": 42.902,
-      "px_inconnu": 0,
-      "ha_inconnu": 0.0
+      "cc_fenetre_NE": [
+        {
+          "connectivity": 4,
+          "isom": 406,
+          "n_cc": 682,
+          "n_cc_border": 30,
+          "n_cc_interior": 652,
+          "median_m2": 7.0,
+          "mean_m2": 13.51,
+          "max_m2": 207.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 406,
+          "n_cc": 415,
+          "n_cc_border": 30,
+          "n_cc_interior": 385,
+          "median_m2": 12.0,
+          "mean_m2": 22.74,
+          "max_m2": 261.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 408,
+          "n_cc": 288,
+          "n_cc_border": 26,
+          "n_cc_interior": 262,
+          "median_m2": 15.0,
+          "mean_m2": 91.92,
+          "max_m2": 16405.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 408,
+          "n_cc": 215,
+          "n_cc_border": 25,
+          "n_cc_interior": 190,
+          "median_m2": 18.0,
+          "mean_m2": 126.26,
+          "max_m2": 16475.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 410,
+          "n_cc": 180,
+          "n_cc_border": 10,
+          "n_cc_interior": 170,
+          "median_m2": 15.0,
+          "mean_m2": 33.51,
+          "max_m2": 495.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 410,
+          "n_cc": 175,
+          "n_cc_border": 10,
+          "n_cc_interior": 165,
+          "median_m2": 15.0,
+          "mean_m2": 34.53,
+          "max_m2": 495.0
+        }
+      ],
+      "surface_bois_NE": {
+        "total_px": 71962,
+        "total_ha": 7.1962,
+        "pixel_m2": 1.0,
+        "px_blanc": 18643,
+        "ha_blanc": 1.8643,
+        "pct_blanc": 25.9067,
+        "px_jaune": 14931,
+        "ha_jaune": 1.4931,
+        "pct_jaune": 20.7485,
+        "px_vert0": 4866,
+        "ha_vert0": 0.4866,
+        "pct_vert0": 6.7619,
+        "px_406": 6986,
+        "ha_406": 0.6986,
+        "pct_406": 9.7079,
+        "px_408": 21731,
+        "ha_408": 2.1731,
+        "pct_408": 30.1979,
+        "px_410": 4805,
+        "ha_410": 0.4805,
+        "pct_410": 6.6771,
+        "px_vert": 33522,
+        "ha_vert": 3.3522,
+        "pct_vert": 46.5829,
+        "pct_vert_sur_nonjaune": 58.7786,
+        "px_inconnu": 0
+      },
+      "cc_bois_NE": [
+        {
+          "connectivity": 4,
+          "isom": 406,
+          "n_cc": 505,
+          "n_cc_border": 48,
+          "n_cc_interior": 457,
+          "median_m2": 7.0,
+          "mean_m2": 13.75,
+          "max_m2": 207.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 406,
+          "n_cc": 306,
+          "n_cc_border": 47,
+          "n_cc_interior": 259,
+          "median_m2": 12.0,
+          "mean_m2": 23.49,
+          "max_m2": 261.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 408,
+          "n_cc": 206,
+          "n_cc_border": 39,
+          "n_cc_interior": 167,
+          "median_m2": 13.0,
+          "mean_m2": 25.6,
+          "max_m2": 273.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 408,
+          "n_cc": 155,
+          "n_cc_border": 38,
+          "n_cc_interior": 117,
+          "median_m2": 18.0,
+          "mean_m2": 33.01,
+          "max_m2": 275.0
+        },
+        {
+          "connectivity": 4,
+          "isom": 410,
+          "n_cc": 153,
+          "n_cc_border": 36,
+          "n_cc_interior": 117,
+          "median_m2": 15.0,
+          "mean_m2": 34.21,
+          "max_m2": 495.0
+        },
+        {
+          "connectivity": 8,
+          "isom": 410,
+          "n_cc": 147,
+          "n_cc_border": 35,
+          "n_cc_interior": 112,
+          "median_m2": 15.0,
+          "mean_m2": 35.74,
+          "max_m2": 495.0
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "from": "B_med1-1_t01",
+      "to": "A_med9-16_t01",
+      "classes": [
+        0,
+        1,
+        2,
+        406,
+        408,
+        410
+      ],
+      "class_labels": {
+        "0": "blanc",
+        "1": "jaune",
+        "2": "vert0(ISOM0)",
+        "406": "ISOM 406",
+        "408": "ISOM 408",
+        "410": "ISOM 410"
+      },
+      "matrix_ha": [
+        [
+          1.39,
+          0.0,
+          0.2256,
+          0.1718,
+          0.1544,
+          0.0007
+        ],
+        [
+          0.0,
+          1.4931,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.203,
+          0.0,
+          0.0687,
+          0.0529,
+          0.1076,
+          0.0005
+        ],
+        [
+          0.2206,
+          0.0,
+          0.0847,
+          0.1062,
+          0.2684,
+          0.0006
+        ],
+        [
+          0.2883,
+          0.0,
+          0.1392,
+          0.208,
+          1.2569,
+          0.0062
+        ],
+        [
+          0.0956,
+          0.0,
+          0.0799,
+          0.12,
+          0.4277,
+          0.0256
+        ]
+      ],
+      "scope": "bois_NE"
     },
-    "cc_parcel_NE": [
-      {
-        "connectivity": 4,
-        "isom": 406,
-        "n_cc": 739,
-        "n_cc_border": 16,
-        "n_cc_interior": 723,
-        "median_m2": 9.0,
-        "mean_m2": 15.72,
-        "max_m2": 171.0
+    {
+      "from": "A_med9-16_t01",
+      "to": "B_med1-1_t01",
+      "classes": [
+        0,
+        1,
+        2,
+        406,
+        408,
+        410
+      ],
+      "class_labels": {
+        "0": "blanc",
+        "1": "jaune",
+        "2": "vert0(ISOM0)",
+        "406": "ISOM 406",
+        "408": "ISOM 408",
+        "410": "ISOM 410"
       },
-      {
-        "connectivity": 8,
-        "isom": 406,
-        "n_cc": 505,
-        "n_cc_border": 16,
-        "n_cc_interior": 489,
-        "median_m2": 9.0,
-        "mean_m2": 23.08,
-        "max_m2": 468.0
+      "matrix_ha": [
+        [
+          1.39,
+          0.0,
+          0.203,
+          0.2206,
+          0.2883,
+          0.0956
+        ],
+        [
+          0.0,
+          1.4931,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.2256,
+          0.0,
+          0.0687,
+          0.0847,
+          0.1392,
+          0.0799
+        ],
+        [
+          0.1718,
+          0.0,
+          0.0529,
+          0.1062,
+          0.208,
+          0.12
+        ],
+        [
+          0.1544,
+          0.0,
+          0.1076,
+          0.2684,
+          1.2569,
+          0.4277
+        ],
+        [
+          0.0007,
+          0.0,
+          0.0005,
+          0.0006,
+          0.0062,
+          0.0256
+        ]
+      ],
+      "scope": "bois_NE"
+    },
+    {
+      "from": "B_med1-1_t01",
+      "to": "C_med1-1_t02",
+      "classes": [
+        0,
+        1,
+        2,
+        406,
+        408,
+        410
+      ],
+      "class_labels": {
+        "0": "blanc",
+        "1": "jaune",
+        "2": "vert0(ISOM0)",
+        "406": "ISOM 406",
+        "408": "ISOM 408",
+        "410": "ISOM 410"
       },
-      {
-        "connectivity": 4,
-        "isom": 408,
-        "n_cc": 424,
-        "n_cc_border": 25,
-        "n_cc_interior": 399,
-        "median_m2": 16.0,
-        "mean_m2": 43.88,
-        "max_m2": 2527.0
+      "matrix_ha": [
+        [
+          1.9425,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.4931,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.4327,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.1145,
+          0.0,
+          0.566,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.9534,
+          0.9452,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.5558,
+          0.193
+        ]
+      ],
+      "scope": "bois_NE"
+    },
+    {
+      "from": "B_med1-1_t01",
+      "to": "D_med3-5_t01",
+      "classes": [
+        0,
+        1,
+        2,
+        406,
+        408,
+        410
+      ],
+      "class_labels": {
+        "0": "blanc",
+        "1": "jaune",
+        "2": "vert0(ISOM0)",
+        "406": "ISOM 406",
+        "408": "ISOM 408",
+        "410": "ISOM 410"
       },
-      {
-        "connectivity": 8,
-        "isom": 408,
-        "n_cc": 267,
-        "n_cc_border": 24,
-        "n_cc_interior": 243,
-        "median_m2": 18.0,
-        "mean_m2": 71.21,
-        "max_m2": 9766.0
-      },
-      {
-        "connectivity": 4,
-        "isom": 410,
-        "n_cc": 124,
-        "n_cc_border": 7,
-        "n_cc_interior": 117,
-        "median_m2": 9.0,
-        "mean_m2": 21.26,
-        "max_m2": 180.0
-      },
-      {
-        "connectivity": 8,
-        "isom": 410,
-        "n_cc": 112,
-        "n_cc_border": 6,
-        "n_cc_interior": 106,
-        "median_m2": 17.5,
-        "mean_m2": 23.46,
-        "max_m2": 180.0
-      }
-    ]
-  }
-]
+      "matrix_ha": [
+        [
+          1.68,
+          0.0,
+          0.1042,
+          0.0861,
+          0.0696,
+          0.0026
+        ],
+        [
+          0.0,
+          1.4931,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0679,
+          0.0,
+          0.2663,
+          0.0509,
+          0.046,
+          0.0016
+        ],
+        [
+          0.0639,
+          0.0,
+          0.0613,
+          0.4091,
+          0.1431,
+          0.0031
+        ],
+        [
+          0.0429,
+          0.0,
+          0.0509,
+          0.1311,
+          1.6467,
+          0.027
+        ],
+        [
+          0.0096,
+          0.0,
+          0.0039,
+          0.0214,
+          0.2677,
+          0.4462
+        ]
+      ],
+      "scope": "bois_NE"
+    }
+  ],
+  "bois_mask_ha": 7.1962
+}
