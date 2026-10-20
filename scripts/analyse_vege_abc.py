@@ -38,6 +38,12 @@ from PIL import Image
 from scipy import ndimage
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
+from scripts.trous_analysis import (
+    build_trapeze_mask,
+    classify_open_zones,
+    cc_correspondences,
+    TRAPEZE_VERTICES,
+)
 from src.kp_raster import (
     KP_FIRST_GREEN,
     KP_NO_DATA,
@@ -54,7 +60,8 @@ log = logging.getLogger(__name__)
 FENETRE_NE = dict(row0=0, row1=340, col0=550, col1=920)
 FENETRE_NE_BBOX = (425550, 6922660, 425920, 6923000)  # Lambert 93
 
-BOIS_MASK_PATH = pathlib.Path("scripts/bois_NE_mask.npy")
+BOIS_MASK_PATH    = pathlib.Path("scripts/bois_NE_mask.npy")
+TRAPEZE_MASK_PATH = pathlib.Path("scripts/bois_trapeze_mask.npy")
 
 # ── Experiences ───────────────────────────────────────────────────────────────
 BASE = pathlib.Path("out_kp_bois_dupont")
@@ -436,6 +443,7 @@ def analyze_exp(
     meta: dict,
     shade_to_isom: dict[int, int],
     bois_mask: np.ndarray,
+    trapeze_mask: np.ndarray,
 ) -> tuple[dict, np.ndarray, dict]:
     """Retourne (result_dict, labels_full, pgw)."""
     png_path: pathlib.Path = meta["vege_png"]
@@ -449,9 +457,14 @@ def analyze_exp(
     fne_mask2d = np.zeros((h, w), dtype=bool)
     fne_mask2d[fne["row0"]:fne["row1"], fne["col0"]:fne["col1"]] = True
 
-    # Masque bois dans l'espace du raster complet
     bois_full = np.zeros((h, w), dtype=bool)
     bois_full[fne["row0"]:fne["row1"], fne["col0"]:fne["col1"]] = bois_mask
+
+    trapeze_full = np.zeros((h, w), dtype=bool)
+    trapeze_full[fne["row0"]:fne["row1"], fne["col0"]:fne["col1"]] = trapeze_mask
+
+    # Labels en crop 340×370 pour les fonctions trous_analysis
+    labels_crop = labels[fne["row0"]:fne["row1"], fne["col0"]:fne["col1"]]
 
     result: dict = {
         "exp":    exp_id,
@@ -460,27 +473,30 @@ def analyze_exp(
         "pgw":    pgw,
         "shade_to_isom": {str(k): v for k, v in shade_to_isom.items()},
         "fenetre_NE_bbox": list(FENETRE_NE_BBOX),
-        "bois_mask_path": str(BOIS_MASK_PATH),
+        "bois_mask_path":    str(BOIS_MASK_PATH),
+        "trapeze_mask_path": str(TRAPEZE_MASK_PATH),
+        "trapeze_vertices":  TRAPEZE_VERTICES,
     }
 
     for scope, mask2d in [
         ("full", None),
         ("fenetre_NE", fne_mask2d),
         ("bois_NE", bois_full),
+        ("bois_trapeze", trapeze_full),
     ]:
-        surf = surface_stats(
-            labels, shade_to_isom, pgw["pixel_m2"],
-            mask2d,
-        )
+        surf = surface_stats(labels, shade_to_isom, pgw["pixel_m2"], mask2d)
         result[f"surface_{scope}"] = surf
         cc_all = []
         for code in [406, 408, 410]:
             for conn in [4, 8]:
                 cc_all.append(cc_stats(
-                    labels, code, shade_to_isom, pgw["pixel_m2"], conn,
-                    mask2d,
+                    labels, code, shade_to_isom, pgw["pixel_m2"], conn, mask2d,
                 ))
         result[f"cc_{scope}"] = cc_all
+
+    # Zones ouvertes séparées sur le bois trapézoïdal
+    oz = classify_open_zones(labels_crop, trapeze_mask, shade_to_isom)
+    result["open_zones_trapeze"] = oz.as_dict()
 
     return result, labels, pgw
 
@@ -488,8 +504,9 @@ def analyze_exp(
 # ── Affichage ─────────────────────────────────────────────────────────────────
 
 def print_summary(results: list[dict]) -> None:
-    for zone in ["full", "fenetre_NE", "bois_NE"]:
-        ha_label = {"full": "100 ha", "fenetre_NE": "12.58 ha", "bois_NE": "~7.2 ha"}[zone]
+    for zone in ["full", "fenetre_NE", "bois_NE", "bois_trapeze"]:
+        ha_label = {"full": "100 ha", "fenetre_NE": "12.58 ha",
+                    "bois_NE": "~7.2 ha", "bois_trapeze": "~3.6 ha"}[zone]
         print(f"\n=== SURFACES — {zone} ({ha_label}) ===")
         print(f"  {'Exp':22s}  {'blanc':>6}  {'jaune':>6}  {'vert0':>6}  {'406':>6}  {'408':>6}  {'410':>6}  {'%vert':>6}")
         for r in results:
@@ -498,7 +515,7 @@ def print_summary(results: list[dict]) -> None:
                   f"{s['ha_vert0']:6.2f}  {s['ha_406']:6.2f}  {s['ha_408']:6.2f}  "
                   f"{s['ha_410']:6.2f}  {s['pct_vert']:6.1f}%")
 
-    for zone in ["fenetre_NE", "bois_NE"]:
+    for zone in ["fenetre_NE", "bois_NE", "bois_trapeze"]:
         for conn in [4, 8]:
             print(f"\n=== CC {zone} connexite {conn} ===")
             print(f"  {'Exp':22s}  {'ISOM':>4}  {'#CC':>5}  {'#bord':>5}  {'med m2':>8}  {'max m2':>9}")
@@ -545,13 +562,23 @@ def main() -> None:
     if not base_exps:
         base_exps = list(all_labels.values())
     bois_mask = load_or_build_bois_mask(base_exps, FENETRE_NE)
-    log.info("Masque bois : %d px = %.2f ha", bois_mask.sum(), bois_mask.sum()/10000)
+    log.info("Masque bois (elargi) : %d px = %.2f ha", bois_mask.sum(), bois_mask.sum()/10000)
+
+    trapeze_mask = build_trapeze_mask(
+        (FENETRE_NE["row1"] - FENETRE_NE["row0"],
+         FENETRE_NE["col1"] - FENETRE_NE["col0"]),
+        TRAPEZE_VERTICES,
+        cache=TRAPEZE_MASK_PATH,
+    )
+    log.info("Masque trapeze : %d px = %.2f ha", trapeze_mask.sum(), trapeze_mask.sum()/10000)
 
     # Analyse complete
     results: list[dict] = []
     for exp_id, meta in exps_to_run.items():
         log.info("Analyse : %s", exp_id)
-        result, labels, pgw = analyze_exp(exp_id, meta, shade_to_isom, bois_mask)
+        result, labels, pgw = analyze_exp(
+            exp_id, meta, shade_to_isom, bois_mask, trapeze_mask,
+        )
         all_labels[exp_id] = labels
         all_pgw[exp_id]    = pgw
         results.append(result)
@@ -582,10 +609,34 @@ def main() -> None:
             except ValueError as e:
                 log.error("Transition %s->%s : %s", id_from, id_to, e)
 
+    # Correspondances de composantes B→D sur le bois trapézoïdal
+    correspondances: dict = {}
+    if "B_med1-1_t01" in all_labels and "D_med3-5_t01" in all_labels:
+        fne = FENETRE_NE
+        labels_b_crop = all_labels["B_med1-1_t01"][
+            fne["row0"]:fne["row1"], fne["col0"]:fne["col1"]]
+        labels_d_crop = all_labels["D_med3-5_t01"][
+            fne["row0"]:fne["row1"], fne["col0"]:fne["col1"]]
+        for isom_code in [406, 408, 410]:
+            events, summary = cc_correspondences(
+                labels_b_crop, labels_d_crop, trapeze_mask,
+                isom_code, shade_to_isom, connectivity=4,
+            )
+            correspondances[str(isom_code)] = {
+                "summary": summary,
+                "events": [e.as_dict() for e in events],
+            }
+        log.info("Correspondances B->D calculees sur bois_trapeze")
+
     # Ecriture JSON
     out_json = pathlib.Path(args.out)
-    output = {"results": results, "transitions": transitions,
-              "bois_mask_ha": round(float(bois_mask.sum()) / 10000, 4)}
+    output = {
+        "results": results,
+        "transitions": transitions,
+        "correspondances_BD_trapeze": correspondances,
+        "bois_mask_ha":    round(float(bois_mask.sum()) / 10000, 4),
+        "trapeze_mask_ha": round(float(trapeze_mask.sum()) / 10000, 4),
+    }
     out_json.write_text(json.dumps(output, indent=2, ensure_ascii=False), encoding="utf-8")
     log.info("JSON -> %s", out_json)
 
@@ -593,7 +644,7 @@ def main() -> None:
     out_csv = out_json.with_suffix(".csv")
     rows: list[dict] = []
     for r in results:
-        for scope in ["full", "fenetre_NE", "bois_NE"]:
+        for scope in ["full", "fenetre_NE", "bois_NE", "bois_trapeze"]:
             row = {"exp": r["exp"], "label": r["label"], "scope": scope,
                    "sha256_png": r["decode"]["sha256_png"][:16],
                    "sha256_ini": r["decode"]["sha256_ini"][:16]}
