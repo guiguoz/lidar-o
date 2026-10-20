@@ -136,6 +136,30 @@ def _build_ini(
         f"pointvolumefactor=0.1\n"
         f"pointvolumeexponent=1\n"
         f"parallel_laz_decompression=1\n"
+        + (f"lightgreentone={lightgreentone}\n" if lightgreentone is not None else "")
+        + (f"medianboxsize2={medianboxsize2}\n" if medianboxsize2 is not None else "")
+    )
+
+
+def build_ini_content(
+    tiles_dir: pathlib.Path,
+    output_dir: pathlib.Path,
+    root: pathlib.Path,
+    cliffheight: float | None = None,
+    cliffangle: float | None = None,
+    lightgreentone: int | None = None,
+    medianboxsize2: int | None = None,
+) -> str:
+    """Retourne le contenu de pullauta.ini sans l'écrire.
+
+    Même logique que generate_ini — utiliser pour comparer avec un ini existant
+    avant de décider si un re-run KP est nécessaire.
+    """
+    base_ini = root / "pullauta.ini"
+    return _build_ini(
+        tiles_dir.resolve(), output_dir.resolve(), base_ini,
+        cliffheight=cliffheight, cliffangle=cliffangle,
+        lightgreentone=lightgreentone, medianboxsize2=medianboxsize2,
     )
 
 

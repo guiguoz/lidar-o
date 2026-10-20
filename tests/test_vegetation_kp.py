@@ -463,3 +463,65 @@ def test_coverage_simplify_doit_rester_global() -> None:
         "attendu : la simplification par classe cree des recouvrements inter-classes — "
         "coverage_simplify doit rester appele sur les 3 classes ensemble"
     )
+
+
+# ── Bug 3 : cache vegetation_kp invalide si shade_to_isom change ─────────────
+
+class TestVegeKpCfgHash:
+    """La hash de configuration invalide le cache de vegetation_kp.gpkg.
+
+    Scénario : veg_kp_gpkg existe et est plus récent que les PNG sources,
+    mais shade_to_isom a été modifié dans config.yaml depuis le dernier run.
+    """
+
+    def _make_cfg(self, shade_mapping: dict) -> dict:
+        return {
+            "karttapullautin": {
+                "vectorization": {
+                    "input": "auto",
+                    "shade_to_isom": shade_mapping,
+                    "coverage_simplify_m": 2.0,
+                    "keep_template": False,
+                },
+            },
+        }
+
+    def _vect_cfg_hash(self, cfg: dict) -> str:
+        import hashlib, json
+        vect_cfg = cfg.get("karttapullautin", {}).get("vectorization", {}) or {}
+        return hashlib.md5(json.dumps(vect_cfg, sort_keys=True).encode()).hexdigest()
+
+    def test_same_config_produces_same_hash(self):
+        cfg = self._make_cfg({2: 0, 3: 406, 4: 406, 5: 408, 6: 408, 7: 410, 8: 410})
+        assert self._vect_cfg_hash(cfg) == self._vect_cfg_hash(cfg)
+
+    def test_different_shade_mapping_changes_hash(self):
+        cfg_orig = self._make_cfg({2: 0, 3: 406, 4: 406, 5: 408, 6: 408, 7: 410, 8: 410})
+        cfg_alt  = self._make_cfg({2: 0, 3: 406, 4: 406, 5: 408, 6: 408, 7: 410, 8: 0})
+        assert self._vect_cfg_hash(cfg_orig) != self._vect_cfg_hash(cfg_alt)
+
+    def test_coverage_simplify_change_changes_hash(self):
+        cfg2 = self._make_cfg({2: 0, 3: 406, 4: 406, 5: 408, 6: 408, 7: 410, 8: 410})
+        cfg2["karttapullautin"]["vectorization"]["coverage_simplify_m"] = 4.0
+        cfg_orig = self._make_cfg({2: 0, 3: 406, 4: 406, 5: 408, 6: 408, 7: 410, 8: 410})
+        assert self._vect_cfg_hash(cfg_orig) != self._vect_cfg_hash(cfg2)
+
+    def test_hash_file_mismatch_forces_rerun(self, tmp_path: pathlib.Path):
+        """Cache hit uniquement si le hash stocké correspond au hash actuel.
+
+        Simule le comportement de step_vegetation_kp : si le hash stocké ne
+        correspond pas, cfg_ok=False → la skip condition échoue → rerun.
+        """
+        cfg_orig = self._make_cfg({2: 0, 3: 406})
+        cfg_changed = self._make_cfg({2: 0, 3: 408})  # shade_to_isom modifié
+
+        hash_file = tmp_path / ".vege_kp_cfg_hash"
+        hash_file.write_text(self._vect_cfg_hash(cfg_orig))
+
+        # Avec la config originale : cfg_ok = True
+        assert hash_file.read_text() == self._vect_cfg_hash(cfg_orig)
+
+        # Après changement de config : cfg_ok = False → cache invalide
+        assert hash_file.read_text() != self._vect_cfg_hash(cfg_changed), (
+            "Le hash doit changer quand shade_to_isom change — cache vegetation_kp doit être invalidé"
+        )

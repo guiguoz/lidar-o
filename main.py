@@ -189,7 +189,7 @@ def step_relief(
         log.warning("relief : --tiles-dir requis pour lancer KP — étape ignorée")
         return "ignoré : --tiles-dir manquant"
 
-    from src.run_engine import run_engine
+    from src.run_engine import build_ini_content, run_engine
 
     out_kp = ROOT / f"out_kp_{terrain}"
     dxf_files = sorted(out_kp.glob("*.dxf")) if out_kp.exists() else []
@@ -198,9 +198,26 @@ def step_relief(
         laz_files = list(tiles_dir.glob("*.copc.laz")) + list(tiles_dir.glob("*.laz"))
         ref_mtime = _newest_mtime(*laz_files)
         if ref_mtime and all(f.stat().st_mtime >= ref_mtime for f in dxf_files):
-            log.info("SKIP relief — DXF à jour")
-            return f"skip : DXF à jour ({len(dxf_files)} fichiers dans {out_kp.name}/)"
-        log.warning("relief : DXF périmés — relance KP")
+            # DXF frais vs LAZ — vérifier aussi que l'ini n'a pas changé.
+            terrain_cfg = cfg.get("terrains", {}).get(terrain, {})
+            kp_cliff = cfg.get("karttapullautin", {}).get("cliff", {}) or {}
+            kp_rendering = cfg.get("karttapullautin", {}).get("rendering", {}) or {}
+            expected_ini = build_ini_content(
+                tiles_dir, out_kp, ROOT,
+                cliffheight=kp_cliff.get("cliffheight"),
+                cliffangle=kp_cliff.get("cliffangle"),
+                lightgreentone=kp_rendering.get("lightgreentone"),
+                medianboxsize2=kp_rendering.get("medianboxsize2"),
+            )
+            existing_ini = out_kp / "pullauta.ini"
+            if existing_ini.exists() and existing_ini.read_text(encoding="utf-8") == expected_ini:
+                log.info("SKIP relief — DXF à jour, ini inchangé")
+                return f"skip : DXF à jour ({len(dxf_files)} fichiers dans {out_kp.name}/)"
+            log.warning(
+                "relief : DXF à jour mais ini différent (config.yaml modifié ?) — relance KP"
+            )
+        else:
+            log.warning("relief : DXF périmés — relance KP")
 
     try:
         run_engine(terrain, cfg, tiles_dir, ROOT)
@@ -252,17 +269,30 @@ def step_vegetation_kp(terrain: str, cfg: dict, force: bool) -> None:
             "vérifier vege_bitmode dans pullauta.ini ou relancer step_relief."
         )
 
+    vect_cfg = (cfg.get("karttapullautin", {}).get("vectorization", {}) or {})
+    cfg_hash_file = OUTPUT / ".vege_kp_cfg_hash"
+
+    def _vect_cfg_hash() -> str:
+        import hashlib, json as _json
+        return hashlib.md5(_json.dumps(vect_cfg, sort_keys=True).encode()).hexdigest()
+
     if not force and veg_kp_gpkg.exists():
         ref_mtime = _newest_mtime(*png_files)
-        if ref_mtime and veg_kp_gpkg.stat().st_mtime >= ref_mtime:
+        cfg_ok = cfg_hash_file.exists() and cfg_hash_file.read_text() == _vect_cfg_hash()
+        if ref_mtime and veg_kp_gpkg.stat().st_mtime >= ref_mtime and cfg_ok:
             log.info("SKIP vegetation_kp — vegetation_kp.gpkg à jour")
             return
-        log.warning("vegetation_kp : vegetation_kp.gpkg périmé — relance")
+        if not cfg_ok:
+            log.warning(
+                "vegetation_kp : configuration vectorisation modifiée (shade_to_isom, "
+                "coverage_simplify_m, input…) — relance"
+            )
+        else:
+            log.warning("vegetation_kp : vegetation_kp.gpkg périmé — relance")
 
     terrain_cfg = cfg.get("terrains", {}).get(terrain, {})
     terrain_crs: str = terrain_cfg.get("crs", "EPSG:2154")
     bbox = terrain_cfg.get("bbox")
-    vect_cfg = (cfg.get("karttapullautin", {}).get("vectorization", {}) or {})
     tol = float(vect_cfg.get("coverage_simplify_m", 2.0))
 
     # P5 — raster classifié KP
@@ -322,6 +352,7 @@ def step_vegetation_kp(terrain: str, cfg: dict, force: bool) -> None:
             gpd.GeoDataFrame({"geometry": []}, crs=crs_raster).to_file(
                 veg_kp_gpkg, layer=f"veg_{code}", driver="GPKG",
             )
+        cfg_hash_file.write_text(_vect_cfg_hash())
         return
 
     geom_arr = np.array(all_geoms, dtype=object)
@@ -339,6 +370,7 @@ def step_vegetation_kp(terrain: str, cfg: dict, force: bool) -> None:
     counts = {c: len(v) for c, v in layers.items()}
     log.info("vegetation_kp : 406=%d 408=%d 410=%d polygones -> %s",
              counts[406], counts[408], counts[410], veg_kp_gpkg.name)
+    cfg_hash_file.write_text(_vect_cfg_hash())
 
 
 # ── Étape 4 : vegetation ──────────────────────────────────────────────────────
