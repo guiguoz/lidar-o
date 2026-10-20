@@ -4,15 +4,16 @@ Ce module fournit des fonctions pures (pas d'I/O ni de logging) utilisables
 indépendamment par les scripts d'analyse et les tests synthétiques.
 
 Conventions :
-    shade   : np.ndarray uint8, valeurs KP (0=blanc, 1=jaune, 2..=vert)
-    mask    : np.ndarray bool, même forme que shade
-    ha      : pixel_m2 = 1.0 implicite (toutes les mesures en m²/10000)
+    shade     : np.ndarray uint8, valeurs KP (0=blanc, 1=jaune, 2..=vert)
+    mask      : np.ndarray bool, même forme que shade
+    pixel_m2  : surface d'un pixel en m², fourni explicitement (pas supposé 1).
 """
 from __future__ import annotations
 
+import hashlib
 import pathlib
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 from scipy import ndimage
@@ -37,26 +38,54 @@ TRAPEZE_VERTICES: list[tuple[int, int]] = [
 ]
 
 
+def _cache_key(shape: tuple, vertices: list[tuple[int, int]]) -> str:
+    """Clé déterministe basée sur shape et sommets.
+
+    Permet d'invalider automatiquement le cache si les sommets changent,
+    sans nécessiter de suppression manuelle du fichier .npy.
+    """
+    payload = f"{shape}|{vertices}"
+    return hashlib.sha256(payload.encode()).hexdigest()[:20]
+
+
 def build_trapeze_mask(
     shape: tuple[int, int],
     vertices: list[tuple[int, int]] = TRAPEZE_VERTICES,
     cache: pathlib.Path | str | None = None,
 ) -> np.ndarray:
-    """Masque booléen rempli par le polygone.
+    """Masque booléen rempli par le polygone, purement géométrique.
 
     Tous les pixels à l'intérieur du polygone sont True, quelle que soit
-    leur classe KP (blanc et jaune inclus). Purement géométrique.
+    leur classe KP (blanc et jaune inclus).
+
+    Le cache est invalide si shape ou vertices ont changé depuis le calcul
+    précédent — aucune invalidation manuelle requise.
+
+    Note sur MplPath : ``MplPath(verts, closed=True)`` affecte CLOSEPOLY au
+    dernier sommet fourni dont les coordonnées sont ignorées. Ici on répète
+    explicitement le premier sommet en fin de liste et on assigne CLOSEPOLY
+    à ce doublon, garantissant que tous les sommets originaux reçoivent LINETO.
     """
     if cache is not None:
         cache = pathlib.Path(cache)
-        if cache.exists():
+        sidecar = cache.with_suffix(".key")
+        expected = _cache_key(shape, vertices)
+        if cache.exists() and sidecar.exists() and sidecar.read_text().strip() == expected:
             m = np.load(cache)
             if m.shape == shape:
                 return m
 
     from matplotlib.path import Path as MplPath
+
     verts_xy = [(float(c), float(r)) for r, c in vertices]
-    path = MplPath(verts_xy, closed=True)
+    verts_closed = verts_xy + [verts_xy[0]]          # répétition du 1er sommet
+    n = len(verts_closed)
+    codes = np.empty(n, dtype=np.uint8)
+    codes[0]    = MplPath.MOVETO
+    codes[1:-1] = MplPath.LINETO                     # tous les sommets originaux
+    codes[-1]   = MplPath.CLOSEPOLY                  # doublon : coords ignorées
+
+    path = MplPath(verts_closed, codes)
     rs, cs = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), indexing="ij")
     pts = np.stack([cs.ravel(), rs.ravel()], axis=1)
     mask = path.contains_points(pts).reshape(shape)
@@ -64,6 +93,7 @@ def build_trapeze_mask(
     if cache is not None:
         cache.parent.mkdir(parents=True, exist_ok=True)
         np.save(cache, mask)
+        sidecar.write_text(expected)
     return mask
 
 
@@ -74,12 +104,13 @@ def build_trapeze_mask(
 def mask_boundary(mask: np.ndarray) -> np.ndarray:
     """Pixels du masque adjacents à l'extérieur (4-connexe).
 
-    Permet de détecter les CC qui touchent la frontière réelle du masque,
-    indépendamment de la forme rectangulaire ou non.
+    Utilise l'érosion avec border_value=0 : les pixels au bord du raster
+    (edge de l'array) sont traités comme adjacents à l'extérieur du masque.
+    Résultat = pixels du masque qu'une érosion pleine ne conserverait pas.
     """
     struct4 = ndimage.generate_binary_structure(2, 1)
-    dilated_outside = ndimage.binary_dilation(~mask, structure=struct4)
-    return mask & dilated_outside
+    eroded = ndimage.binary_erosion(mask, structure=struct4, border_value=0)
+    return mask & ~eroded
 
 
 # ---------------------------------------------------------------------------
@@ -87,7 +118,7 @@ def mask_boundary(mask: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 def _interior_cc(binary: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, list[int]]:
-    """Composantes connexes (4-connexe) de `binary & mask` intérieures au masque."""
+    """Composantes connexes (4-connexe) de ``binary & mask`` intérieures au masque."""
     struct4 = ndimage.generate_binary_structure(2, 1)
     labeled, n = ndimage.label(binary & mask, structure=struct4)
     if n == 0:
@@ -103,7 +134,7 @@ def get_interior_trous(
 ) -> tuple[np.ndarray, list[int]]:
     """CC non-vertes (blanc OU jaune) intérieures au masque irrégulier.
 
-    Utilise la frontière dilatée du masque, pas les seuls bords du rectangle.
+    Utilise la frontière d'érosion du masque, pas les seuls bords du rectangle.
     Retourne (labeled_array, interior_ids).
     """
     nonvert = (shade == KP_BLANC) | (shade == KP_JAUNE)
@@ -124,6 +155,7 @@ class OpenZoneStats:
     ha_406: float = 0.0
     ha_408: float = 0.0
     ha_410: float = 0.0
+    pixel_m2: float = 1.0
 
     def as_dict(self) -> dict:
         return {k: v for k, v in self.__dict__.items()}
@@ -133,23 +165,28 @@ def classify_open_zones(
     shade: np.ndarray,
     mask: np.ndarray,
     shade_to_isom: dict[int, int],
+    pixel_m2: float,
 ) -> OpenZoneStats:
     """Mesure séparée des zones ouvertes enclavées et des classes de production.
 
-    blanc_enclave / jaune_enclave : CC intérieures (potentielles clairières,
-        NON validées comme telles sans contrôle terrain).
-    vert0 : shade mappé ISOM 0 (forêt courable), classe de production légère.
-    406/408/410 : classes de production courantes.
-    """
-    _, b_ids = _interior_cc(shade == KP_BLANC, mask)
-    _, j_ids = _interior_cc(shade == KP_JAUNE, mask)
+    pixel_m2 : surface réelle d'un pixel, fournie explicitement.
 
-    # Labeled arrays pour calculer les surfaces
-    labeled_b, _ = _interior_cc(shade == KP_BLANC, mask)
-    labeled_j, _ = _interior_cc(shade == KP_JAUNE, mask)
+    blanc_enclave / jaune_enclave : CC intérieures au masque (potentielles
+        clairières — NON validées sans contrôle terrain).
+    vert0  : pixels ISOM 0 (forêt courable). Classe de production légère,
+        à ne pas confondre avec une zone ouverte.
+    406/408/410 : classes de production.
+    """
+    if pixel_m2 <= 0:
+        raise ValueError(f"pixel_m2 doit être positif, reçu {pixel_m2}")
+
+    ha = pixel_m2 / 10_000.0
+
+    labeled_b, b_ids = _interior_cc(shade == KP_BLANC, mask)
+    labeled_j, j_ids = _interior_cc(shade == KP_JAUNE, mask)
 
     def _ha_ids(labeled: np.ndarray, ids: list[int]) -> float:
-        return sum(int((labeled == i).sum()) for i in ids) / 10000.0
+        return sum(int((labeled == i).sum()) for i in ids) * ha
 
     def _class_ha(isom_target: int) -> float:
         total = sum(
@@ -157,7 +194,7 @@ def classify_open_zones(
             for s, v in shade_to_isom.items()
             if v == isom_target
         )
-        return round(total / 10000.0, 4)
+        return round(total * ha, 4)
 
     return OpenZoneStats(
         blanc_enclave_n=len(b_ids),
@@ -168,6 +205,7 @@ def classify_open_zones(
         ha_406=_class_ha(406),
         ha_408=_class_ha(408),
         ha_410=_class_ha(410),
+        pixel_m2=pixel_m2,
     )
 
 
@@ -199,7 +237,7 @@ def isom_labeled(
 
 @dataclass
 class ComponentEvent:
-    event_type: str      # persist | disappear | appear | merge | split
+    event_type: str      # persist | disappear | appear | merge | split | complex
     from_ids: list[int]  # IDs dans lab_from (vides si appear)
     to_ids: list[int]    # IDs dans lab_to   (vides si disappear)
     from_ha: float
@@ -208,11 +246,11 @@ class ComponentEvent:
 
     def as_dict(self) -> dict:
         return {
-            "type": self.event_type,
-            "from_ids": self.from_ids,
-            "to_ids": self.to_ids,
-            "from_ha": self.from_ha,
-            "to_ha": self.to_ha,
+            "type":        self.event_type,
+            "from_ids":    self.from_ids,
+            "to_ids":      self.to_ids,
+            "from_ha":     self.from_ha,
+            "to_ha":       self.to_ha,
             "pct_overlap": self.pct_overlap,
         }
 
@@ -223,21 +261,35 @@ def cc_correspondences(
     mask: np.ndarray,
     isom_code: int,
     shade_to_isom: dict[int, int],
+    pixel_m2: float,
     connectivity: int = 4,
 ) -> tuple[list[ComponentEvent], dict]:
     """Correspondances entre composantes d'une même classe ISOM de from vers to.
 
+    pixel_m2 : surface réelle d'un pixel, fournie explicitement.
+
     Types d'événements :
-        persist    : CC_from ↔ CC_to 1:1
-        disappear  : CC_from sans aucun recouvrement dans to
-        appear     : CC_to sans aucun recouvrement depuis from
-        merge      : plusieurs CC_from → 1 CC_to
-        split      : 1 CC_from → plusieurs CC_to
+        persist    : 1 CC_from ↔ 1 CC_to
+        disappear  : CC_from de isom_code sans CC_to de isom_code en recouvrement.
+                     Le pixel a pu changer de classe ISOM ou devenir blanc/jaune.
+        appear     : CC_to de isom_code sans CC_from de isom_code en recouvrement.
+                     Peut résulter d'un changement depuis une autre ISOM ou depuis
+                     blanc/jaune.
+        merge      : N CC_from → 1 CC_to  (N > 1)
+        split      : 1 CC_from → M CC_to  (M > 1)
+        complex    : N CC_from → M CC_to  (N > 1 et M > 1)
+
+    Summary par type : n (groupes), n_from_cc (CC sources), n_to_cc (CC destinations).
     """
+    if pixel_m2 <= 0:
+        raise ValueError(f"pixel_m2 doit être positif, reçu {pixel_m2}")
+
+    ha = pixel_m2 / 10_000.0
+
     lab_f, n_f = isom_labeled(shade_from, mask, isom_code, shade_to_isom, connectivity)
     lab_t, n_t = isom_labeled(shade_to,   mask, isom_code, shade_to_isom, connectivity)
 
-    # Construction des liens via overlap (vectorisé sur les pixels du masque)
+    # Liens via overlap (vectorisé sur pixels du masque)
     mf = lab_f[mask]
     mt = lab_t[mask]
     f_to_ts: dict[int, set[int]] = defaultdict(set)
@@ -250,19 +302,19 @@ def cc_correspondences(
     sizes_f = {i: int((lab_f == i).sum()) for i in range(1, n_f + 1)}
     sizes_t = {j: int((lab_t == j).sum()) for j in range(1, n_t + 1)}
 
-    def _overlap_ha(fi: int, ti: int) -> int:
+    def _overlap_px(fi: int, ti: int) -> int:
         return int(np.sum((lab_f == fi) & (lab_t == ti)))
 
-    # Grouper via bipartite union-find
+    # Union-Find bipartite : regroupe les CC_from et CC_to connectées
     parent: dict = {}
 
-    def find(x):
+    def find(x: object) -> object:
         while parent.get(x, x) != x:
             parent[x] = parent.get(parent.get(x, x), parent.get(x, x))
             x = parent.get(x, x)
         return x
 
-    def union(a, b):
+    def union(a: object, b: object) -> None:
         pa, pb = find(a), find(b)
         if pa != pb:
             parent[pa] = pb
@@ -278,51 +330,48 @@ def cc_correspondences(
         if t_to_fs.get(ti):
             groups[find(("t", ti))]["to"].append(ti)
 
-    # Apparitions pures (CC_to non reliées à un CC_from)
-    covered_t: set[int] = set()
-    for g in groups.values():
-        covered_t.update(g["to"])
+    covered_t: set[int] = {ti for g in groups.values() for ti in g["to"]}
 
     events: list[ComponentEvent] = []
 
     for g in groups.values():
         fids = g["from"]
         tids = g["to"]
-        f_ha = round(sum(sizes_f[fi] for fi in fids) / 10000.0, 5)
-        t_ha = round(sum(sizes_t[ti] for ti in tids) / 10000.0, 5)
+        f_ha = round(sum(sizes_f[fi] for fi in fids) * ha, 5)
+        t_ha = round(sum(sizes_t[ti] for ti in tids) * ha, 5)
 
         if not tids:
             events.append(ComponentEvent("disappear", fids, [], f_ha, 0.0, 0.0))
             continue
 
-        # Fraction de from_ha recouverte par to
-        total_ov = sum(_overlap_ha(fi, ti) for fi in fids for ti in tids)
+        total_ov = sum(_overlap_px(fi, ti) for fi in fids for ti in tids)
         total_from_px = sum(sizes_f[fi] for fi in fids)
         pct = round(100.0 * total_ov / total_from_px, 1) if total_from_px else 0.0
 
-        if len(fids) == 1 and len(tids) == 1:
-            etype = "persist"
-        elif len(fids) > 1 and len(tids) == 1:
-            etype = "merge"
-        elif len(fids) == 1 and len(tids) > 1:
-            etype = "split"
-        else:
-            etype = "merge"  # groupes complexes assimilés à une fusion
+        nf, nt = len(fids), len(tids)
+        if   nf == 1 and nt == 1: etype = "persist"
+        elif nf >  1 and nt == 1: etype = "merge"
+        elif nf == 1 and nt >  1: etype = "split"
+        else:                     etype = "complex"
 
         events.append(ComponentEvent(etype, fids, tids, f_ha, t_ha, pct))
 
     for ti in range(1, n_t + 1):
         if ti not in covered_t:
-            events.append(ComponentEvent("appear", [], [ti], 0.0,
-                                         round(sizes_t[ti] / 10000.0, 5), 0.0))
+            events.append(ComponentEvent(
+                "appear", [], [ti], 0.0, round(sizes_t[ti] * ha, 5), 0.0,
+            ))
 
+    # Résumé : n (groupes), n_from_cc, n_to_cc, surfaces
     summary: dict = {}
-    for etype in ("persist", "disappear", "appear", "merge", "split"):
+    for etype in ("persist", "disappear", "appear", "merge", "split", "complex"):
         evts = [e for e in events if e.event_type == etype]
         summary[etype] = {
-            "n": len(evts),
-            "ha_from": round(sum(e.from_ha for e in evts), 4),
-            "ha_to":   round(sum(e.to_ha for e in evts), 4),
+            "n":         len(evts),
+            "n_from_cc": sum(len(e.from_ids) for e in evts),
+            "n_to_cc":   sum(len(e.to_ids) for e in evts),
+            "ha_from":   round(sum(e.from_ha for e in evts), 4),
+            "ha_to":     round(sum(e.to_ha for e in evts), 4),
         }
 
     return events, summary

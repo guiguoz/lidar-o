@@ -495,7 +495,7 @@ def analyze_exp(
         result[f"cc_{scope}"] = cc_all
 
     # Zones ouvertes séparées sur le bois trapézoïdal
-    oz = classify_open_zones(labels_crop, trapeze_mask, shade_to_isom)
+    oz = classify_open_zones(labels_crop, trapeze_mask, shade_to_isom, pixel_m2=pgw["pixel_m2"])
     result["open_zones_trapeze"] = oz.as_dict()
 
     return result, labels, pgw
@@ -506,7 +506,7 @@ def analyze_exp(
 def print_summary(results: list[dict]) -> None:
     for zone in ["full", "fenetre_NE", "bois_NE", "bois_trapeze"]:
         ha_label = {"full": "100 ha", "fenetre_NE": "12.58 ha",
-                    "bois_NE": "~7.2 ha", "bois_trapeze": "~3.6 ha"}[zone]
+                    "bois_NE": "~7.2 ha", "bois_trapeze": "~4.6 ha"}[zone]
         print(f"\n=== SURFACES — {zone} ({ha_label}) ===")
         print(f"  {'Exp':22s}  {'blanc':>6}  {'jaune':>6}  {'vert0':>6}  {'406':>6}  {'408':>6}  {'410':>6}  {'%vert':>6}")
         for r in results:
@@ -617,10 +617,11 @@ def main() -> None:
             fne["row0"]:fne["row1"], fne["col0"]:fne["col1"]]
         labels_d_crop = all_labels["D_med3-5_t01"][
             fne["row0"]:fne["row1"], fne["col0"]:fne["col1"]]
+        pixel_m2_b = all_pgw["B_med1-1_t01"]["pixel_m2"]
         for isom_code in [406, 408, 410]:
             events, summary = cc_correspondences(
                 labels_b_crop, labels_d_crop, trapeze_mask,
-                isom_code, shade_to_isom, connectivity=4,
+                isom_code, shade_to_isom, pixel_m2=pixel_m2_b, connectivity=4,
             )
             correspondances[str(isom_code)] = {
                 "summary": summary,

@@ -148,7 +148,7 @@ class TestMergeBD:
         to_s = shade_all((15, 15), KP_BLANC)
         to_s[3:10, 3:10] = 4  # une seule grande CC 406
         mask_use = solid_mask((15, 15))
-        events, summary = cc_correspondences(from_s, to_s, mask_use, 406, sti)
+        events, summary = cc_correspondences(from_s, to_s, mask_use, 406, sti, pixel_m2=1.0)
         assert summary["merge"]["n"] >= 1, f"Aucune fusion détectée: {summary}"
 
 
@@ -168,7 +168,7 @@ class TestPartialConservation:
         from_s[5:9, 5:9] = 4  # 4×4 = 16 px
         # Dans to : seulement la moitié gauche (4×2 = 8 px = 50%)
         to_s[5:9, 5:7]   = 4
-        events, summary = cc_correspondences(from_s, to_s, mask, 406, sti)
+        events, summary = cc_correspondences(from_s, to_s, mask, 406, sti, pixel_m2=1.0)
         persist_events = [e for e in events if e.event_type == "persist"]
         assert len(persist_events) == 1
         assert 40 <= persist_events[0].pct_overlap <= 60, (
@@ -198,7 +198,7 @@ class TestShade2Classification:
         shade[5, 5] = KP_FIRST_GREEN  # shade 2
 
         # Avec le mapping correct : shade 2 → ISOM 0 (vert0)
-        stats_ok = classify_open_zones(shade, mask, self._STI_CORRECT)
+        stats_ok = classify_open_zones(shade, mask, self._STI_CORRECT, pixel_m2=1.0)
         # shade 2 n'est PAS une zone ouverte (blanc/jaune) → aucune enclave blanc/jaune
         assert stats_ok.blanc_enclave_n == 0
         assert stats_ok.jaune_enclave_n == 0
@@ -209,8 +209,8 @@ class TestShade2Classification:
         shade = shade_all((10, 10), KP_BLANC)
         shade[5, 5] = KP_FIRST_GREEN  # shade 2
 
-        stats_correct   = classify_open_zones(shade, mask, self._STI_CORRECT)
-        stats_incorrect = classify_open_zones(shade, mask, self._STI_INCORRECT)
+        stats_correct   = classify_open_zones(shade, mask, self._STI_CORRECT,   pixel_m2=1.0)
+        stats_incorrect = classify_open_zones(shade, mask, self._STI_INCORRECT, pixel_m2=1.0)
         # Avec le mapping correct : shade 2 va dans vert0, pas 406
         assert stats_correct.vert0_ha > 0
         assert stats_correct.ha_406 == 0.0
@@ -252,6 +252,27 @@ class TestTrapezeMask:
         m = build_trapeze_mask((340, 370), TRAPEZE_VERTICES)
         assert m[25, 340] == False, "jardin est (row=25, col=340) devrait être exclu"
 
+    def test_pentagon_vs_quadrilateral_left_nose(self):
+        """Le vrai pentagone inclut (130,40) ; le quadrilatère bugué ne l'inclut pas.
+
+        La frontière gauche du quadrilatère bugué (4 sommets : (22,60)→(60,349)→
+        (207,349)→(207,195)→fermeture directe vers (22,60)) à row=130 est
+        col ≈ 139 (interpolation linéaire entre (22,60) et (207,195)).
+        Le sommet (130,30) du vrai pentagone pousse la frontière gauche
+        bien au-delà de col=40 vers la gauche.
+        Ce test ne passe QUE si build_trapeze_mask utilise les codes explicites
+        (CLOSEPOLY sur le doublon) et non MplPath(closed=True).
+        """
+        m = build_trapeze_mask((340, 370), TRAPEZE_VERTICES, cache=None)
+        # Point dans le "nez gauche" du pentagone — exclu du quadrilatère bugué
+        assert m[130, 40], (
+            "Le sommet (130,30) doit être intégré au polygone : "
+            "m[130,40] devrait être True (pentagone) mais est False (quadrilatère)"
+        )
+        # Contrôle : à row=130, la frontière gauche du quadrilatère est ~col 139
+        # Le point (130,138) serait dedans dans les deux cas → pas discriminant
+        # (130,40) est clairement à gauche de la ligne (22,60)→(207,195)
+
 
 # ---------------------------------------------------------------------------
 # 7. mask_boundary sur masque irrégulier
@@ -259,10 +280,14 @@ class TestTrapezeMask:
 
 class TestMaskBoundary:
     def test_all_pixels_rectangular(self):
-        # Masque tout-vrai : pas d'extérieur → frontière vide
+        # Avec border_value=0, le bord du tableau est traité comme extérieur au masque.
+        # Un masque 5×5 tout-True a donc 16 pixels de frontière (périmètre extérieur).
         mask = np.ones((5, 5), dtype=bool)
         bound = mask_boundary(mask)
-        assert bound.sum() == 0, "Masque sans extérieur : frontière doit être vide"
+        assert bound.sum() == 16, (
+            f"Périmètre 5×5 attendu 16 (bord array = extérieur), obtenu {bound.sum()}"
+        )
+        assert not bound[2, 2], "Pixel central ne doit pas être frontière"
 
     def test_partial_mask_perimeter(self):
         # Sous-masque 3×3 au centre d'un array 7×7
