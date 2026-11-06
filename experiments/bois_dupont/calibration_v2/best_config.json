@@ -1,0 +1,59 @@
+{
+  "params": {
+    "t406": 0.38,
+    "t408": 0.6,
+    "t410": 0.75,
+    "sigma_m": 1.0,
+    "w_low": 0.35,
+    "w_med": 0.55,
+    "w_high": 0.1
+  },
+  "scores": {
+    "cal_score": 0.3676,
+    "val_score": 0.3859,
+    "ctrl_score": 0.3332,
+    "gap_cal_val": -0.0183,
+    "gap_ctrl_val": -0.0527
+  },
+  "metrics_val": {
+    "n_total": 60025,
+    "n_known": 59589,
+    "coverage": 0.9927,
+    "iou_presence": 0.3547,
+    "precision_presence": 0.4696,
+    "recall_presence": 0.592,
+    "iou_406": 0.1354,
+    "iou_408": 0.0784,
+    "iou_410": 0.2763,
+    "miou3": 0.1634,
+    "spec_nonveg": 0.9074,
+    "spec_blanc": 0.7946,
+    "score": 0.3859
+  },
+  "metrics_ctrl": {
+    "n_total": 60025,
+    "n_known": 59825,
+    "coverage": 0.9967,
+    "iou_presence": 0.2909,
+    "precision_presence": 0.3386,
+    "recall_presence": 0.6738,
+    "iou_406": 0.1794,
+    "iou_408": 0.0664,
+    "iou_410": 0.0399,
+    "miou3": 0.0952,
+    "spec_nonveg": 0.9658,
+    "spec_blanc": 0.6797,
+    "score": 0.3332
+  },
+  "total_configs": 425,
+  "phase_gains": {
+    "p1_vs_witness_040": 0.0024,
+    "p2_vs_p1": 0.0032,
+    "p2b_vs_best": 0.0178,
+    "p2c_vs_p2b": 0.0019
+  },
+  "reproductible_depuis_laz": "E:\\RunningRaid\\Cartographie\\ça te dit 2027\\bois Dupont\\LHD_FXX_0425_6923_PTS_LAMB93_IGN69.copc.laz",
+  "strates_source": "E:\\Vikazim\\Ovector\\experiments\\bois_dupont\\diagnostic_vege\\lidar_vege\\omapmaker_strates.tif",
+  "crs": "EPSG:2154",
+  "res_m": 2.0
+}
