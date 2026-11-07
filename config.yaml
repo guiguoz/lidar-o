@@ -273,6 +273,17 @@ terrains:
     kp_version: "2.12.1"
     vegetation_source: "kp"       # décision porteur : KP = seule source de végétation de la carte
 
+  bois_dupont:
+    bbox: [425000, 6922000, 426000, 6923000]
+    crs: "EPSG:2154"
+    departement: "14"
+    lidar_dir: "E:/RunningRaid/Cartographie/ça te dit 2027/bois Dupont"
+    bdtopo_path: "data/bdtopo/BDT_3-5_GPKG_LAMB93_D014-ED2026-06-15.gpkg"
+    kp_binary: "karttapullautin-x86_64-win.tar/pullauta.exe"
+    kp_version: "2.12.1"
+    vegetation_source: "kp"
+    ocad_vegetation_png: "E:/RunningRaid/Cartographie/ça te dit 2027/bois Dupont/LHD_FXX_0425_6923_PTS_LAMB93_IGN69.copc_VegetationBaseMap.png"
+
   grimbosq:
     bbox: [448000, 6886000, 450001, 6889001]
     crs: "EPSG:2154"

@@ -19,6 +19,7 @@ from scripts.trous_analysis import (
     cc_correspondences,
     classify_open_zones,
     overlap_label,
+    trace_blanc_disappearance,
     TRAPEZE_VERTICES,
 )
 
@@ -311,3 +312,86 @@ class TestMaskBoundary:
         assert bound[6, 6]
         # Le centre du carré n'est pas frontière
         assert not bound[5, 5]
+
+
+# ---------------------------------------------------------------------------
+# 8. trace_blanc_disappearance
+# ---------------------------------------------------------------------------
+
+class TestBlancDisappearance:
+    """Caractérisation de la disparition des CC blanches intérieures entre B et D."""
+
+    def test_reclassified(self):
+        """Tous les pixels blanc → vert dans D : catégorie reclassified."""
+        mask = solid_mask((10, 10))
+        shade_b = shade_all((10, 10), 3)
+        shade_b[5, 5] = KP_BLANC
+        shade_d = shade_all((10, 10), 3)  # tout vert : le blanc a disparu
+        r = trace_blanc_disappearance(shade_b, shade_d, mask, pixel_m2=1.0)
+        assert r["n_b_interior"] == 1
+        assert r["reclassified"] == 1
+        assert r["opened"] == 0
+        assert r["persists"] == 0
+        assert r["merged"] == 0
+
+    def test_opened(self):
+        """Blanc restant mais connecté à l'extérieur du masque."""
+        mask = solid_mask((15, 15))
+        shade_b = shade_all((15, 15), 3)
+        shade_b[7, 7] = KP_BLANC  # enclavé en B
+        # En D : chenal blanc de (7,7) jusqu'au bord du masque (col 1)
+        shade_d = shade_all((15, 15), 3)
+        for c in range(1, 8):
+            shade_d[7, c] = KP_BLANC
+        r = trace_blanc_disappearance(shade_b, shade_d, mask, pixel_m2=1.0)
+        assert r["n_b_interior"] == 1
+        assert r["opened"] == 1
+        assert r["reclassified"] == 0
+
+    def test_persists(self):
+        """CC blanc reste enclavée en D (peut être plus petite)."""
+        mask = solid_mask((10, 10))
+        shade_b = shade_all((10, 10), 3)
+        shade_b[5, 5] = KP_BLANC
+        shade_d = shade_all((10, 10), 3)
+        shade_d[5, 5] = KP_BLANC  # même pixel
+        r = trace_blanc_disappearance(shade_b, shade_d, mask, pixel_m2=1.0)
+        assert r["n_b_interior"] == 1
+        assert r["persists"] == 1
+        assert r["n_d_interior"] == 1
+
+    def test_merged(self):
+        """Deux CC blanc_b distinctes fusionnent en une CC blanc_d : toutes deux 'merged'."""
+        mask = solid_mask((15, 15))
+        shade_b = shade_all((15, 15), 3)
+        shade_b[4, 4] = KP_BLANC   # CC #1
+        shade_b[4, 6] = KP_BLANC   # CC #2
+        shade_d = shade_all((15, 15), 3)
+        shade_d[4, 4] = KP_BLANC
+        shade_d[4, 5] = KP_BLANC   # pont
+        shade_d[4, 6] = KP_BLANC
+        r = trace_blanc_disappearance(shade_b, shade_d, mask, pixel_m2=1.0)
+        assert r["n_b_interior"] == 2
+        assert r["merged"] == 2
+        assert r["persists"] == 0
+        assert r["n_d_interior"] == 1
+
+    def test_mixed_categories(self):
+        """B avec 3 CCs : une reclassifiée, une ouverte, une persistante."""
+        mask = solid_mask((20, 20))
+        shade_b = shade_all((20, 20), 3)
+        shade_b[4, 10]  = KP_BLANC  # sera reclassifiée (pixel distinct du chenal)
+        shade_b[10, 4]  = KP_BLANC  # sera ouverte (chenal sur row 10)
+        shade_b[14, 14] = KP_BLANC  # persistera
+        shade_d = shade_all((20, 20), 3)
+        # CC 1 ([4,10]) : reste vert en D → reclassified
+        # CC 2 ([10,4]) : chenal blanc jusqu'au bord → opened
+        for c in range(1, 5):          # cols 1..4 → [10,4] joint col 1 (frontière)
+            shade_d[10, c] = KP_BLANC
+        # CC 3 : préservée
+        shade_d[14, 14] = KP_BLANC
+        r = trace_blanc_disappearance(shade_b, shade_d, mask, pixel_m2=1.0)
+        assert r["reclassified"] == 1
+        assert r["opened"] == 1
+        assert r["persists"] == 1
+        assert r["n_b_interior"] == 3

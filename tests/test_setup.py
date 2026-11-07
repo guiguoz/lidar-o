@@ -210,12 +210,13 @@ def test_locate_binary_falls_back_to_env(tmp_path: pathlib.Path) -> None:
 
 
 def test_locate_binary_returns_none_if_absent() -> None:
-    """Retourne None si KP introuvable partout."""
+    """Retourne None si KP introuvable partout (bin/ local inclus)."""
     from src.kp_install import locate_binary
 
     with (
         patch.dict("os.environ", {}, clear=True),
         patch("src.kp_install.shutil.which", return_value=None),
+        patch("pathlib.Path.exists", return_value=False),
     ):
         result = locate_binary({}, "terrain")
 

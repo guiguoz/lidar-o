@@ -652,6 +652,66 @@ def _png_to_template(
     )
 
 
+def _build_ocad_veg_template(
+    src_png: pathlib.Path,
+    omap_out: pathlib.Path,
+) -> "TemplateImage | None":
+    """Prépare le VegetationBaseMap OCAD comme template OOM.
+
+    Rend transparent le fond jaune OCAD (255,201,15) — terrain courable en dehors
+    de la forêt. Toutes les autres couleurs (verts, blanc, noir) sont conservées.
+    Résolution native préservée — aucun rééchantillonnage.
+    """
+    from src.omap_writer import TemplateImage
+    try:
+        from PIL import Image as _PILImage
+        import numpy as _np
+    except ImportError:
+        log.warning("PIL absent — template OCAD végétation ignoré (pip install Pillow)")
+        return None
+
+    pgw_path = src_png.with_suffix(".pgw")
+    if not pgw_path.exists():
+        log.warning("PGW absent pour %s — template OCAD ignoré", src_png.name)
+        return None
+    if not src_png.exists():
+        log.warning("PNG absent : %s — template OCAD ignoré", src_png)
+        return None
+
+    arr = _np.array(_PILImage.open(src_png).convert("RGB"))
+    rgba = _np.zeros((*arr.shape[:2], 4), dtype=_np.uint8)
+    rgba[:, :, :3] = arr
+    rgba[:, :, 3] = 255
+
+    # Fond jaune OCAD (terrain courable hors-forêt) → transparent
+    is_yellow = (arr[:, :, 0] == 255) & (arr[:, :, 1] == 201) & (arr[:, :, 2] == 15)
+    rgba[is_yellow, 3] = 0
+    n_transparent = int(is_yellow.sum())
+
+    dest_name = "ocad_vegetation.png"
+    dest_png = omap_out.parent / dest_name
+    _PILImage.fromarray(rgba).save(str(dest_png), "PNG")
+    import shutil as _shutil
+    _shutil.copy2(pgw_path, dest_png.with_suffix(".pgw"))
+
+    res_m, top_left_x, top_left_y = _read_pgw(pgw_path)
+    h, w = arr.shape[:2]
+    log.info(
+        "Template OCAD végétation : %s (%d×%d px, %.0f m/px, %d px transparents / %d total)",
+        dest_name, w, h, res_m, n_transparent, h * w,
+    )
+    return TemplateImage(
+        file=dest_name,
+        top_left_x=top_left_x,
+        top_left_y=top_left_y,
+        width_px=w,
+        height_px=h,
+        res_m=res_m,
+        name="OCAD végétation",
+        opacity_pct=100,
+    )
+
+
 def _build_img_templates(
     out_kp: pathlib.Path,
     kp_cfg: dict,
@@ -732,51 +792,57 @@ def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
     terrain_crs = terrain_cfg.get("crs", "EPSG:2154")
     bbox = terrain_cfg.get("bbox")
     bbox_geom = sg.box(*bbox) if bbox else None
+    ocad_veg_png_str = terrain_cfg.get("ocad_vegetation_png")
+    ocad_veg_path = pathlib.Path(ocad_veg_png_str) if ocad_veg_png_str else None
 
     def _clip(layers: list, family: str) -> list:
         return _clip_layers_to_bbox(layers, bbox_geom, family) if bbox_geom is not None else layers
 
     all_layers: list = []
 
-    # Végétation KP (406/408/410) depuis vegetation_kp.gpkg — branche KP §8 PLAN 3
-    veg_layers_clipped: list = []
-    if veg_kp_gpkg.exists():
-        for veg_code in [406, 408, 410]:
-            layer_name = f"veg_{veg_code}"
-            try:
-                gdf_veg = gpd.read_file(str(veg_kp_gpkg), layer=layer_name)
-                if not gdf_veg.empty:
-                    lyr = Layer(layer_name, veg_code, list(gdf_veg.geometry))
-                    veg_layers_clipped.append(lyr)
-                    log.info("vegetation_kp %d : %d polygones", veg_code, len(gdf_veg))
-            except Exception as exc:
-                log.warning("vegetation_kp %d ignorée : %s", veg_code, exc)
-        veg_layers_clipped = _clip(veg_layers_clipped, "vegetation_kp")
-
-        # Contrôle topologique overlaps==0 APRÈS clip (§8 PLAN 3).
-        # On vérifie l'absence d'overlap surfacique (sum_area - union_area > seuil).
-        # coverage_is_valid n'est pas utilisé ici : les T-junctions inter-classes
-        # sont structurelles et ne constituent pas un overlap (cf. diagnostic V1).
-        all_veg_geoms = [g for lyr in veg_layers_clipped for g in lyr.geometries]
-        if all_veg_geoms:
-            union_area = shapely.unary_union(all_veg_geoms).area
-            sum_area = sum(g.area for g in all_veg_geoms)
-            overlap_area = sum_area - union_area
-            if overlap_area > 0.01:
-                raise ValueError(
-                    f"assemble : overlaps detectes dans la vegetation KP apres clip "
-                    f"({overlap_area:.2f} m2 recouverts) — verifier step_vegetation_kp."
-                )
-        all_layers += veg_layers_clipped
+    if ocad_veg_path:
+        # Source OCAD active : végétation KP vectorielle ignorée — raster template à la place.
+        log.info("assemble : source végétation OCAD (%s) — vegetation_kp.gpkg ignorée", ocad_veg_path.name)
     else:
-        # Si out_kp/ existe, KP a tourné et vegetation_kp doit être présent — état anormal.
-        # Sinon, KP n'a jamais été lancé : carte sans végétation vectorielle est attendue.
-        if (ROOT / f"out_kp_{terrain}").exists():
-            raise RuntimeError(
-                f"assemble : out_kp_{terrain}/ présent mais vegetation_kp.gpkg absent — "
-                "relancer step_vegetation_kp (--from-step vegetation_kp) avant step_assemble."
-            )
-        log.info("assemble : vegetation_kp.gpkg absent (KP non lancé) — végétation omise du .omap")
+        # Végétation KP (406/408/410) depuis vegetation_kp.gpkg — branche KP §8 PLAN 3
+        veg_layers_clipped: list = []
+        if veg_kp_gpkg.exists():
+            for veg_code in [406, 408, 410]:
+                layer_name = f"veg_{veg_code}"
+                try:
+                    gdf_veg = gpd.read_file(str(veg_kp_gpkg), layer=layer_name)
+                    if not gdf_veg.empty:
+                        lyr = Layer(layer_name, veg_code, list(gdf_veg.geometry))
+                        veg_layers_clipped.append(lyr)
+                        log.info("vegetation_kp %d : %d polygones", veg_code, len(gdf_veg))
+                except Exception as exc:
+                    log.warning("vegetation_kp %d ignorée : %s", veg_code, exc)
+            veg_layers_clipped = _clip(veg_layers_clipped, "vegetation_kp")
+
+            # Contrôle topologique overlaps==0 APRÈS clip (§8 PLAN 3).
+            # On vérifie l'absence d'overlap surfacique (sum_area - union_area > seuil).
+            # coverage_is_valid n'est pas utilisé ici : les T-junctions inter-classes
+            # sont structurelles et ne constituent pas un overlap (cf. diagnostic V1).
+            all_veg_geoms = [g for lyr in veg_layers_clipped for g in lyr.geometries]
+            if all_veg_geoms:
+                union_area = shapely.unary_union(all_veg_geoms).area
+                sum_area = sum(g.area for g in all_veg_geoms)
+                overlap_area = sum_area - union_area
+                if overlap_area > 0.01:
+                    raise ValueError(
+                        f"assemble : overlaps detectes dans la vegetation KP apres clip "
+                        f"({overlap_area:.2f} m2 recouverts) — verifier step_vegetation_kp."
+                    )
+            all_layers += veg_layers_clipped
+        else:
+            # Si out_kp/ existe, KP a tourné et vegetation_kp doit être présent — état anormal.
+            # Sinon, KP n'a jamais été lancé : carte sans végétation vectorielle est attendue.
+            if (ROOT / f"out_kp_{terrain}").exists():
+                raise RuntimeError(
+                    f"assemble : out_kp_{terrain}/ présent mais vegetation_kp.gpkg absent — "
+                    "relancer step_vegetation_kp (--from-step vegetation_kp) avant step_assemble."
+                )
+            log.info("assemble : vegetation_kp.gpkg absent (KP non lancé) — végétation omise du .omap")
 
     fill: list = []
     if bdtopo_gpkg is not None:
@@ -802,8 +868,11 @@ def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
     georef = load_georef(ASSETS / f"georef_{terrain}.xml")
     OUTPUT.mkdir(parents=True, exist_ok=True)
 
-    kp_cfg = cfg.get("karttapullautin", {}) or {}
-    img_templates = _build_img_templates(out_kp, kp_cfg, out)
+    if ocad_veg_path:
+        img_templates = [t for t in [_build_ocad_veg_template(ocad_veg_path, out)] if t is not None]
+    else:
+        kp_cfg = cfg.get("karttapullautin", {}) or {}
+        img_templates = _build_img_templates(out_kp, kp_cfg, out)
     write_omap(out, template, all_layers, georef, image_templates=img_templates or None)
     log.info("Assemblé : %s (%d couches)", out, len(all_layers))
 

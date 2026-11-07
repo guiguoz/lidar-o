@@ -42,6 +42,7 @@ from scripts.trous_analysis import (
     build_trapeze_mask,
     classify_open_zones,
     cc_correspondences,
+    trace_blanc_disappearance,
     TRAPEZE_VERTICES,
 )
 from src.kp_raster import (
@@ -402,6 +403,7 @@ def transition_matrix(
     pgw_to: dict,
     name_from: str,
     name_to: str,
+    scope: str = "",
 ) -> dict:
     """Matrice de transition entre deux experiences.
 
@@ -432,7 +434,7 @@ def transition_matrix(
         "class_labels": {str(c): n for c, n in zip(
             ISOM_CLASSES, ["blanc", "jaune", "vert0(ISOM0)", "ISOM 406", "ISOM 408", "ISOM 410"])},
         "matrix_ha": [[round(v, 4) for v in row] for row in mat],
-        "scope": "bois_NE" if mask is not None else "full",
+        "scope": scope if scope else ("bois_NE" if mask is not None else "full"),
     }
 
 
@@ -595,6 +597,10 @@ def main() -> None:
     bois_full[FENETRE_NE["row0"]:FENETRE_NE["row1"],
               FENETRE_NE["col0"]:FENETRE_NE["col1"]] = bois_mask
 
+    trapeze_full = np.zeros((1000, 1000), dtype=bool)
+    trapeze_full[FENETRE_NE["row0"]:FENETRE_NE["row1"],
+                 FENETRE_NE["col0"]:FENETRE_NE["col1"]] = trapeze_mask
+
     for id_from, id_to in pairs:
         if id_from in all_labels and id_to in all_labels:
             try:
@@ -608,6 +614,21 @@ def main() -> None:
                 transitions.append(t)
             except ValueError as e:
                 log.error("Transition %s->%s : %s", id_from, id_to, e)
+
+    # Transition B→D sur le bois trapézoïdal (masque géographique resserré)
+    if "B_med1-1_t01" in all_labels and "D_med3-5_t01" in all_labels:
+        try:
+            t_trap = transition_matrix(
+                all_labels["B_med1-1_t01"], all_labels["D_med3-5_t01"],
+                shade_to_isom, all_pgw["B_med1-1_t01"]["pixel_m2"],
+                trapeze_full,
+                all_pgw["B_med1-1_t01"], all_pgw["D_med3-5_t01"],
+                "B_med1-1_t01", "D_med3-5_t01",
+                scope="bois_trapeze",
+            )
+            transitions.append(t_trap)
+        except ValueError as e:
+            log.error("Transition B->D trapeze : %s", e)
 
     # Correspondances de composantes B→D sur le bois trapézoïdal
     correspondances: dict = {}
@@ -629,12 +650,36 @@ def main() -> None:
             }
         log.info("Correspondances B->D calculees sur bois_trapeze")
 
+    # Traçage de la disparition des CC blanches intérieures B→D
+    blanc_disappearance: dict = {}
+    if "B_med1-1_t01" in all_labels and "D_med3-5_t01" in all_labels:
+        fne = FENETRE_NE
+        shade_b_crop = all_labels["B_med1-1_t01"][
+            fne["row0"]:fne["row1"], fne["col0"]:fne["col1"]]
+        shade_d_crop = all_labels["D_med3-5_t01"][
+            fne["row0"]:fne["row1"], fne["col0"]:fne["col1"]]
+        pixel_m2_b = all_pgw["B_med1-1_t01"]["pixel_m2"]
+        try:
+            blanc_disappearance = trace_blanc_disappearance(
+                shade_b_crop, shade_d_crop, trapeze_mask, pixel_m2=pixel_m2_b,
+            )
+            log.info(
+                "Blanc enclave B->D : %d reclassifies, %d ouverts, %d fusionnes, %d persistants",
+                blanc_disappearance["reclassified"],
+                blanc_disappearance["opened"],
+                blanc_disappearance["merged"],
+                blanc_disappearance["persists"],
+            )
+        except ValueError as e:
+            log.error("trace_blanc_disappearance : %s", e)
+
     # Ecriture JSON
     out_json = pathlib.Path(args.out)
     output = {
         "results": results,
         "transitions": transitions,
         "correspondances_BD_trapeze": correspondances,
+        "blanc_disappearance_BD": blanc_disappearance,
         "bois_mask_ha":    round(float(bois_mask.sum()) / 10000, 4),
         "trapeze_mask_ha": round(float(trapeze_mask.sum()) / 10000, 4),
     }

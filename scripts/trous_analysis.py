@@ -393,3 +393,106 @@ def overlap_label(pct: float) -> str:
     if pct >= 10:
         return f"partiellement disparue ({pct:.0f}%)"
     return f"quasi-disparue ({pct:.0f}%)"
+
+
+# ---------------------------------------------------------------------------
+# Traçage de la disparition des CC blanches intérieures
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class BlancCCTrace:
+    b_cc_id: int
+    area_m2: float
+    pct_reclassified: float  # % pixels qui ne sont plus blancs en D
+    category: str            # "reclassified" | "opened" | "persists" | "merged"
+    d_cc_id: int | None      # CC correspondante en D (si persists ou merged)
+
+
+def trace_blanc_disappearance(
+    shade_b: np.ndarray,
+    shade_d: np.ndarray,
+    mask: np.ndarray,
+    pixel_m2: float,
+) -> dict:
+    """Caractérise la baisse des CC blanches intérieures de shade_b vers shade_d.
+
+    Catégories mutuellement exclusives pour chaque CC_b :
+      reclassified : tous les pixels b→d ont changé de classe (aucun blanc restant)
+      opened       : des pixels blancs subsistent en D mais la CC n'est plus enclavée
+      merged       : pixels subsistants encore enclavés, partagés avec d'autres CC_b
+      persists     : CC_b correspond à une seule CC_d encore enclavée
+
+    Retourne un dict avec les comptages et surfaces par catégorie.
+    """
+    if pixel_m2 <= 0:
+        raise ValueError(f"pixel_m2 doit être positif, reçu {pixel_m2}")
+
+    labeled_b, ids_b = _interior_cc(shade_b == KP_BLANC, mask)
+    labeled_d, ids_d = _interior_cc(shade_d == KP_BLANC, mask)
+
+    d_interior = np.zeros(shade_d.shape, dtype=bool)
+    for cid in ids_d:
+        d_interior |= labeled_d == cid
+
+    b_to_d_cc: dict[int, int | None] = {}
+    raw: list[BlancCCTrace] = []
+
+    for b_id in sorted(ids_b):
+        b_px = labeled_b == b_id
+        n = int(b_px.sum())
+        n_recl = int((b_px & (shade_d != KP_BLANC)).sum())
+        pct_recl = round(100.0 * n_recl / n, 1)
+
+        still_interior = b_px & d_interior
+
+        if still_interior.sum() == 0:
+            cat: str = "reclassified" if n_recl == n else "opened"
+            d_cc_id: int | None = None
+        else:
+            d_ids_here = [int(x) for x in np.unique(labeled_d[still_interior]) if x > 0]
+            d_cc_id = d_ids_here[0] if d_ids_here else None
+            cat = "persists"
+
+        b_to_d_cc[b_id] = d_cc_id
+        raw.append(BlancCCTrace(
+            b_cc_id=int(b_id),
+            area_m2=float(n * pixel_m2),
+            pct_reclassified=pct_recl,
+            category=cat,
+            d_cc_id=d_cc_id,
+        ))
+
+    from collections import Counter
+    d_use = Counter(t.d_cc_id for t in raw if t.d_cc_id is not None)
+
+    traces: list[BlancCCTrace] = [
+        BlancCCTrace(
+            b_cc_id=t.b_cc_id,
+            area_m2=t.area_m2,
+            pct_reclassified=t.pct_reclassified,
+            category="merged" if (t.category == "persists"
+                                   and t.d_cc_id is not None
+                                   and d_use[t.d_cc_id] > 1) else t.category,
+            d_cc_id=t.d_cc_id,
+        )
+        for t in raw
+    ]
+
+    cats = Counter(t.category for t in traces)
+
+    return {
+        "n_b_interior": len(ids_b),
+        "n_d_interior": len(ids_d),
+        "reclassified":    int(cats["reclassified"]),
+        "reclassified_ha": round(
+            sum(t.area_m2 for t in traces if t.category == "reclassified") / 10_000.0, 4),
+        "opened":    int(cats["opened"]),
+        "opened_ha": round(
+            sum(t.area_m2 for t in traces if t.category == "opened") / 10_000.0, 4),
+        "persists":    int(cats["persists"]),
+        "persists_ha": round(
+            sum(t.area_m2 for t in traces if t.category == "persists") / 10_000.0, 4),
+        "merged":    int(cats["merged"]),
+        "merged_ha": round(
+            sum(t.area_m2 for t in traces if t.category == "merged") / 10_000.0, 4),
+    }
