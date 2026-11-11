@@ -392,17 +392,42 @@ PROJET PRÊT
 
 ### Interface graphique — description des éléments
 
-| Élément | Description | Valeur par défaut |
-|---|---|---|
-| **Terrain** | Nom du terrain (doit exister dans `config.yaml`) | — |
-| **Charger LiDAR…** | Sélectionner le répertoire contenant les dalles `.copc.laz` | — |
-| **Charger BD TOPO…** | Sélectionner le fichier `.gpkg` département | — |
-| **Grille de dalles** | Visualisation de la couverture LiDAR (vert = présent, rouge = manquant) | — |
-| **Générer** | Lance le pipeline complet | — |
-| **Panneau de log** | Affiche la progression en temps réel | — |
+| Élément | Description |
+|---|---|
+| **Terrain** | Nom du terrain (doit exister dans `config.yaml`) |
+| **Charger LiDAR…** | Sélectionner le répertoire contenant les dalles `.copc.laz` |
+| **Charger BD TOPO…** | Sélectionner le fichier `.gpkg` département |
+| **Grille de dalles** | Visualisation de la couverture LiDAR (vert = présent, rouge = manquant) |
+| **État BD TOPO** | Résultat du contrôle couches + couverture spatiale (vert / orange / rouge) |
+| **Karttapullautin** | Présence et version du binaire KP |
+| **Mode végétation** | Mode lu depuis `config.yaml` pour le terrain saisi (lecture seule) |
+| **Générer** | Lance le pipeline complet |
+| **Journal** | Affiche la progression en temps réel |
 
 > La GUI nécessite que le terrain soit déjà initialisé (`python main.py init`).
 > Elle ne remplace pas `setup` pour la première configuration.
+
+### Comportements automatiques
+
+**Emprise depuis les dalles LiDAR**
+Quand vous chargez un répertoire LiDAR, l'interface lit les en-têtes de chaque fichier `.laz` via PDAL pour calculer l'emprise géographique réelle. Cette emprise est utilisée pour le contrôle de couverture BD TOPO — même si le terrain n'est pas encore déclaré dans `config.yaml`.
+
+**Re-contrôle BD TOPO automatique**
+Dès qu'un nouveau répertoire LiDAR est sélectionné, le contrôle BD TOPO est relancé automatiquement avec la nouvelle emprise (si un fichier BD TOPO est déjà chargé). Pas besoin de re-sélectionner le `.gpkg`.
+
+**Mode végétation (lecture seule)**
+Le label *Mode végétation* affiche la valeur de `vegetation_source` lue dans `config.yaml` pour le terrain saisi. Le mode ne se change pas depuis l'interface — modifier `config.yaml` directement ou relancer `python main.py setup <terrain>`.
+
+**Interpréteur Python**
+Au démarrage, le journal affiche le chemin de l'interpréteur Python utilisé par la GUI :
+```
+Python : C:\Users\glemi\miniconda3\python.exe
+```
+Si la ligne indique un autre chemin (par exemple `C:\Python314\python.exe`), les bibliothèques géospatiales ne sont pas disponibles et les contrôles BD TOPO resteront orange. Lancer la GUI depuis le bon environnement :
+```bat
+rem Miniconda Prompt
+python main.py gui
+```
 
 ### Options de configuration dans `config.yaml`
 

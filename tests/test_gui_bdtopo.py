@@ -1,4 +1,4 @@
-"""Tests de _bdtopo_status (gui/app.py) — aucun mock tkinter, aucune fenêtre."""
+"""Tests de _bdtopo_status, déduplication LiDAR et _bbox_from_tiles (gui/app.py) — aucune fenêtre."""
 from __future__ import annotations
 
 import pathlib
@@ -131,6 +131,93 @@ class TestBdtopoStatus:
                 assert "✓" not in text, (
                     f"✓ ne doit pas apparaître pour ({ls}, {cs}), obtenu: {text!r}"
                 )
+
+
+# ── Déduplication dalles LiDAR ───────────────────────────────────────────────
+
+class TestTileDeduplicate:
+    """Vérifie que *.copc.laz n'est pas compté deux fois par *.laz."""
+
+    @staticmethod
+    def _deduplicate(paths: list[pathlib.Path]) -> list[pathlib.Path]:
+        seen: set[pathlib.Path] = set()
+        tiles: list[pathlib.Path] = []
+        for p in paths:
+            rp = p.resolve()
+            if rp not in seen:
+                seen.add(rp)
+                tiles.append(p)
+        return tiles
+
+    def test_copc_laz_ne_compte_pas_deux_fois(self, tmp_path):
+        f = tmp_path / "tile.copc.laz"
+        f.write_bytes(b"")
+        both = list(tmp_path.glob("*.copc.laz")) + list(tmp_path.glob("*.laz"))
+        assert len(both) == 2, "le bug original doit être reproductible"
+        assert len(self._deduplicate(both)) == 1
+
+    def test_sept_copc_laz_comptent_sept_pas_quatorze(self, tmp_path):
+        for i in range(7):
+            (tmp_path / f"tile_{i}.copc.laz").write_bytes(b"")
+        both = list(tmp_path.glob("*.copc.laz")) + list(tmp_path.glob("*.laz"))
+        assert len(both) == 14, "le bug doit être reproductible pour 7 dalles"
+        assert len(self._deduplicate(both)) == 7
+
+    def test_laz_non_copc_reste_distinct(self, tmp_path):
+        (tmp_path / "a.copc.laz").write_bytes(b"")
+        (tmp_path / "b.laz").write_bytes(b"")
+        both = list(tmp_path.glob("*.copc.laz")) + list(tmp_path.glob("*.laz"))
+        assert len(self._deduplicate(both)) == 2
+
+    def test_mix_copc_et_laz_simples(self, tmp_path):
+        (tmp_path / "a.copc.laz").write_bytes(b"")
+        (tmp_path / "b.copc.laz").write_bytes(b"")
+        (tmp_path / "c.laz").write_bytes(b"")
+        both = list(tmp_path.glob("*.copc.laz")) + list(tmp_path.glob("*.laz"))
+        # a et b comptés deux fois par glob → 5 entrées ; dédupliqué → 3
+        assert len(self._deduplicate(both)) == 3
+
+
+# ── _bbox_from_tiles ─────────────────────────────────────────────────────────
+
+class TestBboxFromTiles:
+    """Teste LidarOApp._bbox_from_tiles sans ouvrir de fenêtre tkinter."""
+
+    @staticmethod
+    def _make_app(tile_extents: dict) -> gui_app.LidarOApp:
+        app = object.__new__(gui_app.LidarOApp)
+        app._tile_extents = tile_extents
+        return app
+
+    def test_union_deux_dalles_adjacentes(self):
+        app = self._make_app({
+            pathlib.Path("a.laz"): (448000.0, 6885000.0, 449000.0, 6886000.0),
+            pathlib.Path("b.laz"): (449000.0, 6885000.0, 450000.0, 6886000.0),
+        })
+        assert app._bbox_from_tiles() == (448000.0, 6885000.0, 450000.0, 6886000.0)
+
+    def test_retourne_none_si_dict_vide(self):
+        assert self._make_app({})._bbox_from_tiles() is None
+
+    def test_ignore_extents_none(self):
+        app = self._make_app({
+            pathlib.Path("a.laz"): None,
+            pathlib.Path("b.laz"): (448000.0, 6885000.0, 449000.0, 6886000.0),
+        })
+        assert app._bbox_from_tiles() == (448000.0, 6885000.0, 449000.0, 6886000.0)
+
+    def test_retourne_none_si_tous_none(self):
+        app = self._make_app({
+            pathlib.Path("a.laz"): None,
+            pathlib.Path("b.laz"): None,
+        })
+        assert app._bbox_from_tiles() is None
+
+    def test_une_seule_dalle(self):
+        app = self._make_app({
+            pathlib.Path("tile.copc.laz"): (450000.0, 6887000.0, 451000.0, 6888000.0),
+        })
+        assert app._bbox_from_tiles() == (450000.0, 6887000.0, 451000.0, 6888000.0)
 
 
 # ── Garde-fous source ─────────────────────────────────────────────────────────

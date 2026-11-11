@@ -78,6 +78,9 @@ class LidarOApp:
         self._build_ui()
         self._load_config()
         self._check_kp()
+        self._terrain_var.trace_add("write", lambda *_: self._refresh_mode_label())
+        import sys as _sys
+        self._log(f"Python : {_sys.executable}")
 
     def _build_ui(self) -> None:
         top = tk.Frame(self.root, bg=_COLOR_BG, padx=8, pady=8)
@@ -108,6 +111,10 @@ class LidarOApp:
         tk.Label(right, text="Karttapullautin :", bg=_COLOR_BG).pack(anchor=tk.W, pady=(8, 0))
         self._kp_label = tk.Label(right, text="recherche…", bg=_COLOR_BG, fg="#888")
         self._kp_label.pack(anchor=tk.W)
+
+        tk.Label(right, text="Mode végétation :", bg=_COLOR_BG).pack(anchor=tk.W, pady=(8, 0))
+        self._mode_label = tk.Label(right, text="—", bg=_COLOR_BG, fg="#888")
+        self._mode_label.pack(anchor=tk.W)
 
         bottom = tk.Frame(self.root, bg=_COLOR_BG, padx=8, pady=4)
         bottom.pack(fill=tk.X)
@@ -141,6 +148,8 @@ class LidarOApp:
             self._cfg = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
         else:
             self._cfg = {}
+        if hasattr(self, "_mode_label"):
+            self._refresh_mode_label()
 
     def _log(self, msg: str) -> None:
         self._log_text.configure(state=tk.NORMAL)
@@ -153,7 +162,13 @@ class LidarOApp:
         if not directory:
             return
         lidar_dir = pathlib.Path(directory)
-        tiles = list(lidar_dir.glob("*.copc.laz")) + list(lidar_dir.glob("*.laz"))
+        seen: set[pathlib.Path] = set()
+        tiles: list[pathlib.Path] = []
+        for p in list(lidar_dir.glob("*.copc.laz")) + list(lidar_dir.glob("*.laz")):
+            rp = p.resolve()
+            if rp not in seen:
+                seen.add(rp)
+                tiles.append(p)
         if not tiles:
             mb.showwarning("LiDAR", f"Aucun fichier .laz dans {lidar_dir}")
             return
@@ -171,6 +186,7 @@ class LidarOApp:
 
         self._draw_grid()
         self._refresh_run_button()
+        self._recheck_bdtopo()
 
     def _draw_grid(self) -> None:
         """Dessine la grille des dalles sur le canvas."""
@@ -240,13 +256,13 @@ class LidarOApp:
 
         layer_res = _check_bdtopo_layers(bdtopo_path)
         terrain_cfg = (self._cfg.get("terrains") or {}).get(self._terrain_var.get(), {})
-        bbox = terrain_cfg.get("bbox")
+        bbox = terrain_cfg.get("bbox") or self._bbox_from_tiles()
         if bbox:
             cov_res = _check_bdtopo_coverage(bdtopo_path, tuple(bbox))
         else:
             cov_res = BdtopoCoverageResult(
                 "non_verifie",
-                "non vérifié (couverture) : bbox absente (terrain non sélectionné ou sans bbox)",
+                "non vérifié (couverture) : emprise inconnue (charger les dalles LiDAR d'abord)",
             )
         text, fg = _bdtopo_status(layer_res, cov_res, bdtopo_path.name)
         self._bdtopo_label.config(text=text, fg=fg)
@@ -270,6 +286,57 @@ class LidarOApp:
             self._kp_binary = binary
         except Exception as exc:
             self._kp_label.config(text=f"⚠ erreur : {exc}", fg="#f44336")
+
+    def _bbox_from_tiles(self) -> tuple[float, float, float, float] | None:
+        """Emprise union des dalles depuis leurs en-têtes (cache _tile_extents)."""
+        if not self._tile_extents:
+            return None
+        try:
+            from src.check_terrain import _tiles_union
+            valid = [e for e in self._tile_extents.values() if e is not None]
+            if not valid:
+                return None
+            return _tiles_union(valid)
+        except Exception as exc:
+            log.warning("_bbox_from_tiles : %s", exc)
+            return None
+
+    def _recheck_bdtopo(self) -> None:
+        """Re-lance les contrôles BD TOPO si un fichier est déjà chargé."""
+        if self._bdtopo_path is None:
+            return
+        try:
+            from src.check_terrain import (
+                BdtopoCoverageResult,
+                _check_bdtopo_coverage,
+                _check_bdtopo_layers,
+            )
+            layer_res = _check_bdtopo_layers(self._bdtopo_path)
+            bbox = (self._cfg.get("terrains") or {}).get(
+                self._terrain_var.get(), {}
+            ).get("bbox") or self._bbox_from_tiles()
+            if bbox:
+                cov_res = _check_bdtopo_coverage(self._bdtopo_path, tuple(bbox))
+            else:
+                cov_res = BdtopoCoverageResult("non_verifie", "non vérifié (couverture) : emprise inconnue")
+            text, fg = _bdtopo_status(layer_res, cov_res, self._bdtopo_path.name)
+            self._bdtopo_label.config(text=text, fg=fg)
+            self._log(f"BD TOPO (re-contrôle) : {layer_res.reason} | {cov_res.reason}")
+        except Exception as exc:
+            log.warning("_recheck_bdtopo : %s", exc)
+
+    def _refresh_mode_label(self) -> None:
+        """Met à jour le label du mode végétation depuis config.yaml."""
+        terrain = self._terrain_var.get().strip()
+        if not terrain:
+            self._mode_label.config(text="—", fg="#888")
+            return
+        terrain_cfg = (self._cfg.get("terrains") or {}).get(terrain, {})
+        mode = terrain_cfg.get("vegetation_source", "kp")
+        if mode == "kp":
+            self._mode_label.config(text="kp (Karttapullautin)", fg="#555")
+        else:
+            self._mode_label.config(text=mode, fg="#1976d2")
 
     def _refresh_run_button(self) -> None:
         ready = bool(self._lidar_dir and self._tiles)

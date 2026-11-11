@@ -9,6 +9,7 @@ import pathlib
 import re
 import shutil
 import subprocess
+import sys
 import xml.etree.ElementTree as ET
 from typing import NamedTuple
 
@@ -24,6 +25,7 @@ _REQUIRED_MODULES: list[tuple[str, str]] = [
     ("ezdxf",     "pip install ezdxf"),
     ("yaml",      "pip install pyyaml"),
     ("requests",  "pip install requests"),
+    ("pyogrio",   "conda install -c conda-forge pyogrio"),
 ]
 
 
@@ -507,7 +509,7 @@ def _check_bdtopo_layers(gpkg_path: pathlib.Path) -> BdtopoLayerResult:
         return BdtopoLayerResult(
             "non_verifie",
             [],
-            "non vérifié (couches) : pyogrio absent",
+            f"non vérifié (couches) : pyogrio absent (Python : {sys.executable})",
         )
     try:
         with warnings.catch_warnings():
@@ -537,7 +539,7 @@ def _check_bdtopo_coverage(
     except ImportError:
         return BdtopoCoverageResult(
             "non_verifie",
-            "non vérifié (couverture) : pyogrio absent",
+            f"non vérifié (couverture) : pyogrio absent (Python : {sys.executable})",
         )
     try:
         with warnings.catch_warnings():
