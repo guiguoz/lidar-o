@@ -159,6 +159,7 @@ La végétation automatique est une **estimation** — elle doit être vérifié
 ## Guide complet
 
 → **[docs/guide_utilisateur.md](docs/guide_utilisateur.md)** — installation pas à pas, configuration, exemple complet, dépannage
+→ **[Télécharger la BD TOPO](docs/guide_utilisateur.md#télécharger-et-préparer-la-bd-topo-france-uniquement)** — pas-à-pas IGN : format, département, extraction, rangement
 
 Documentation technique :
 - [docs/supervised_e.md](docs/supervised_e.md) — mode supervised_e : architecture, modèle, résultats LOTO

@@ -13,6 +13,7 @@
 - [C — Installer](#c--installer)
 - [D — Lancer](#d--lancer)
 - [E — Préparer un projet](#e--préparer-un-projet)
+  - [Télécharger et préparer la BD TOPO](#télécharger-et-préparer-la-bd-topo-france-uniquement)
 - [F — Utiliser l'interface](#f--utiliser-linterface)
 - [G — Lancer le calcul](#g--lancer-le-calcul)
 - [H — Retrouver et utiliser les résultats](#h--retrouver-et-utiliser-les-résultats)
@@ -48,6 +49,17 @@ Avant de commencer, vous aurez besoin de :
 3. **La BD TOPO** de votre département (fichier `.gpkg`, disponible gratuitement sur IGN Géoplateforme — France uniquement)
 
 > Hors France : la BD TOPO n'est pas disponible. Des adaptations sont nécessaires — voir [docs/portabilite.md](portabilite.md).
+
+### Rôle de chaque type de fichier
+
+| Fichier | Rôle dans l'application | Obligatoire ? |
+|---|---|---|
+| `.copc.laz` — dalles LiDAR | Points 3D utilisés pour le relief (courbes de niveau) et pour le moteur végétation | Oui — toujours |
+| `.gpkg` — BD TOPO département | Objets anthropiques : routes, bâtiments, hydrographie, zones boisées et urbaines (masquage végétation) | Oui pour la France — peut être omis hors France |
+| `model_e_final.pkl` — modèle supervised_e | Modèle pré-entraîné pour la détection automatique de la végétation en mode `supervised_e` | Seulement en mode `supervised_e` — non public |
+| `output/*.omap` — résultat | Carte assemblée à ouvrir dans OpenOrienteering Mapper | Produit par l'application |
+
+La BD TOPO ne remplace ni les dalles LiDAR (nécessaires au relief et à la végétation), ni le modèle supervised_e (nécessaire à ce mode uniquement).
 
 ### Ce qui est inclus et ce qui ne l'est pas
 
@@ -243,13 +255,113 @@ La commande `init` crée automatiquement :
 - une entrée dans `config.yaml`
 - le fichier `assets\georef_mon_terrain.xml` (géoréférencement — point de référence, convergence des méridiens, CRS)
 
-### Télécharger la BD TOPO (France uniquement)
+### Télécharger et préparer la BD TOPO (France uniquement)
 
-1. Aller sur [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo)
-2. Télécharger l'archive GPKG de votre département (ex. `BDT_3-5_GPKG_LAMB93_D014-...gpkg`)
-3. Déposer le fichier dans `data\bdtopo\`
+#### 1. Accéder au téléchargement
 
-> Télécharger l'archive **GPKG complète** (pas l'export par thème). Le pipeline utilise 4 couches : `troncon_de_route`, `batiment`, `surface_hydrographique`, `troncon_hydrographique`.
+Aller sur **[geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo)**.
+
+Sur la page, chercher l'onglet ou le lien **« Téléchargement »** puis **« par département »**.
+
+> Si le site a changé d'organisation depuis la rédaction de ce guide, rechercher « BD TOPO téléchargement département » sur le site IGN — la page de téléchargement existe mais son emplacement exact peut varier d'une édition à l'autre.
+
+#### 2. Choisir le bon département
+
+Sélectionner le département qui **couvre votre terrain**, pas votre département de résidence.
+
+Pour trouver le bon code : identifier le département sur la carte de France, ou utiliser les coordonnées de votre terrain sur [epsg.io](https://epsg.io/transform) pour vérifier la zone.
+
+> **Terrain à cheval sur deux départements** : l'application ne gère qu'un seul GPKG par terrain. Si votre emprise touche deux départements, deux solutions :
+> - **Solution simple** : télécharger les deux départements et pointer sur le plus grand (l'autre sera ignoré, avec un avertissement sur les couches manquantes aux bords)
+> - **Solution complète** : fusionner les deux GPKG avec QGIS ou ogr2ogr avant utilisation (hors scope de ce guide)
+
+#### 3. Choisir le bon format
+
+Dans les options de téléchargement, choisir :
+
+- **Format** : `GPKG` ou `GeoPackage` (pas `Shapefile`, pas `FileGDB`)
+- **Projection** : `RGF93 / Lambert-93` (compatible avec EPSG:2154, le CRS du pipeline)
+- **Thèmes** : `TOUSTHEMES` — l'archive complète, pas un export par thème
+
+> Le sélecteur de couches peut proposer des exports thématiques (transport, bâti, hydrographie…). Ne pas les utiliser : chaque couche serait dans un fichier séparé, incompatible avec le chargeur actuel.
+
+#### 4. Lire le nom du fichier
+
+Le fichier téléchargé a un nom structuré. Exemple illustratif :
+
+```
+BDTOPO_3-5_TOUSTHEMES_GPKG_LAMB93_D014_2026-09-15.7z
+```
+
+| Fragment | Signification |
+|---|---|
+| `BDTOPO_3-5` | Version du produit BD TOPO |
+| `TOUSTHEMES` | Tous les thèmes inclus (obligatoire) |
+| `GPKG` | Format GeoPackage |
+| `LAMB93` | Projection Lambert-93 / EPSG:2154 |
+| `D014` | Département **14** (Calvados) |
+| `2026-09-15` | Date d'édition |
+
+Le nom exact change à chaque édition — l'important est la présence de `D014` (ou votre code département) et de `GPKG`.
+
+> Les éditions récentes (2024–) utilisent parfois `BDT_3-5` au lieu de `BDTOPO_3-5`. Le format de l'archive peut aussi varier (`.7z`, `.zip`). Ces variations n'affectent pas le contenu.
+
+#### 5. Télécharger et extraire l'archive
+
+1. Télécharger le fichier (`.7z` ou `.zip`) — taille typique : 300–800 Mo selon le département
+2. **Extraire l'archive** avant utilisation :
+   - Sur Windows : clic droit → **Extraire tout…** (pour `.zip`) ; ou installer [7-Zip](https://www.7-zip.org/) pour les `.7z`
+   - L'extraction produit un dossier contenant le fichier `.gpkg`
+
+> **L'archive ne peut pas être chargée directement dans l'application.** Si vous sélectionnez le `.7z` dans l'interface graphique, un message d'erreur s'affiche. Il faut extraire le `.gpkg` d'abord.
+
+#### 6. Ranger le fichier .gpkg
+
+Après extraction, déplacer le fichier `.gpkg` dans `data\bdtopo\` :
+
+```
+lidar-o\
+└── data\
+    └── bdtopo\
+        └── BDTOPO_3-5_TOUSTHEMES_GPKG_LAMB93_D014_2026-09-15.gpkg  ← ici
+```
+
+> Le dossier `data\bdtopo\` doit être créé s'il n'existe pas. L'application le crée automatiquement lors du premier `setup`.
+
+#### 7. Ce que l'application utilise réellement
+
+L'application extrait les couches suivantes du GPKG :
+
+| Couche BD TOPO | Usage | Obligatoire ? |
+|---|---|---|
+| `troncon_de_route` | Routes et chemins → symboles 502–505 | Oui (vérifiée par `check`) |
+| `batiment` | Bâtiments → symbole 521, masque végétation | Oui (vérifiée par `check`) |
+| `surface_hydrographique` | Plans d'eau → symbole 301 | Oui (vérifiée par `check`) |
+| `troncon_hydrographique` | Cours d'eau linéaires → symbole 302 | Oui (vérifiée par `check`) |
+| `cours_d_eau` | Noms cours d'eau (complément) | Non — avertissement si absent |
+| `zone_de_vegetation` | Bois/forêts IGN → masquage végétation | Non — avertissement si absent |
+| `zone_d_habitation` | Enveloppes urbaines → masquage végétation | Non — avertissement si absent |
+| `troncon_de_voie_ferree` | Voies ferrées | Non — ignoré si absent |
+
+L'archive TOUSTHEMES contient toutes ces couches. Un export thématique partiel manquerait certaines couches vérifiées.
+
+#### 8. Déclarer le fichier dans l'application
+
+**Via l'interface graphique** : cliquer sur **Charger BD TOPO…** et sélectionner le fichier `.gpkg` extrait.
+
+**Via la configuration** (optionnel, pour figer le chemin) : dans `config.yaml`, sous votre terrain :
+
+```yaml
+terrains:
+  mon_terrain:
+    bdtopo_path: "data/bdtopo/BDTOPO_3-5_TOUSTHEMES_GPKG_LAMB93_D014_2026-09-15.gpkg"
+```
+
+**Via le code département** (détection automatique) : si vous indiquez seulement `departement: "14"` dans `config.yaml`, l'application cherche automatiquement le fichier le plus récent contenant `D014` dans `data\bdtopo\`. C'est la méthode la plus simple si vous ne changez pas régulièrement de fichier.
+
+#### 9. Conserver les métadonnées et la licence
+
+L'archive BD TOPO contient des fichiers de métadonnées et de conditions d'utilisation. Les conserver dans `data\bdtopo\` à côté du `.gpkg`. La BD TOPO est distribuée sous [Licence Ouverte Etalab 2.0](https://www.etalab.gouv.fr/licence-ouverte-open-licence) — utilisation libre, attribution requise.
 
 ### Configurer et vérifier
 
@@ -596,6 +708,75 @@ terrains:
 - Réduire l'emprise du terrain (plus petite bbox)
 - Fermer les autres applications
 - Passer à 16 Go de RAM si les emprises > 10 km² sont fréquentes
+
+### BD TOPO — mauvais département
+
+**Symptôme :** `✗ couverture spatiale insuffisante` lors de `check` ou `setup`, ou routes / bâtiments absents de la carte produite
+
+**Vérifications :**
+1. Identifier le département qui **couvre votre terrain** (pas votre département de résidence)
+2. Vérifier que le code département dans le nom du fichier correspond — ex. `D014` = département 14
+
+**Solution :** télécharger le GPKG du bon département sur [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo).
+
+### BD TOPO — archive non extraite
+
+**Symptôme :** dans l'interface graphique, cliquer sur **Charger BD TOPO…** puis sélectionner un fichier `.7z` → message d'erreur affiché, BD TOPO non chargée
+
+**Solution :** extraire l'archive `.7z` avant de la charger :
+- Installer [7-Zip](https://www.7-zip.org/) si ce n'est pas déjà fait
+- Clic droit sur le fichier `.7z` → **7-Zip → Extraire ici**
+- Sélectionner le fichier `.gpkg` extrait dans l'interface
+
+### BD TOPO — mauvais fichier sélectionné
+
+**Symptôme :** `couches manquantes : troncon_de_route, batiment, …` dans le journal de l'interface
+
+**Causes possibles :**
+- Export thématique au lieu de TOUSTHEMES (ex. archive "TRANSPORT" seule)
+- Fichier d'un autre produit IGN (ex. BD CARTO, qui a une structure différente)
+- Fichier extrait d'une archive partielle
+
+**Solution :** télécharger l'archive **TOUSTHEMES** complète depuis [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo).
+
+### BD TOPO — projection incompatible
+
+**Symptôme :** routes et bâtiments apparaissent très loin de leur position réelle, ou message CRS dans les logs
+
+**Explication :** le pipeline attend des données en Lambert-93 (EPSG:2154). Le fichier téléchargé doit porter `LAMB93` dans son nom.
+
+**Solution :** re-télécharger en sélectionnant explicitement `RGF93 / Lambert-93` sur le site IGN. Les archives en `WGS84` ou autres projections ne sont pas compatibles sans conversion préalable.
+
+### BD TOPO — données ne couvrant pas le terrain
+
+**Symptôme :** `✗ couverture spatiale insuffisante` même avec le bon département
+
+**Causes :**
+- Terrain à cheval sur deux départements — le GPKG d'un seul département ne couvre pas toute l'emprise
+- Emprise déclarée trop large par rapport à la zone réelle
+
+**Solution pour un terrain multi-département :**
+L'application ne gère pas nativement plusieurs GPKG. Télécharger les deux départements, puis pointer sur le GPKG principal (le plus grand) : les couches du département manquant seront absentes aux bords, avec des avertissements. Pour une couverture complète, fusionner les deux GPKG avec QGIS (Vecteur → Outils de gestion de données → Fusionner des couches vectorielles) avant de relancer.
+
+### BD TOPO — couche absente
+
+**Symptôme :** `WARNING  Calque 'zone_de_vegetation' absent ou illisible` dans les logs — le pipeline continue mais la végétation n'est pas masquée par les zones boisées IGN
+
+**Explication :** les couches `zone_de_vegetation`, `zone_d_habitation`, `cours_d_eau` ne sont **pas bloquantes** — leur absence génère un avertissement, pas une erreur.
+
+Les 4 couches obligatoires (`troncon_de_route`, `batiment`, `surface_hydrographique`, `troncon_hydrographique`) sont toutes présentes dans l'archive TOUSTHEMES.
+
+**Solution :** aucune si l'archive TOUSTHEMES est utilisée. Si vous voyez ce message avec TOUSTHEMES, vérifier la version de la BD TOPO (les intitulés de couches ont changé entre éditions — voir ci-dessous).
+
+### BD TOPO — intitulés de couches modifiés entre éditions
+
+**Symptôme :** couches non trouvées malgré une archive TOUSTHEMES correcte — la BD TOPO a changé le nom d'une couche entre deux versions du produit
+
+**Explication :** IGN peut renommer des couches entre versions (ex. 3-3 → 3-5). L'application est configurée pour la BD TOPO 3-5 (nommage actuel).
+
+**Vérification :** dans QGIS, ouvrir le `.gpkg` et vérifier les noms des couches disponibles. Les comparer avec ceux listés dans la [§ E — Télécharger et préparer la BD TOPO](#7-ce-que-lapplication-utilise-réellement).
+
+**Solution :** mettre à jour `config.yaml` sous `bd_topo.layers` pour correspondre aux intitulés de votre édition, ou utiliser une archive TOUSTHEMES BD TOPO 3-5.
 
 ### Karttapullautin — version incorrecte
 

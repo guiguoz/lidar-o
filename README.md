@@ -117,6 +117,7 @@ Opens a tkinter window with LiDAR / BD TOPO selectors and a **Generate** button.
 ## Full guide
 
 → [docs/guide_utilisateur.md](docs/guide_utilisateur.md) (French) — step-by-step installation, configuration, example, troubleshooting
+→ [BD TOPO download guide](docs/guide_utilisateur.md#télécharger-et-préparer-la-bd-topo-france-uniquement) — format, department selection, extraction
 
 Technical documentation:
 - [docs/supervised_e.md](docs/supervised_e.md) — supervised_e mode: architecture, model, LOTO results
