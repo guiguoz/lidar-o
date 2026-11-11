@@ -395,7 +395,7 @@ PROJET PRÊT
 | Élément | Description |
 |---|---|
 | **Terrain** | Nom du terrain (doit exister dans `config.yaml`) |
-| **Charger LiDAR…** | Sélectionner le répertoire contenant les dalles `.copc.laz` |
+| **Choisir le dossier LiDAR…** | Sélectionner le dossier contenant les dalles `.copc.laz` ou `.laz` |
 | **Charger BD TOPO…** | Sélectionner le fichier `.gpkg` département |
 | **Grille de dalles** | Visualisation de la couverture LiDAR (vert = présent, rouge = manquant) |
 | **État BD TOPO** | Résultat du contrôle couches + couverture spatiale (vert / orange / rouge) |
@@ -407,10 +407,21 @@ PROJET PRÊT
 > La GUI nécessite que le terrain soit déjà initialisé (`python main.py init`).
 > Elle ne remplace pas `setup` pour la première configuration.
 
+**Sélection du dossier LiDAR**
+La fenêtre de sélection affiche des dossiers, pas des fichiers — les `.laz` n'y apparaissent pas.
+Naviguez jusqu'au dossier qui *contient* les dalles et validez-le directement.
+Après sélection, le journal affiche le dossier retenu et le nombre de fichiers `.laz` uniques détectés :
+```
+LiDAR : E:\LIDAR\sainte_honorine
+  → 7 fichier(s) .laz unique(s) trouvé(s)
+```
+
+> **Sous-dossiers non parcourus.** Seul le dossier sélectionné est analysé — les `.laz` rangés dans des sous-dossiers ne sont pas détectés. Placez toutes les dalles au premier niveau du dossier.
+
 ### Comportements automatiques
 
 **Emprise depuis les dalles LiDAR**
-Quand vous chargez un répertoire LiDAR, l'interface lit les en-têtes de chaque fichier `.laz` via PDAL pour calculer l'emprise géographique réelle. Cette emprise est utilisée pour le contrôle de couverture BD TOPO — même si le terrain n'est pas encore déclaré dans `config.yaml`.
+Quand vous choisissez un dossier LiDAR, l'interface lit les en-têtes de chaque fichier `.laz` via PDAL pour calculer l'emprise géographique réelle. Cette emprise est utilisée pour le contrôle de couverture BD TOPO — même si le terrain n'est pas encore déclaré dans `config.yaml`.
 
 **Re-contrôle BD TOPO automatique**
 Dès qu'un nouveau répertoire LiDAR est sélectionné, le contrôle BD TOPO est relancé automatiquement avec la nouvelle emprise (si un fichier BD TOPO est déjà chargé). Pas besoin de re-sélectionner le `.gpkg`.

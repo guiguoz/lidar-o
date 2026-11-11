@@ -90,8 +90,16 @@ class LidarOApp:
         self._terrain_entry = tk.Entry(top, textvariable=self._terrain_var, width=20)
         self._terrain_entry.pack(side=tk.LEFT, padx=4)
 
-        tk.Button(top, text="Charger LiDAR…", command=self._load_lidar).pack(side=tk.LEFT, padx=4)
+        tk.Button(top, text="Choisir le dossier LiDAR…", command=self._load_lidar).pack(side=tk.LEFT, padx=4)
         tk.Button(top, text="Charger BD TOPO…", command=self._load_bdtopo).pack(side=tk.LEFT, padx=4)
+
+        hint_frame = tk.Frame(self.root, bg=_COLOR_BG, padx=8)
+        hint_frame.pack(fill=tk.X)
+        tk.Label(
+            hint_frame,
+            text="Sélectionnez le dossier, pas les fichiers. Les .laz peuvent ne pas apparaître dans cette fenêtre.",
+            bg=_COLOR_BG, fg="#777",
+        ).pack(anchor=tk.W)
 
         mid = tk.Frame(self.root, bg=_COLOR_BG)
         mid.pack(fill=tk.BOTH, expand=True, padx=8)
@@ -158,7 +166,7 @@ class LidarOApp:
         self._log_text.configure(state=tk.DISABLED)
 
     def _load_lidar(self) -> None:
-        directory = fd.askdirectory(title="Sélectionner le répertoire LiDAR")
+        directory = fd.askdirectory(title="Sélectionner le dossier contenant les fichiers .laz")
         if not directory:
             return
         lidar_dir = pathlib.Path(directory)
@@ -170,12 +178,18 @@ class LidarOApp:
                 seen.add(rp)
                 tiles.append(p)
         if not tiles:
-            mb.showwarning("LiDAR", f"Aucun fichier .laz dans {lidar_dir}")
+            mb.showwarning(
+                "LiDAR",
+                f"Aucun fichier .laz trouvé dans :\n{lidar_dir}\n\n"
+                "Vérifiez que les fichiers .copc.laz ou .laz sont directement dans ce dossier "
+                "(les sous-dossiers ne sont pas parcourus).",
+            )
             return
 
         self._lidar_dir = lidar_dir
         self._tiles = sorted(tiles)
-        self._log(f"LiDAR : {len(tiles)} fichier(s) chargé(s) depuis {lidar_dir}")
+        self._log(f"LiDAR : {lidar_dir}")
+        self._log(f"  → {len(tiles)} fichier(s) .laz unique(s) trouvé(s)")
 
         try:
             from src.check_terrain import _tile_extent

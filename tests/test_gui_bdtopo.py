@@ -223,18 +223,40 @@ class TestBboxFromTiles:
 # ── Garde-fous source ─────────────────────────────────────────────────────────
 
 class TestGuiAppSource:
-    """Vérifie que gui/app.py ne contient plus fiona ni de "#ff9800" magique."""
+    """Vérifie que gui/app.py respecte les invariants de libellé et de style."""
 
     _app_path = pathlib.Path(__file__).parent.parent / "gui" / "app.py"
 
+    @property
+    def _src(self) -> str:
+        return self._app_path.read_text(encoding="utf-8")
+
     def test_fiona_absent_du_source(self):
-        assert "fiona" not in self._app_path.read_text(encoding="utf-8"), (
-            "gui/app.py ne doit plus importer fiona"
-        )
+        assert "fiona" not in self._src, "gui/app.py ne doit plus importer fiona"
 
     def test_une_seule_occurrence_de_ff9800(self):
         """La valeur magique #ff9800 ne doit apparaître qu'une fois : la définition de _COLOR_UNVERIFIED."""
-        count = self._app_path.read_text(encoding="utf-8").count('"#ff9800"')
+        count = self._src.count('"#ff9800"')
         assert count == 1, (
             f"#ff9800 devrait apparaître exactement 1 fois (définition constante), trouvé {count}"
         )
+
+    def test_bouton_lidar_renomme(self):
+        assert "Choisir le dossier LiDAR" in self._src, (
+            "Le bouton LiDAR doit s'appeler 'Choisir le dossier LiDAR…'"
+        )
+        assert "Charger LiDAR" not in self._src, (
+            "L'ancien libellé 'Charger LiDAR…' ne doit plus apparaître"
+        )
+
+    def test_titre_dialogue_explicite(self):
+        assert "Sélectionner le dossier contenant les fichiers .laz" in self._src
+
+    def test_note_sous_dossiers_presente(self):
+        assert "sous-dossiers ne sont pas parcourus" in self._src
+
+    def test_pas_de_glob_recursif(self):
+        """glob("*.copc.laz") — sans '**/' — ne parcourt pas les sous-dossiers."""
+        assert "rglob" not in self._src
+        assert "**/*.copc.laz" not in self._src
+        assert "**/*.laz" not in self._src
