@@ -2,391 +2,199 @@
 
 *[English version](README.md)*
 
-## Ce que vous obtenez
+**Lidar'O génère automatiquement une base de carte pour la course d'orientation** à partir des données LiDAR et des référentiels géographiques. Il produit un fichier `.omap` prêt à ouvrir dans OpenOrienteering Mapper, avec le relief, le réseau routier, l'hydrographie et une première proposition de végétation.
 
-**Une base de carte prête à tracer** — pas une carte terminée.
+Le cartographe conserve la vérification terrain, la correction de la végétation et l'ajout des détails fins.
 
-Lidar'O automatise une partie importante de la préparation d'une base cartographique à partir des données LiDAR françaises et des référentiels géographiques existants. Le cartographe conserve le dessin, la végétation, la vérification terrain et le jugement cartographique.
+---
+
+<!-- CAPTURE D'ÉCRAN — EN ATTENTE
+     Lancer : python main.py gui
+     Capturer la fenêtre Lidar'O avec un terrain chargé et les cases LiDAR / BD TOPO renseignées.
+     Enregistrer sous : docs/images/capture_gui.png
+     Retirer tout chemin personnel visible avant l'enregistrement. -->
+
+![Base de carte Lidar'O dans OpenOrienteering Mapper](docs/images/extrait_grimbosq.jpg)
+*Résultat Lidar'O ouvert dans OpenOrienteering Mapper — terrain Grimbosq (Normandie)*
+
+---
+
+## Ce que Lidar'O produit
 
 ```
-CE QUE LIDAR'O PRODUIT
+vectorisé et symbolisé :
+  relief            — courbes de niveau depuis Karttapullautin
+  chemins / routes  — BD TOPO
+  bâtiments         — BD TOPO
+  hydrographie      — BD TOPO
+  terrain découvert et zones agricoles
+  zones interdites
+  végétation 406 / 408 / 410  — estimation automatique (voir modes ci-dessous)
 
-    vectorisé et symbolisé :
-    relief          — courbes de niveau depuis Karttapullautin
-    chemins / routes  — BD TOPO
-    bâtiments       — BD TOPO
-    hydrographie    — BD TOPO
-    terrain découvert et zones agricoles
-    zones interdites
-
-    assemblage et géoréférencement
-    → fichier .omap exploitable dans OpenOrienteering Mapper
-
-FOND DE TRACÉ
-
-    végétation Karttapullautin, géoréférencée, intégrée au template
-
-À FAIRE PAR LE CARTOGRAPHE
-
-    tracer / corriger la végétation à partir du fond fourni
-    relever au terrain ce que le LiDAR ne permet pas de déterminer
-    ajouter les détails ponctuels et les éléments cartographiques fins
+assemblage et géoréférencement
+→ fichier .omap ouvrable directement dans OpenOrienteering Mapper
 ```
 
 ## Ce que Lidar'O ne produit pas
 
+- Falaises ni rochers (symboles 201/202 désactivés)
+- Symboles ponctuels ni plantations en rangs
+- Carte terminée : la végétation automatique est une base de travail à corriger au terrain
+
+---
+
+## Modes de végétation
+
+| Mode | Principe | Statut |
+|---|---|---|
+| `kp` (par défaut) | Karttapullautin extrait une image de végétation depuis le LiDAR ; les couches 406/408/410 sont vectorisées à partir de cette image. | Stable |
+| `supervised_e` | Calcul direct depuis la structure verticale du nuage de points — 4 niveaux (401/406/408/410). Performances variables selon le type de forêt. | Expérimental |
+
+Les deux modes fonctionnent de manière autonome depuis les données LiDAR, sans référentiel cartographique extérieur à l'inférence.
+
+> **Mode supervised_e** — nécessite un fichier modèle pré-entraîné de 786 Mo (`experiments/loto_v1/final_model/model_e_final.pkl`), non distribué dans le dépôt.
+> Sans ce fichier, le mode `kp` fonctionne normalement.
+> Voir [docs/supervised_e.md](docs/supervised_e.md) pour l'installation, la configuration et les résultats.
+
+---
+
+## Installation
+
+**Aucun installateur disponible** — installation depuis les sources uniquement.
+
+### Prérequis
+
+- **Windows** : [Miniconda](https://docs.conda.io/en/latest/miniconda.html) recommandé pour les dépendances géospatiales
+- **Linux / Docker** : image fournie (`Dockerfile`)
+- **OpenOrienteering Mapper** : [openorienteering.org](https://www.openorienteering.org/) pour ouvrir le `.omap` produit
+
+### Étapes rapides (Windows)
+
+```bat
+rem 1. Cloner le dépôt
+git clone https://github.com/guiguoz/lidar-o.git
+cd lidar-o
+
+rem 2. Installer les dépendances (Miniconda Prompt)
+conda install -c conda-forge python=3.11 geopandas shapely scipy numpy ^
+    python-pdal pdal rasterio ezdxf requests pyyaml
 ```
-pas de couches 406 / 408 / 410 fiables dans toutes les conditions
-    → les couches KP vectorisées (vegetation_kp.gpkg) sont injectées dans le .omap
-      à partir de la classification KP (coverage_simplify 2 m)
-      mais la précision reste limitée sur le terrain de test Grimbosq
 
-pas de falaises ni de rochers
-    → cliff2 et cliff3 sont désactivés : 745 traits de 2,9 m observés sur
-      une seule dalle ; cliffheight et cliffangle n'ont pas été instruits
+Vérifier :
 
-pas de détection fiable du sous-bois léger (406)
-    → sur le test Grimbosq, une fenêtre contenant 45,9 % de végétation FFCO,
-      dont 29 % de 406, ne produit pas de végétation exploitable dans le rendu
-
-pas de plantations en rangs
-pas de symboles ponctuels
+```bat
+python main.py --version
 ```
+
+> Pour les étapes détaillées (environnement virtuel, dépannage, Docker) →
+> [docs/guide_utilisateur.md § C — Installer](docs/guide_utilisateur.md#c--installer)
+
+---
+
+## Premier projet
+
+### 1. Télécharger les données
+
+| Donnée | Source | Emplacement |
+|---|---|---|
+| Dalles LiDAR HD (`*.copc.laz`) | [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd) | `LIDAR/` ou `--tiles-dir DIR` |
+| BD TOPO (GPKG département, France) | [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo) | `data/bdtopo/` |
+
+Une dalle 1 km² suffit pour un premier test.
+
+### 2. Initialiser le terrain
+
+```bash
+# Depuis des coordonnées géographiques (CRS déduit automatiquement)
+python main.py init ma_foret --center 49.043 -0.421
+
+# Ou avec une emprise projetée explicite
+python main.py init ma_foret --bbox 448000 6886000 451000 6889000 --crs EPSG:2154
+```
+
+### 3. Vérifier et configurer
+
+```bash
+python main.py setup ma_foret   # dialogue interactif : LiDAR, BD TOPO, KP
+python main.py check ma_foret   # contrôle complet avant traitement
+```
+
+### 4. Lancer le pipeline
+
+```bash
+python main.py run ma_foret --tiles-dir LIDAR/
+```
+
+Durée typique : 45–60 min pour 6 dalles (2×3 km), dominé par Karttapullautin.
+
+### 5. Ouvrir le résultat
+
+Fichier produit : `output/ma_foret.omap` — ouvrir dans OpenOrienteering Mapper.
+
+---
+
+## Interface graphique
+
+```bash
+python main.py gui
+```
+
+Ouvre une fenêtre avec sélecteurs LiDAR / BD TOPO, grille de couverture des dalles et bouton **Générer**. Nécessite que le terrain soit déjà déclaré dans `config.yaml` (via `init` ou édition manuelle).
+
+---
 
 ## Domaine de validité
 
 | | |
 |---|---|
-| **Testé** | Forêt normande de feuillus (Grimbosq) · LiDAR HD IGN · COPC · Lambert-93 · acquisition hors feuillaison |
-| **Non testé** | autres types de forêt · autres régions françaises · acquisitions en feuillaison |
-| **Portable** | le code déduit le CRS automatiquement ; la convergence des méridiens est calculée ; les mappings sont externalisés ; deux pays ont été traités par le pipeline (France, Estonie) |
-| **Attention** | la portabilité du pipeline ne signifie pas que son réglage de végétation est validé ailleurs |
+| **Testé** | Forêt normande de feuillus (Normandie) — LiDAR HD IGN — COPC — Lambert-93 — acquisition hors feuillaison |
+| **Non testé** | Forêts de montagne, landes, résineux denses, acquisitions en feuillaison |
+| **Portable** | CRS déduit automatiquement ; convergence des méridiens calculée ; deux pays traités (France, Estonie) |
+| **Attention** | La portabilité du code ne garantit pas la qualité des résultats végétation hors du domaine testé |
 
-![Grimbosq — base de carte dans OpenOrienteering Mapper](docs/images/extrait_grimbosq.jpg)
-
----
-
-## Pour commencer
-
-### Prérequis
-
-- **Python géospatial** — recommandé via [miniconda](https://docs.conda.io/en/latest/miniconda.html) :
-
-  ```bash
-  conda install -c conda-forge geopandas shapely scipy numpy python-pdal pdal
-  pip install pyyaml requests ezdxf
-  ```
-
-  Ou depuis le dépôt :
-
-  ```bash
-  pip install -e .
-  # Note : gdal, python-pdal et pyogrio nécessitent conda ou un wheel précompilé
-  ```
-
-- **OpenOrienteering Mapper** — [openorienteering.org](https://www.openorienteering.org/) — pour ouvrir le `.omap` produit
-
-- **Karttapullautin** (optionnel, pour les courbes de niveau) — [github.com/karttapullautin](https://github.com/karttapullautin/karttapullautin) — à lancer manuellement sur les dalles LiDAR, sortie dans `out_kp/`
-
-### Données d'entrée (France)
-
-| Donnée | Source | Emplacement |
-|--------|--------|-------------|
-| LiDAR HD (dalles COPC, ~500 Mo/dalle) | [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd) | `LIDAR/` ou `--tiles-dir DIR` |
-| BD TOPO (GPKG département) | [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo) | `data/bdtopo/` |
-
-**Spécifique France :** le LiDAR provient de la Géoplateforme IGN HD (format COPC), la donnée anthropique de la BD TOPO v3. Hors France, voir [docs/portabilite.md](docs/portabilite.md).
-
-Télécharger 1–3 dalles LiDAR sur votre zone. Compter 30–60 min de traitement selon la taille de l'emprise. Une seule dalle (1×1 km) suffit pour un premier test.
-
-### Déclarer votre terrain
-
-```bash
-# Depuis un point sur une carte (CRS déduit automatiquement)
-python main.py init ma_foret --center 49.043 -0.421
-
-# Avec bbox projetée explicite
-python main.py init ma_foret --bbox 448000 6886000 451000 6889000 --crs EPSG:2154
-```
-
-`init` écrit l'entrée dans `config.yaml` et génère `assets/georef_ma_foret.xml` (convergence des
-méridiens, point de référence, CRS). CRS supportés : France (2154), Estonie (3301), Grande-Bretagne
-(27700), Finlande (3067), Suisse (2056), Norvège (25832/25833) — repli UTM pour les autres.
-
-Puis lister les dalles LiDAR nécessaires :
-
-```bash
-python main.py tiles ma_foret
-# → LHD_FXX_0448_6887_PTS_LAMB93_IGN69.copc.laz
-#   LHD_FXX_0448_6888_PTS_LAMB93_IGN69.copc.laz  …  (France / EPSG:2154 uniquement)
-# Source : https://geoservices.ign.fr/lidarhd
-```
-
-<details>
-<summary>Déclaration manuelle (si vous préférez éditer config.yaml directement)</summary>
-
-Ajouter une entrée sous `terrains:` dans `config.yaml` :
-
-```yaml
-terrains:
-  ma_foret:
-    bbox: [448000, 6886000, 451000, 6889000]
-    crs: EPSG:2154
-    departement: "14"       # code département BD TOPO — omettre hors France
-```
-
-Créer `assets/georef_ma_foret.xml` — voir `assets/` pour quatre exemples fonctionnels.
-`declination` = convergence des méridiens (≠ déclinaison magnétique). Calculée automatiquement par `init`. Pour recalculer : `python -c "from pyproj import Proj; print(Proj('EPSG:2154').get_factors(lon, lat).meridian_convergence)"`. L'approximation `(longitude − méridien_central) × sin(latitude)` est fausse pour une projection conique conforme — utiliser `get_factors()`.
-
-</details>
-
-### Lancer le pipeline
-
-```bash
-# Vérifier dalles, CRS, georef avant traitement (appelé automatiquement par run)
-python main.py check ma_foret
-
-# Premier run — traite le LiDAR de bout en bout (30–60 min selon la taille de la zone)
-python main.py ma_foret --tiles-dir LIDAR/
-
-# Runs suivants — saute PDAL si density_hag_classified.tif existe déjà (5 min)
-python main.py ma_foret --skip-pdal
-```
-
-Arborescence attendue :
-
-```
-lidar-o/
-├── LIDAR/                        ← dalles .copc.laz
-│   └── LHD_FXX_0448_6887_...laz
-├── data/bdtopo/                  ← GPKG département BD TOPO (France uniquement)
-├── out_kp/                       ← DXF Karttapullautin (optionnel, pour le relief)
-├── output/                       ← créé automatiquement
-│   └── ma_foret.omap             ← le résultat
-└── config.yaml                   ← déclarer votre terrain ici
-```
-
-Options :
-
-| Option | Description |
-|--------|-------------|
-| `--tiles-dir DIR` | Répertoire des dalles `.copc.laz` |
-| `--skip-pdal` | Saute PDAL (uniquement si `density_hag_classified.tif` existe d'un run précédent) |
-| `--from-step STEP` | Reprend à : `fetch`, `pdal`, `process_hag`, `relief`, `vegetation_kp`, `vegetation`, `mask`, `assemble`, `qa` |
-| `--force` | Ignore les vérifications de fraîcheur et relance toutes les étapes |
-
-Sortie : `output/{terrain}.omap`
+La végétation automatique est une **estimation** — elle doit être vérifiée et complétée par relevé terrain avant diffusion d'une carte officielle.
 
 ---
 
-## Exemple complet (Grimbosq, France)
+## Guide complet
 
-Déroulement complet sur une zone réelle de 2 × 3 km. À utiliser comme modèle.
+→ **[docs/guide_utilisateur.md](docs/guide_utilisateur.md)** — installation pas à pas, configuration, exemple complet, dépannage
 
-### 1 — Repérer les dalles LiDAR (IGN France)
-
-Les dalles LiDAR HD IGN sont nommées par leur **bord nord** (pas leur coin SO). La dalle `LHD_FXX_XXXX_YYYY` couvre :
-
-```
-x ∈ [XXXX × 1000, (XXXX + 1) × 1000]
-y ∈ [(YYYY − 1) × 1000,  YYYY × 1000]      ← YYYY est le bord NORD
-```
-
-**Exemple** — bbox `[448000, 6886000, 450001, 6889001]` en Lambert-93 :
-- colonnes x : 448, 449 → `0448`, `0449`
-- lignes y : bords nord 6887, 6888, 6889 → couvre y de 6886000 à 6889000
-
-Dalles à télécharger (6 fichiers) :
-```
-LHD_FXX_0448_6887_PTS_LAMB93_IGN69.copc.laz
-LHD_FXX_0448_6888_PTS_LAMB93_IGN69.copc.laz
-LHD_FXX_0448_6889_PTS_LAMB93_IGN69.copc.laz
-LHD_FXX_0449_6887_PTS_LAMB93_IGN69.copc.laz
-LHD_FXX_0449_6888_PTS_LAMB93_IGN69.copc.laz
-LHD_FXX_0449_6889_PTS_LAMB93_IGN69.copc.laz
-```
-
-Télécharger depuis la [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd), déposer dans `LIDAR/`.
-
-### 2 — config.yaml
-
-Le terrain `grimbosq` est déjà déclaré. Pour votre propre terrain, copier le template commenté en tête de la section `terrains:`.
-
-### 3 — Créer assets/georef_grimbosq.xml
-
-Voir le fichier `assets/georef_grimbosq.xml` existant. Pour le remplir :
-
-| Champ | Comment l'obtenir |
-|-------|-------------------|
-| `ref_point x/y` | Coordonnée projetée ronde dans l'emprise (ex. 449000 / 6887000) |
-| `ref_point_deg lat/lon` | Convertir sur [epsg.io/transform](https://epsg.io/transform) |
-| `declination` | Convergence des méridiens au point de référence — calculée automatiquement par `init`. Pour recalculer : `python -c "from pyproj import Proj; print(Proj('EPSG:2154').get_factors(lon, lat).meridian_convergence)"`. L'approximation `(λ−λ₀)×sin(φ)` est fausse pour Lambert conique conforme — utiliser `get_factors()`. **Pas** la déclinaison magnétique. |
-| `auxiliary_scale_factor` | Facteur d'échelle de la projection — 0.999966 correct pour terrain plat en Lambert-93 ; recalculer sur [epsg.io](https://epsg.io) en zone de montagne |
-
-> **Attention au signe de `declination`** : négatif à l'ouest du méridien central, positif à l'est. Une erreur de signe décale tous les symboles de l'angle de convergence.
-
-### 4 — Télécharger la BD TOPO (France uniquement)
-
-Télécharger le GPKG du département 14 sur [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo) → « Téléchargement par département » → déposer dans `data/bdtopo/`.
-
-### 5 — Lancer
-
-```bash
-python main.py grimbosq --tiles-dir LIDAR/
-```
-
-Temps par étape (6 dalles, ~6 km², laptop récent) :
-
-| Étape | Ce qu'elle fait | Durée |
-|-------|----------------|-------|
-| `fetch` | Découpe la BD TOPO sur l'emprise | < 1 min |
-| `pdal` | Rasterise la densité HAG depuis le LiDAR | 20–35 min |
-| `process_hag` | Normalise et classifie le raster (3 classes) | 1–2 min |
-| `relief` | Karttapullautin batch → courbes de niveau (optionnel) | 5–15 min |
-| `vegetation_kp` | PNG KP → 406/408/410 vectorisés (coverage_simplify 2 m) | < 1 min |
-| `vegetation` | Moteur de généralisation HAG (dissolve → lissage → coupes) | 3–5 min |
-| `mask` | Supprime routes, bâtiments, terres agricoles | 1–2 min |
-| `assemble` | Fusionne toutes les couches en un .omap | < 1 min |
-| `qa` | Affiche les métriques de recall (si carte de référence déclarée) | < 1 min |
-
-> Si le pipeline semble bloqué à `pdal`, il travaille — le traitement LiDAR est intensif CPU et ne produit pas de sortie intermédiaire. Attendre au moins 5 min par dalle avant de conclure à un blocage.
-
-### 6 — Sortie attendue
-
-Un run réussi se termine par :
-```
-INFO  Assemblé : output/grimbosq.omap (18 couches)
-=== QA végétation — profil 'grimbosq_v0' ===
-INFO  406 : n=942  cov=35%  …
-INFO  408 : n=611  cov=61%  …
-INFO  410 : n=465  cov=82%  …
-```
-
-> `n` et `cov` sont calculés **après clip au hull FFCO** (323,8 ha) — pas sur l'emprise totale.
-> Ces valeurs varient si le profil ou les seuils changent.
-
-Ouvrir `output/grimbosq.omap` dans OpenOrienteering Mapper. Les couches attendues :
-- Végétation KP vectorisée (406/408/410) — couches générées depuis les PNG Karttapullautin
-- Fond végétation KP (aplats verts, 50 % d'opacité, `keep_template: true`) — décalque optionnel
-- Routes, chemins, bâtiments et cours d'eau depuis la BD TOPO (symboles noirs/bleus/marron)
-- Courbes de niveau de Karttapullautin (marron) — uniquement si `out_kp/` était présent
-
-Les couches 406/408/410 sont sauvées dans `output/vegetation_kp.gpkg` et injectées dans le .omap.
-Voir [docs/bilan_v0.md](docs/bilan_v0.md) pour les résultats d'évaluation.
-
-Si la carte apparaît vide ou décalée par rapport au fond de carte, vérifier que le signe de `declination` dans le fichier georef est correct.
-
----
-
-## Performances de classification — mesures sur Grimbosq
-
-> Ces chiffres décrivent la **couche de classification HAG** — utilisée en fallback si `vegetation_kp.gpkg` est absent.
-> Le livrable principal est la végétation KP vectorisée (406/408/410) injectée dans le .omap.
->
-> Mesuré sur un seul terrain (Grimbosq, Calvados, France) contre une carte FFCO non redistribuable,
-> sur emprise commune (hull 324 ha). Non garantis ailleurs.
-
-| Classe | Détecté | Bonne classe |
-|--------|---------|--------------|
-| 406 course lente | 35 % | 28 % |
-| 408 marche | 61 % | 26 % |
-| 410 progression difficile | 82 % | 48 % |
-
-*« Détecté »* = fraction de la surface FFCO couverte par n'importe quelle classe du pipeline.  
-*« Bonne classe »* = fraction dans la bonne classe exacte.
-
----
-
-## Domaine de validité — détail
-
-**Classe 406 hors domaine, y compris sur Grimbosq.** AUC Mann-Whitney = 0,487 : la densité HAG[0.3–3 m] dans les zones 406 manquées est statistiquement indiscernable du terrain courable. Baisser le seuil crée autant de faux positifs qu'il ne récupère de vrais positifs.
-
-**408/410** fonctionnent sur les forêts à structuration verticale claire (forêt tempérée dense, 61 %/82 % de détection sur Grimbosq). Testé et hors domaine : landes d'altitude, landes-marais, forêts à sous-bois uniforme.
-
-| Terrain | Type | Résultat 406 | Cause |
-|---------|------|-------------|-------|
-| Grimbosq (Normandie) | Hêtraie mature | Partiel (35 %) | Signal léger indiscernable du terrain courable |
-| Airelles (Pyrénées) | Lande résineux altitude | Hors domaine | Signal HAG identique entre classes FFCO |
-| Kilemäed (Estonie) | Lande/forêt mixte | Hors domaine | Désaccord sémantique ouvert/couvert |
-| Kuti (Estonie) | Épicéas + Vaccinium | Hors domaine | Signal uniforme dense |
-| Port-en-Bessin (Normandie) | Hêtraie à sol nu | Correctement absent | Pas de sous-bois — bande HAG vide (163 retours sol/cellule) |
-
-Voir [docs/bilan_v0.md](docs/bilan_v0.md) pour l'ensemble des expérimentations réalisées.
-
----
-
-## QA et carte de référence
-
-Le pipeline tourne sans référence (métriques QA limitées à la distribution de classes). Pour activer la comparaison quantitative :
-
-1. Fournir sa propre carte au format GPKG ou `.omap` avec les couches `veg_406`, `veg_408`, `veg_410`
-2. La déclarer dans `config.yaml` :
-
-   ```yaml
-   terrains:
-     ma_foret:
-       qa_reference: data/ma_carte_reference.gpkg
-   ```
-
-3. Le recall par classe et la couverture hull s'affichent en fin de run et sont sauvés dans `output/run_metadata.json`
-
----
-
-## Utilisation hors de France
-
-Le pipeline a tourné sur des données estoniennes (LiDAR COPC + OSM). Adaptations nécessaires :
-
-- **CRS** : changer `crs` dans `config.yaml` (ex. `EPSG:3301` pour l'Estonie)
-- **Géoréférencement** : créer `assets/georef_{terrain}.xml` (voir les exemples dans `assets/`)
-- **Mappings** : adapter `scripts/mappings/bdtopo_isom.yaml` si la donnée anthropique ne vient pas de la BD TOPO
-- **BD TOPO** : aucun équivalent direct hors France — utiliser OSM via l'option `osm_landuse` dans `config.yaml`
-
-Voir [docs/portabilite.md](docs/portabilite.md) pour un guide détaillé.
-
----
-
-## Ce que le projet a établi
-
-Quinze pistes d'amélioration ont été testées et mesurées : ajustement du seuil de détection, filtre de surface minimale, sigma gaussien, résolution de grille (1 m vs 2 m), stratégie de normalisation (fixe vs p95_local), intensité LiDAR comme signal secondaire, masque canopée, suppression de trous (deux approches), chirurgie des isthmes, sweep des seuils inter-classes, NRD vs HAG brut, variance verticale (sigma/IQR dans [0,3–3 m]), fenêtres verticales alternatives, agrégation spatiale (2 m / 5 m / 10 m). La plupart ont été réfutées par la mesure sur corpus multi-terrain.
-
-Documentées dans [docs/bilan_v0.md](docs/bilan_v0.md) pour éviter à d'autres de refaire le chemin.
-
----
-
-## Statut du projet
-
-Publié en l'état comme travail posé — preuve de concept fonctionnelle sur forêt tempérée française.
-
-Le pipeline fonctionne et produit des sorties utilisables, dans les limites documentées ci-dessus. Les issues GitHub seront lues mais les réponses ne sont pas garanties. Les pull requests documentant de nouveaux terrains testés ou améliorant la portabilité sont les bienvenues.
+Documentation technique :
+- [docs/supervised_e.md](docs/supervised_e.md) — mode supervised_e : architecture, modèle, résultats LOTO
+- [docs/portabilite.md](docs/portabilite.md) — utilisation hors France
+- [docs/bilan_v0.md](docs/bilan_v0.md) — expérimentations et résultats historiques
 
 ---
 
 ## Architecture
 
 ```
-main.py                      orchestrateur principal (7 étapes)
-config.yaml                  tous les paramètres — seuils, profils, endpoints
+main.py                   CLI + GUI (python main.py run / gui)
+config.yaml               paramètres terrains et pipeline
 
 src/
-  vegetation.py              CO Generalization Engine (9 étapes enchaînées)
-  omap_writer.py             génération fichiers .omap (XML OOM)
-  qa.py                      métriques QA + snapshot config
-  guards.py                  détection dérives de config entre runs
-  metrics.py                 calcul densités HAG (ratio, NRD)
+  vegetation.py           CO Generalization Engine (mode kp/hag)
+  supervised_e.py         détection végétation depuis LiDAR (mode supervised_e)
+  omap_writer.py          génération fichiers .omap
+  pipeline_mode.py        résolution du mode végétation
+  qa.py                   métriques et snapshot
+
+gui/
+  app.py                  interface tkinter
+  worker.py               thread pipeline
 
 scripts/
-  fetch.py                   extraction BD TOPO depuis GPKG département
-  process_hag.py             normalisation + classification raster HAG
-  mask_vegetation.py         masque anthropique sur la végétation
-  generate_bdtopo.py         BD TOPO → couches .omap
-  generate_relief.py         DXF Karttapullautin → courbes de niveau .omap
-  run_terrain.py             pipeline PDAL standalone
-  measure_corpus.py          comparaison pipeline vs référence FFCO
-  mappings/                  tables de correspondance ISOM (BD TOPO, KP)
+  fetch.py                extraction BD TOPO
+  process_hag.py          classification raster HAG
+  mappings/               tables correspondance ISOM
 
-scripts/diag/                scripts de calibration (historique des expérimentations)
-assets/                      gabarit ISOM 2017-2, géoréférencements, CRT KP
-docs/                        portabilité, bilan v0, règles IOF
+assets/
+  ISOM 2017-2_10000.omap  gabarit symboles
+  georef_*.xml            géoréférencement par terrain
+
+docs/                     guides et documentation technique
+experiments/              expérimentations et entraînement supervised_e
 ```
 
 ---
@@ -397,7 +205,7 @@ docs/                        portabilité, bilan v0, règles IOF
 
 Utilisation libre, modification libre. Tout dérivé ou service réseau doit être publié sous AGPL v3 avec le code source.
 
-Assets tiers :
+Dépendances tiers :
 - Gabarit ISOM 2017-2 extrait d'[OpenOrienteering Mapper](https://www.openorienteering.org/) (GPL-3.0)
 - Table CRT extraite de [Blaze / Trailblaze Software](https://github.com/Trailblaze-Software/Blaze) (GPL-3.0)
-- [Karttapullautin](https://github.com/karttapullautin/karttapullautin) — non inclus, à télécharger séparément
+- [Karttapullautin](https://github.com/karttapullautin/karttapullautin) — non inclus dans le dépôt, téléchargé automatiquement par `setup`
