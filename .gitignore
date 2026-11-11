@@ -74,3 +74,17 @@ fastighetskartan.txt
 osm.txt
 .claude/
 CONSIGNE_*.md
+PLAN_*.md
+
+# Binaires (Karttapullautin et autres exécutables locaux)
+bin/
+
+# Répertoires OCAD locaux (terrains de travail, non versionnés)
+bois de montmirel/
+la route de sainte anne/
+travail_bois_dupont/
+travail_caen/
+
+# Caches intermédiaires Karttapullautin (sorties binaires par dalle)
+*.dxf.bin
+experiments/foret_caen/runs/
