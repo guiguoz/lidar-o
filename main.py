@@ -400,6 +400,56 @@ def step_vegetation(terrain: str, cfg: dict, force: bool) -> None:
     log.info("vegetation.gpkg écrit")
 
 
+# ── Étape : supervised_e (expérimental) ───────────────────────────────────────
+
+def step_supervised_e(
+    terrain: str,
+    cfg: dict,
+    laz_files: list[str],
+    force: bool,
+) -> pathlib.Path:
+    """Inférence végétation supervised_e depuis LAZ bruts.
+
+    Produit :
+      output/supervised_e_prediction.tif    (uint8, 2 bandes)
+      output/vegetation_supervised_e.gpkg   (veg_401/406/408/410)
+      output/supervised_e_coverage.tif      (masque couverture LiDAR)
+    """
+    from src.supervised_e import run_supervised_e, EXPORT_MODE_FAITHFUL
+
+    terrain_cfg = cfg.get("terrains", {}).get(terrain, {})
+    bbox = terrain_cfg.get("bbox")
+    if bbox is None:
+        sys.exit(
+            f"ERREUR supervised_e : bbox manquant pour le terrain {terrain!r}.\n"
+            f"Ajouter terrains.{terrain}.bbox: [xmin, ymin, xmax, ymax] dans config.yaml"
+        )
+
+    if not laz_files:
+        sys.exit(
+            "ERREUR supervised_e : aucun fichier LAZ. "
+            "Passer --tiles-dir ou --tiles."
+        )
+
+    export_mode = cfg.get("vegetation_export_mode", EXPORT_MODE_FAITHFUL)
+
+    cache_dir = OUTPUT / "supervised_e_cache"
+    result = run_supervised_e(
+        laz_files=[pathlib.Path(f) for f in laz_files],
+        bbox=list(bbox),
+        output_dir=OUTPUT,
+        cache_dir=cache_dir,
+        force=force,
+        export_mode=export_mode,
+    )
+    pred_tif = result["prediction_tif"]
+    veg_gpkg = result.get("vegetation_gpkg")
+    log.info("supervised_e : prédiction dans %s", pred_tif.relative_to(ROOT))
+    if veg_gpkg and veg_gpkg.exists():
+        log.info("supervised_e : vegetation dans %s", veg_gpkg.relative_to(ROOT))
+    return pred_tif
+
+
 # ── Étape 5 : mask ────────────────────────────────────────────────────────────
 
 def step_mask(terrain: str, cfg: dict, force: bool) -> None:
@@ -754,7 +804,7 @@ def _build_img_templates(
 
 # ── Étape 6 : assemble ────────────────────────────────────────────────────────
 
-def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
+def step_assemble(terrain: str, cfg: dict, force: bool, veg_mode: str = "kp") -> None:
     import shapely.geometry as sg
     from scripts.generate_bdtopo import build_bdtopo_layers, load_mapping as load_bd_mapping
     from scripts.generate_relief import build_relief_layers, load_relief_mapping
@@ -766,20 +816,25 @@ def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
     import shapely
     from src.omap_writer import Layer
 
+    from src.supervised_e import EXPORT_MODE_FAITHFUL as _SE_FAITHFUL
+    _se_export_mode = cfg.get("vegetation_export_mode", _SE_FAITHFUL)
+
     out = OUTPUT / f"{terrain}.omap"
     veg_kp_gpkg = OUTPUT / "vegetation_kp.gpkg"
+    veg_se_gpkg = OUTPUT / f"vegetation_supervised_e_{_se_export_mode}.gpkg"
     bdtopo_gpkg = DATA / f"{terrain}_bdtopo.gpkg"
     out_kp = ROOT / f"out_kp_{terrain}"
     osm_cache = DATA / f"osm_landuse_{terrain}.json"
 
     # Verrou supprimé : vegetation_masked.gpkg n'est plus une dépendance de l'assemblage.
-    # La végétation vient de vegetation_kp.gpkg (branche KP) — §8 PLAN 3.
+    # La végétation vient de vegetation_kp.gpkg (branche KP) ou vegetation_supervised_e.gpkg.
     if not bdtopo_gpkg.exists():
         log.warning("assemble : %s absent — couches BD TOPO ignorées (fill OSM conservé)", bdtopo_gpkg.name)
         bdtopo_gpkg = None  # type: ignore[assignment]
 
     dxf_files = sorted(out_kp.glob("*.dxf")) if out_kp.exists() else []
-    ref_sources = [p for p in [veg_kp_gpkg, bdtopo_gpkg] if p is not None]
+    veg_ref = veg_se_gpkg if veg_mode == "supervised_e" else veg_kp_gpkg
+    ref_sources = [p for p in [veg_ref, bdtopo_gpkg] if p is not None]
     ref_mtime = _newest_mtime(*ref_sources, *dxf_files)
 
     if not force and out.exists() and ref_mtime and out.stat().st_mtime >= ref_mtime:
@@ -801,8 +856,30 @@ def step_assemble(terrain: str, cfg: dict, force: bool) -> None:
     all_layers: list = []
 
     if ocad_veg_path:
-        # Source OCAD active : végétation KP vectorielle ignorée — raster template à la place.
-        log.info("assemble : source végétation OCAD (%s) — vegetation_kp.gpkg ignorée", ocad_veg_path.name)
+        # Source OCAD active : végétation vectorielle ignorée — raster template à la place.
+        log.info("assemble : source végétation OCAD (%s) — vegetation ignorée", ocad_veg_path.name)
+    elif veg_mode == "supervised_e":
+        # Végétation supervised_e (401/406/408/410) depuis vegetation_supervised_e.gpkg.
+        # Pas de contrôle d'overlap : la vectorisation pixel-par-pixel garantit l'exclusivité.
+        veg_layers_clipped: list = []
+        if veg_se_gpkg.exists():
+            for veg_code in [401, 406, 408, 410]:
+                layer_name = f"veg_{veg_code}"
+                try:
+                    gdf_veg = gpd.read_file(str(veg_se_gpkg), layer=layer_name)
+                    if not gdf_veg.empty:
+                        lyr = Layer(layer_name, veg_code, list(gdf_veg.geometry))
+                        veg_layers_clipped.append(lyr)
+                        log.info("vegetation_supervised_e %d : %d polygones", veg_code, len(gdf_veg))
+                except Exception as exc:
+                    log.warning("vegetation_supervised_e %d ignorée : %s", veg_code, exc)
+            veg_layers_clipped = _clip(veg_layers_clipped, "vegetation_supervised_e")
+            all_layers += veg_layers_clipped
+        else:
+            raise RuntimeError(
+                "assemble mode supervised_e : vegetation_supervised_e.gpkg absent — "
+                "relancer step_supervised_e d'abord."
+            )
     else:
         # Végétation KP (406/408/410) depuis vegetation_kp.gpkg — branche KP §8 PLAN 3
         veg_layers_clipped: list = []
@@ -1184,17 +1261,29 @@ def _cmd_run() -> None:
         relief_tiles_dir = pathlib.Path(args.tiles_dir) if args.tiles_dir else None
         relief_status = step_relief(args.terrain, cfg, relief_tiles_dir, args.force)
 
-    if should_run("vegetation_kp"):
+    if veg_mode != "supervised_e" and should_run("vegetation_kp"):
         step_vegetation_kp(args.terrain, cfg, args.force)
 
-    if veg_mode != "kp" and should_run("vegetation"):
+    if veg_mode == "supervised_e":
+        # Collecte des LAZ (mêmes sources que l'étape pdal)
+        _se_tiles: list[str] = []
+        if args.tiles_dir:
+            td = pathlib.Path(args.tiles_dir)
+            _se_tiles = [str(p) for p in sorted(td.glob("*.copc.laz"))]
+            if not _se_tiles:
+                _se_tiles = [str(p) for p in sorted(td.glob("*.laz"))]
+        elif getattr(args, "tiles", None):
+            _se_tiles = args.tiles
+        step_supervised_e(args.terrain, cfg, _se_tiles, args.force)
+
+    if veg_mode not in ("kp", "supervised_e") and should_run("vegetation"):
         step_vegetation(args.terrain, cfg, args.force)
 
-    if veg_mode != "kp" and should_run("mask"):
+    if veg_mode not in ("kp", "supervised_e") and should_run("mask"):
         step_mask(args.terrain, cfg, args.force)
 
     if should_run("assemble"):
-        step_assemble(args.terrain, cfg, args.force)
+        step_assemble(args.terrain, cfg, args.force, veg_mode=veg_mode)
 
     if should_run("qa"):
         step_qa(args.terrain, cfg)

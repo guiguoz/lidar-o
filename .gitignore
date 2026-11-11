@@ -8,6 +8,12 @@ dist/
 build/
 .env
 
+# Modèles ML et caches de calcul (trop volumineux pour git)
+# Le modèle final est identifié par son SHA-256 dans manifeste.json
+*.pkl
+*.npz
+*.npy
+
 # Données raster et vecteur lourdes
 /output/
 /output_airelles/

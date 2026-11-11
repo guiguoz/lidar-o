@@ -22,7 +22,7 @@ from typing import Literal
 
 log = logging.getLogger(__name__)
 
-VegMode = Literal["kp", "hag"]
+VegMode = Literal["kp", "hag", "supervised_e"]
 
 _KP_DEFAUT_INFO = (
     "vegetation_source absente pour %r — KP par défaut. "
@@ -34,9 +34,16 @@ _HAG_INFO = (
     "vegetation_kp.gpkg reste la végétation de l'OMAP ; la branche HAG alimente l'analyse et la QA."
 )
 
+_SUPERVISED_E_INFO = (
+    "vegetation_source: supervised_e pour %r — mode expérimental. "
+    "Prédiction directe depuis LAZ (RF 63 features). "
+    "Résultat dans output/supervised_e_prediction.tif. "
+    "Pas d'identité exacte avec OCAD."
+)
+
 
 def resolve_veg_source(terrain: str, cfg: dict) -> VegMode:
-    """Retourne le mode pipeline pour le terrain : 'kp' ou 'hag'.
+    """Retourne le mode pipeline pour le terrain : 'kp', 'hag' ou 'supervised_e'.
 
     Clé absente = 'kp' (défaut). Valeur inconnue = ValueError.
     Voir le contrat des modes en tête de module.
@@ -50,7 +57,10 @@ def resolve_veg_source(terrain: str, cfg: dict) -> VegMode:
     if source == "hag":
         log.info(_HAG_INFO, terrain)
         return "hag"
+    if source == "supervised_e":
+        log.info(_SUPERVISED_E_INFO, terrain)
+        return "supervised_e"
     raise ValueError(
         f"vegetation_source={source!r} pour {terrain!r} : valeur inconnue "
-        "(attendu : 'kp' ou 'hag', ou clé absente pour KP par défaut)"
+        "(attendu : 'kp', 'hag' ou 'supervised_e', ou clé absente pour KP par défaut)"
     )
