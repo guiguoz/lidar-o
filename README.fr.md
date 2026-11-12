@@ -56,6 +56,13 @@ Les deux modes fonctionnent de manière autonome depuis les données LiDAR, sans
 > Sans ce fichier, le mode `kp` fonctionne normalement.
 > Voir [docs/supervised_e.md](docs/supervised_e.md) pour l'installation, la configuration et les résultats.
 
+**Mode d'export** (`vegetation_export_mode`, `supervised_e` uniquement) :
+
+| Valeur | Effet |
+|---|---|
+| `faithful` (défaut) | Polygones détectés exportés tels quels — aucune perte, rendu bruité |
+| `generalized` | Simplification géométrique (MMU + lissage) — rendu cartographique propre |
+
 ---
 
 ## Installation
@@ -139,7 +146,9 @@ Fichier produit : `output/ma_foret.omap` — ouvrir dans OpenOrienteering Mapper
 python main.py gui
 ```
 
-Ouvre une fenêtre avec sélecteurs LiDAR / BD TOPO, grille de couverture des dalles et bouton **Générer**. Nécessite que le terrain soit déjà déclaré dans `config.yaml` (via `init` ou édition manuelle).
+Ouvre une fenêtre avec sélecteurs LiDAR / BD TOPO, grille de couverture des dalles, sélecteur de **moteur végétation** (`kp` / `supervised_e`), sélecteur de **mode d'export** (actif uniquement en `supervised_e`) et bouton **Générer**.
+
+Si le nom de projet saisi n'existe pas encore dans `config.yaml`, la GUI le crée automatiquement à partir des noms de fichiers IGN des dalles chargées. `python main.py init` reste nécessaire pour les coordonnées non-IGN ou une emprise personnalisée.
 
 ---
 

@@ -51,6 +51,13 @@ Both modes run autonomously from LiDAR data, without any external cartographic r
 
 > **Mode supervised_e** requires a 786 MB pre-trained model file (`experiments/loto_v1/final_model/model_e_final.pkl`), not distributed in this repository. Without it, mode `kp` works normally. See [docs/supervised_e.md](docs/supervised_e.md).
 
+**Export mode** (`vegetation_export_mode`, `supervised_e` only):
+
+| Value | Effect |
+|---|---|
+| `faithful` (default) | Detected polygons exported as-is — no loss, noisy output |
+| `generalized` | Geometric simplification (MMU + smoothing) — clean cartographic output |
+
 ---
 
 ## Installation
@@ -99,7 +106,9 @@ Output: `output/my_forest.omap`
 python main.py gui
 ```
 
-Opens a tkinter window with LiDAR / BD TOPO selectors and a **Generate** button.
+Opens a tkinter window with LiDAR / BD TOPO selectors, a **vegetation engine** selector (`kp` / `supervised_e`), an **export mode** selector (active only for `supervised_e`), and a **Generate** button.
+
+If the project name does not yet exist in `config.yaml`, the GUI creates it automatically from the IGN tile filenames. `python main.py init` is still required for non-IGN coordinates or a custom bounding box.
 
 ---
 
