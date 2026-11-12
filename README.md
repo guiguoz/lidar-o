@@ -91,27 +91,27 @@ conda install -c conda-forge python=3.11 geopandas shapely scipy numpy ^
 ## Quick start
 
 ```bash
-# Declare your terrain
-python main.py init my_forest --center 49.043 -0.421
-
-# Configure and validate (interactive)
-python main.py setup my_forest
-
-# Run the pipeline
-python main.py run my_forest --tiles-dir LIDAR/
-```
-
-Output: `output/my_forest.omap`
-
-### GUI
-
-```bash
 python main.py gui
 ```
 
-Opens a tkinter window with LiDAR / BD TOPO selectors, a **vegetation engine** selector (`kp` / `supervised_e`), an **export mode** selector (active only for `supervised_e`), and a **Generate** button.
+1. **Project name** — type a name (e.g. `my_forest`)
+2. **Choose LiDAR folder…** — select the folder containing your `.copc.laz` tiles
+3. **Load BD TOPO…** — select the department `.gpkg` file
+4. **Generate**
 
-If the project name does not yet exist in `config.yaml`, the GUI creates it automatically from the IGN tile filenames. `python main.py init` is still required for non-IGN coordinates or a custom bounding box.
+Output: `output/my_forest.omap` — open in OpenOrienteering Mapper.
+
+The project is created automatically in `config.yaml` from the IGN tile filenames. No command-line setup needed for standard IGN France data.
+
+### CLI (advanced / non-IGN data)
+
+```bash
+python main.py init my_forest --center 49.043 -0.421  # declare terrain
+python main.py setup my_forest                         # interactive config
+python main.py run my_forest --tiles-dir LIDAR/        # run pipeline
+```
+
+Use the CLI for non-IGN coordinates, custom bounding boxes, or scripted workflows.
 
 ---
 
