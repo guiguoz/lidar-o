@@ -1,0 +1,532 @@
+"""Interface graphique Lidar'O — tkinter. Aucune logique métier ici."""
+from __future__ import annotations
+
+import logging
+import pathlib
+import queue
+import re
+import tkinter as tk
+import tkinter.filedialog as fd
+import tkinter.messagebox as mb
+import tkinter.scrolledtext as st
+import tkinter.ttk as ttk
+from typing import TYPE_CHECKING
+
+import yaml
+
+from gui.worker import Done, PipelineWorker, Progress
+
+if TYPE_CHECKING:
+    from src.check_terrain import BdtopoCoverageResult, BdtopoLayerResult
+
+log = logging.getLogger(__name__)
+
+_CELL_PX = 48
+_COLOR_PRESENT = "#4caf50"
+_COLOR_MISSING = "#f44336"
+_COLOR_UNKNOWN = "#9e9e9e"
+_COLOR_BG = "#fafafa"
+_COLOR_UNVERIFIED = "#ff9800"
+
+# Chemin relatif (depuis la racine du projet) vers le modèle supervised_e.
+_SE_MODEL_PATH = pathlib.Path("experiments") / "loto_v1" / "final_model" / "model_e_final.pkl"
+
+
+def _patch_global_yaml_key(key: str, value: str, config_path: pathlib.Path) -> None:
+    """Écrit ou remplace une clé de niveau global dans config.yaml.
+
+    Remplace la première occurrence active ou commentée de la clé ;
+    ajoute la ligne en tête de fichier si absente.
+    """
+    text = config_path.read_text(encoding="utf-8")
+    active = re.compile(r"^" + re.escape(key) + r"\s*:.*$", re.MULTILINE)
+    commented = re.compile(r"^#\s*" + re.escape(key) + r"\s*:.*$", re.MULTILINE)
+    new_line = f'{key}: "{value}"'
+    if active.search(text):
+        text = active.sub(new_line, text)
+    elif commented.search(text):
+        text = commented.sub(new_line, text)
+    else:
+        text = new_line + "\n" + text
+    config_path.write_text(text, encoding="utf-8")
+
+
+def _bdtopo_status(
+    layer_res: BdtopoLayerResult,
+    cov_res: BdtopoCoverageResult,
+    name: str,
+) -> tuple[str, str]:
+    """Label (texte, couleur fg) pour l'état BD TOPO.
+
+    Règle : aucun ✓ si un contrôle n'est pas ok. Vert uniquement si les deux
+    contrôles sont ok ; rouge dès qu'un contrôle constate une anomalie ;
+    orange si aucune anomalie mais au moins un contrôle non_verifie.
+    Les raisons des deux contrôles sont conservées (label multi-lignes).
+    """
+    if layer_res.status == "ok" and cov_res.status == "ok":
+        return f"✓ {name}", _COLOR_PRESENT
+    anomalie = False
+    lines: list[str] = []
+    if layer_res.status == "anomalie":
+        anomalie = True
+        lines.append(f"⚠ couches manquantes : {', '.join(layer_res.missing)}")
+    elif layer_res.status == "non_verifie":
+        lines.append(f"⚠ {layer_res.reason}")
+    if cov_res.status == "anomalie":
+        anomalie = True
+        lines.append("⚠ couverture spatiale insuffisante")
+    elif cov_res.status == "non_verifie":
+        lines.append(f"⚠ {cov_res.reason}")
+    color = _COLOR_MISSING if anomalie else _COLOR_UNVERIFIED
+    return "\n".join(lines), color
+
+
+class LidarOApp:
+    """Interface principale Lidar'O."""
+
+    def __init__(self) -> None:
+        self.root = tk.Tk()
+        self.root.title("Lidar'O")
+        self.root.configure(bg=_COLOR_BG)
+
+        self._cfg: dict = {}
+        self._terrain_var = tk.StringVar()
+        self._lidar_dir: pathlib.Path | None = None
+        self._bdtopo_path: pathlib.Path | None = None
+        self._kp_binary: pathlib.Path | None = None
+        self._tiles: list[pathlib.Path] = []
+        self._tile_extents: dict[pathlib.Path, tuple | None] = {}
+        self._worker: PipelineWorker | None = None
+        self._queue: queue.Queue = queue.Queue()
+
+        self._build_ui()
+        self._load_config()
+        self._check_kp()
+        self._terrain_var.trace_add("write", lambda *_: self._on_terrain_changed())
+        import sys as _sys
+        self._log(f"Python : {_sys.executable}")
+
+    def _build_ui(self) -> None:
+        top = tk.Frame(self.root, bg=_COLOR_BG, padx=8, pady=8)
+        top.pack(fill=tk.X)
+
+        tk.Label(top, text="Nom du projet :", bg=_COLOR_BG).pack(side=tk.LEFT)
+        self._terrain_entry = tk.Entry(top, textvariable=self._terrain_var, width=20)
+        self._terrain_entry.pack(side=tk.LEFT, padx=4)
+
+        tk.Button(top, text="Choisir le dossier LiDAR…", command=self._load_lidar).pack(side=tk.LEFT, padx=4)
+        tk.Button(top, text="Charger BD TOPO…", command=self._load_bdtopo).pack(side=tk.LEFT, padx=4)
+
+        hint_frame = tk.Frame(self.root, bg=_COLOR_BG, padx=8)
+        hint_frame.pack(fill=tk.X)
+        tk.Label(
+            hint_frame,
+            text="Sélectionnez le dossier, pas les fichiers. Les .laz peuvent ne pas apparaître dans cette fenêtre.",
+            bg=_COLOR_BG, fg="#777",
+        ).pack(anchor=tk.W)
+
+        mid = tk.Frame(self.root, bg=_COLOR_BG)
+        mid.pack(fill=tk.BOTH, expand=True, padx=8)
+
+        canvas_frame = tk.LabelFrame(mid, text="Dalles LiDAR", bg=_COLOR_BG)
+        canvas_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self._canvas = tk.Canvas(canvas_frame, width=300, height=200, bg="#eeeeee")
+        self._canvas.pack(fill=tk.BOTH, expand=True)
+
+        right = tk.Frame(mid, bg=_COLOR_BG, padx=8)
+        right.pack(side=tk.LEFT, fill=tk.Y)
+
+        tk.Label(right, text="État BD TOPO :", bg=_COLOR_BG).pack(anchor=tk.W)
+        self._bdtopo_label = tk.Label(right, text="— non chargée", bg=_COLOR_BG, fg="#888", justify=tk.LEFT)
+        self._bdtopo_label.pack(anchor=tk.W)
+
+        tk.Label(right, text="Karttapullautin :", bg=_COLOR_BG).pack(anchor=tk.W, pady=(8, 0))
+        self._kp_label = tk.Label(right, text="recherche…", bg=_COLOR_BG, fg="#888")
+        self._kp_label.pack(anchor=tk.W)
+
+        tk.Label(right, text="Moteur végétation :", bg=_COLOR_BG).pack(anchor=tk.W, pady=(8, 0))
+        self._veg_var = tk.StringVar(value="kp")
+        self._veg_combo = ttk.Combobox(
+            right, textvariable=self._veg_var,
+            values=["kp", "supervised_e"],
+            state="readonly", width=16,
+        )
+        self._veg_combo.pack(anchor=tk.W)
+        self._veg_combo.bind("<<ComboboxSelected>>", lambda _: self._on_veg_changed())
+
+        tk.Label(right, text="Mode d'export :", bg=_COLOR_BG).pack(anchor=tk.W, pady=(4, 0))
+        self._export_var = tk.StringVar(value="faithful")
+        self._export_combo = ttk.Combobox(
+            right, textvariable=self._export_var,
+            values=["faithful", "generalized"],
+            state="disabled", width=16,
+        )
+        self._export_combo.pack(anchor=tk.W)
+
+        bottom = tk.Frame(self.root, bg=_COLOR_BG, padx=8, pady=4)
+        bottom.pack(fill=tk.X)
+
+        self._run_btn = tk.Button(
+            bottom, text="Générer la carte",
+            command=self._run_pipeline,
+            state=tk.DISABLED,
+            bg="#1976d2", fg="white",
+        )
+        self._run_btn.pack(side=tk.LEFT)
+
+        self._cancel_btn = tk.Button(
+            bottom, text="Annuler",
+            command=self._cancel_pipeline,
+            state=tk.DISABLED,
+        )
+        self._cancel_btn.pack(side=tk.LEFT, padx=4)
+
+        self._status_label = tk.Label(bottom, text="Charger les dalles LiDAR.", bg=_COLOR_BG, fg="#555")
+        self._status_label.pack(side=tk.LEFT, padx=8)
+
+        log_frame = tk.LabelFrame(self.root, text="Journal", bg=_COLOR_BG)
+        log_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
+        self._log_text = st.ScrolledText(log_frame, height=10, state=tk.DISABLED, font=("Courier", 9))
+        self._log_text.pack(fill=tk.BOTH, expand=True)
+
+    def _load_config(self) -> None:
+        config_path = pathlib.Path("config.yaml")
+        if config_path.exists():
+            self._cfg = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        else:
+            self._cfg = {}
+        if hasattr(self, "_veg_combo"):
+            self._on_terrain_changed()
+
+    def _log(self, msg: str) -> None:
+        self._log_text.configure(state=tk.NORMAL)
+        self._log_text.insert(tk.END, msg + "\n")
+        self._log_text.see(tk.END)
+        self._log_text.configure(state=tk.DISABLED)
+
+    def _load_lidar(self) -> None:
+        directory = fd.askdirectory(title="Sélectionner le dossier contenant les fichiers .laz")
+        if not directory:
+            return
+        lidar_dir = pathlib.Path(directory)
+        seen: set[pathlib.Path] = set()
+        tiles: list[pathlib.Path] = []
+        for p in list(lidar_dir.glob("*.copc.laz")) + list(lidar_dir.glob("*.laz")):
+            rp = p.resolve()
+            if rp not in seen:
+                seen.add(rp)
+                tiles.append(p)
+        if not tiles:
+            mb.showwarning(
+                "LiDAR",
+                f"Aucun fichier .laz trouvé dans :\n{lidar_dir}\n\n"
+                "Vérifiez que les fichiers .copc.laz ou .laz sont directement dans ce dossier "
+                "(les sous-dossiers ne sont pas parcourus).",
+            )
+            return
+
+        self._lidar_dir = lidar_dir
+        self._tiles = sorted(tiles)
+        self._log(f"LiDAR : {lidar_dir}")
+        self._log(f"  → {len(tiles)} fichier(s) .laz unique(s) trouvé(s)")
+
+        try:
+            from src.check_terrain import _tile_extent
+            self._tile_extents = {f: _tile_extent(f) for f in self._tiles}
+        except Exception as exc:
+            log.warning("Extents non calculés : %s", exc)
+            self._tile_extents = {f: None for f in self._tiles}
+
+        self._draw_grid()
+        self._refresh_run_button()
+        self._recheck_bdtopo()
+
+    def _draw_grid(self) -> None:
+        """Dessine la grille des dalles sur le canvas."""
+        self._canvas.delete("all")
+        if not self._tiles:
+            return
+
+        try:
+            from src.check_terrain import _ign_tile_extent, _IGN_RE
+        except ImportError:
+            return
+
+        ign_map: dict[tuple[int, int], bool] = {}
+        for f in self._tiles:
+            m = _IGN_RE.search(f.name)
+            if m:
+                ign_map[(int(m.group(1)), int(m.group(2)))] = True
+
+        if not ign_map:
+            self._canvas.create_text(
+                150, 100, text=f"{len(self._tiles)} dalles\n(nommage non IGN)",
+                justify=tk.CENTER,
+            )
+            return
+
+        xs = sorted({k[0] for k in ign_map})
+        ys = sorted({k[1] for k in ign_map}, reverse=True)
+
+        cw = self._canvas.winfo_reqwidth()
+        ch = self._canvas.winfo_reqheight()
+        cell_w = min(_CELL_PX, (cw - 4) // max(len(xs), 1))
+        cell_h = min(_CELL_PX, (ch - 4) // max(len(ys), 1))
+
+        for ci, x in enumerate(xs):
+            for ri, y in enumerate(ys):
+                color = _COLOR_PRESENT if (x, y) in ign_map else _COLOR_MISSING
+                x0 = 2 + ci * cell_w
+                y0 = 2 + ri * cell_h
+                self._canvas.create_rectangle(x0, y0, x0 + cell_w - 2, y0 + cell_h - 2, fill=color, outline="")
+
+    def _load_bdtopo(self) -> None:
+        path = fd.askopenfilename(
+            title="Sélectionner le fichier BD TOPO",
+            filetypes=[("GeoPackage", "*.gpkg"), ("Archive 7z", "*.7z"), ("Tous", "*.*")],
+        )
+        if not path:
+            return
+        bdtopo_path = pathlib.Path(path)
+
+        if bdtopo_path.suffix == ".7z":
+            self._log(f"BD TOPO : archive 7z détectée — extraction non prise en charge depuis l'UI")
+            self._log(f"  Utiliser : python main.py setup <terrain>")
+            return
+
+        if not bdtopo_path.exists():
+            mb.showerror("BD TOPO", f"Fichier introuvable : {bdtopo_path}")
+            return
+
+        self._bdtopo_path = bdtopo_path
+        self._log(f"BD TOPO : {bdtopo_path.name}")
+
+        from src.check_terrain import (
+            BdtopoCoverageResult,
+            _check_bdtopo_coverage,
+            _check_bdtopo_layers,
+        )
+
+        layer_res = _check_bdtopo_layers(bdtopo_path)
+        terrain_cfg = (self._cfg.get("terrains") or {}).get(self._terrain_var.get(), {})
+        bbox = terrain_cfg.get("bbox") or self._bbox_from_tiles()
+        if bbox:
+            cov_res = _check_bdtopo_coverage(bdtopo_path, tuple(bbox))
+        else:
+            cov_res = BdtopoCoverageResult(
+                "non_verifie",
+                "non vérifié (couverture) : emprise inconnue (charger les dalles LiDAR d'abord)",
+            )
+        text, fg = _bdtopo_status(layer_res, cov_res, bdtopo_path.name)
+        self._bdtopo_label.config(text=text, fg=fg)
+        self._log(f"  couches : {layer_res.reason}")
+        self._log(f"  couverture : {cov_res.reason}")
+
+        self._refresh_run_button()
+
+    def _check_kp(self) -> None:
+        try:
+            from src.kp_install import KP_PINNED_VERSION, locate_binary, read_binary_version
+            binary = locate_binary(self._cfg)
+            if binary is None:
+                self._kp_label.config(text="✗ absent", fg="#f44336")
+                return
+            version = read_binary_version(binary)
+            if version == KP_PINNED_VERSION:
+                self._kp_label.config(text=f"✓ v{version}", fg="#4caf50")
+            else:
+                self._kp_label.config(text=f"⚠ v{version} (attendu v{KP_PINNED_VERSION})", fg=_COLOR_UNVERIFIED)
+            self._kp_binary = binary
+        except Exception as exc:
+            self._kp_label.config(text=f"⚠ erreur : {exc}", fg="#f44336")
+
+    def _bbox_from_tiles(self) -> tuple[float, float, float, float] | None:
+        """Emprise union des dalles depuis leurs en-têtes (cache _tile_extents)."""
+        if not self._tile_extents:
+            return None
+        try:
+            from src.check_terrain import _tiles_union
+            valid = [e for e in self._tile_extents.values() if e is not None]
+            if not valid:
+                return None
+            return _tiles_union(valid)
+        except Exception as exc:
+            log.warning("_bbox_from_tiles : %s", exc)
+            return None
+
+    def _recheck_bdtopo(self) -> None:
+        """Re-lance les contrôles BD TOPO si un fichier est déjà chargé."""
+        if self._bdtopo_path is None:
+            return
+        try:
+            from src.check_terrain import (
+                BdtopoCoverageResult,
+                _check_bdtopo_coverage,
+                _check_bdtopo_layers,
+            )
+            layer_res = _check_bdtopo_layers(self._bdtopo_path)
+            bbox = (self._cfg.get("terrains") or {}).get(
+                self._terrain_var.get(), {}
+            ).get("bbox") or self._bbox_from_tiles()
+            if bbox:
+                cov_res = _check_bdtopo_coverage(self._bdtopo_path, tuple(bbox))
+            else:
+                cov_res = BdtopoCoverageResult("non_verifie", "non vérifié (couverture) : emprise inconnue")
+            text, fg = _bdtopo_status(layer_res, cov_res, self._bdtopo_path.name)
+            self._bdtopo_label.config(text=text, fg=fg)
+            self._log(f"BD TOPO (re-contrôle) : {layer_res.reason} | {cov_res.reason}")
+        except Exception as exc:
+            log.warning("_recheck_bdtopo : %s", exc)
+
+    def _on_terrain_changed(self) -> None:
+        """Synchronise le combo moteur depuis config si le terrain existe, puis valide."""
+        terrain = self._terrain_var.get().strip()
+        terrain_cfg = (self._cfg.get("terrains") or {}).get(terrain, {})
+        mode = terrain_cfg.get("vegetation_source", "kp")
+        self._veg_var.set(mode if mode in ("kp", "supervised_e") else "kp")
+        self._on_veg_changed()
+
+    def _on_veg_changed(self) -> None:
+        """Active le sélecteur d'export uniquement pour supervised_e, puis valide."""
+        is_se = self._veg_var.get() == "supervised_e"
+        self._export_combo.config(state="readonly" if is_se else "disabled")
+        self._refresh_run_button()
+
+    def _refresh_run_button(self) -> None:
+        """Vérifie les prérequis et affiche la raison de blocage dans la barre d'état."""
+        if not self._lidar_dir or not self._tiles:
+            self._run_btn.config(state=tk.DISABLED)
+            self._status_label.config(text="Charger les dalles LiDAR.")
+            return
+        terrain = self._terrain_var.get().strip()
+        if not terrain:
+            self._run_btn.config(state=tk.DISABLED)
+            self._status_label.config(text="Saisir un nom de projet.")
+            return
+        if self._veg_var.get() == "supervised_e" and not _SE_MODEL_PATH.exists():
+            self._run_btn.config(state=tk.DISABLED)
+            self._status_label.config(text=f"Modèle absent : {_SE_MODEL_PATH}")
+            return
+        self._run_btn.config(state=tk.NORMAL)
+        self._status_label.config(text="")
+
+    def _ensure_terrain_in_config(self, terrain: str) -> bool:
+        """Crée le terrain si absent, puis écrit vegetation_source depuis la GUI. Retourne False si échec."""
+        config_path = pathlib.Path("config.yaml")
+
+        # Étape 1 : créer l'entrée terrain si elle n'existe pas
+        if not (self._cfg.get("terrains") or {}).get(terrain):
+            if not self._tiles:
+                mb.showerror("Nom du projet", "Charger des dalles LiDAR avant de lancer.")
+                return False
+            try:
+                from src.check_terrain import _ign_tile_extent, _tile_extent, _tiles_union
+                extents = [_ign_tile_extent(f.name) or _tile_extent(f) for f in self._tiles]
+                valid = [e for e in extents if e]
+                if not valid:
+                    mb.showerror(
+                        "Nom du projet",
+                        "Impossible de déduire l'emprise depuis les dalles.\n"
+                        "Utiliser : python main.py init " + terrain + " --center lat lon",
+                    )
+                    return False
+                bbox = _tiles_union(valid)
+                ign_names = [f for f in self._tiles if _ign_tile_extent(f.name)]
+                epsg = 2154 if ign_names else 4326
+                from src.init_terrain import update_config_yaml, write_georef_xml
+                update_config_yaml(terrain, bbox, epsg, config_path)
+                write_georef_xml(terrain, bbox, epsg, pathlib.Path("assets"))
+                self._log(f"Projet '{terrain}' créé : bbox {[int(v) for v in bbox]}  CRS EPSG:{epsg}")
+            except Exception as exc:
+                mb.showerror("Nom du projet", f"Création du projet échouée :\n{exc}")
+                return False
+
+        # Étape 2 : toujours écrire vegetation_source + chemins depuis l'état GUI
+        try:
+            from src.init_terrain import patch_terrain_yaml
+            fields: dict = {"vegetation_source": self._veg_var.get()}
+            if self._lidar_dir:
+                fields["lidar_dir"] = str(self._lidar_dir).replace("\\", "/")
+            if self._bdtopo_path:
+                fields["bdtopo_path"] = str(self._bdtopo_path).replace("\\", "/")
+            if self._kp_binary:
+                fields["kp_binary"] = str(self._kp_binary).replace("\\", "/")
+            patch_terrain_yaml(terrain, fields, config_path)
+            self._load_config()
+            return True
+        except Exception as exc:
+            mb.showerror("Nom du projet", f"Mise à jour du projet échouée :\n{exc}")
+            return False
+
+    def _run_pipeline(self) -> None:
+        terrain = self._terrain_var.get().strip()
+        if not terrain:
+            mb.showwarning("Nom du projet", "Saisir un nom de projet dans le champ Nom du projet.")
+            return
+
+        if not self._ensure_terrain_in_config(terrain):
+            return
+
+        config_path = pathlib.Path("config.yaml")
+        if config_path.exists():
+            _patch_global_yaml_key("vegetation_export_mode", self._export_var.get(), config_path)
+
+        self._run_btn.config(state=tk.DISABLED)
+        self._cancel_btn.config(state=tk.NORMAL)
+        self._status_label.config(text="Exécution en cours…")
+        veg = self._veg_var.get()
+        exp = self._export_var.get() if veg == "supervised_e" else ""
+        label = veg + (f" / {exp}" if exp else "")
+        self._log(f"=== Lancement pipeline — projet '{terrain}' — moteur {label} ===")
+
+        lidar_dir = self._lidar_dir
+
+        def _run() -> None:
+            import sys as _sys
+            _sys.argv = ["main.py", terrain, "--tiles-dir", str(lidar_dir)]
+            from main import _cmd_run
+            _cmd_run()
+
+        self._worker = PipelineWorker(self._queue)
+        self._worker.start(_run)
+        self.root.after(100, self._update_ui)
+
+    def _cancel_pipeline(self) -> None:
+        if self._worker and self._worker.is_running:
+            self._worker.cancel()
+            self._log("Annulation demandée…")
+
+    def _update_ui(self) -> None:
+        try:
+            while True:
+                msg = self._queue.get_nowait()
+                if isinstance(msg, Progress):
+                    self._status_label.config(
+                        text=f"[{msg.step_idx}/{msg.total_steps}] {msg.step}"
+                    )
+                    self._log(f"  {msg.step} : {msg.message}")
+                elif isinstance(msg, Done):
+                    if msg.success:
+                        self._status_label.config(text="Terminé ✓")
+                        self._log("=== Pipeline terminé avec succès ===")
+                    else:
+                        self._status_label.config(text="Erreur")
+                        self._log(f"=== ERREUR : {msg.error} ===")
+                    self._run_btn.config(state=tk.NORMAL)
+                    self._cancel_btn.config(state=tk.DISABLED)
+                    return
+        except queue.Empty:
+            pass
+        self.root.after(100, self._update_ui)
+
+    def run(self) -> None:
+        self.root.mainloop()
+
+
+def main() -> None:
+    app = LidarOApp()
+    app.run()
+
+
+if __name__ == "__main__":
+    main()

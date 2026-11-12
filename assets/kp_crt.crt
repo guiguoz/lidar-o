@@ -2,7 +2,7 @@
 ; Source : Blaze (Trailblaze Software), src/lib/crt/crt.hpp, fonction write_to_crt()
 ;   https://github.com/Trailblaze-Software/Blaze
 ; Transcrit le 2026-08-06 pour le projet co-vector-fr (Ovector).
-; Licence Blaze : Apache 2.0 — cette table de correspondance est factuelle.
+; Licence Blaze : GPL-3.0 — cette table de correspondance est factuelle.
 ;
 ; Format : <code_ISOM> <nom_de_couche>
 ; Utilisé par Karttapullautin pour mapper calques DXF → symboles OOM/OCAD.

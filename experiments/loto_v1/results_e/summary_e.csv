@@ -1,0 +1,5 @@
+fold,config,macro_iou_veg,iou_veg_pres,prec_veg,rec_veg,macro_iou_all
+bd,E_RF_leaf5,0.53569,0.86206,0.90775,0.94484,0.66956
+caen,E_RF_leaf5,0.52734,0.79161,0.81885,0.95967,0.69948
+montmirel,E_RF_leaf5,0.46356,0.74826,0.83729,0.87557,0.66532
+sainte_anne,E_RF_leaf5,0.40477,0.76667,0.79697,0.95275,0.60411

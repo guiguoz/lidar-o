@@ -8,16 +8,29 @@ dist/
 build/
 .env
 
+# Modèles ML et caches de calcul (trop volumineux pour git)
+# Le modèle final est identifié par son SHA-256 dans manifeste.json
+*.pkl
+*.npz
+*.npy
+
 # Données raster et vecteur lourdes
-output/
-output_airelles/
-output_*/
+/output/
+/output_airelles/
+/output_*/
 LIDAR/
 Port en Bessin/
 debug/
 debug_*/
 temp/
-work/
+work/*
+!work/expe/
+work/expe/*
+!work/expe/vectorisation/
+
+# Rasters LiDAR lourds (expériences)
+*.tif
+*.tiff
 
 # Dalles LiDAR (volumineuses)
 *.copc.laz
@@ -32,12 +45,15 @@ work/
 comparatif.png
 !docs/images/*.png
 !docs/images/*.jpg
+!experiments/**/*.png
+!work/expe/vectorisation/*.png
 
 # Données terrain (non versionnées — trop lourdes ou manuelles)
 data/bdtopo/
 data/*_bdtopo.gpkg
 data/osm_landuse_*.json
 *.gpkg
+!work/expe/vectorisation/*.gpkg
 airelles.json
 out_kp/
 out_kp*/
@@ -58,3 +74,17 @@ fastighetskartan.txt
 osm.txt
 .claude/
 CONSIGNE_*.md
+PLAN_*.md
+
+# Binaires (Karttapullautin et autres exécutables locaux)
+bin/
+
+# Répertoires OCAD locaux (terrains de travail, non versionnés)
+bois de montmirel/
+la route de sainte anne/
+travail_bois_dupont/
+travail_caen/
+
+# Caches intermédiaires Karttapullautin (sorties binaires par dalle)
+*.dxf.bin
+experiments/foret_caen/runs/

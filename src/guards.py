@@ -154,8 +154,8 @@ def check_config_snapshot(cfg: dict, metadata_path: pathlib.Path) -> list[str]:
     snap_ma: dict = snap.get("min_area_m2", {})
     cfg_ma: dict = profile.get("min_area_m2", {})
     for cls in [406, 408, 410]:
-        sv = snap_ma.get(cls) or snap_ma.get(str(cls))
-        cv = cfg_ma.get(cls) or cfg_ma.get(str(cls))
+        sv = snap_ma[cls] if cls in snap_ma else snap_ma.get(str(cls))
+        cv = cfg_ma[cls] if cls in cfg_ma else cfg_ma.get(str(cls))
         if sv != cv:
             diffs.append(f"min_area_m2[{cls}]: snapshot={sv} config={cv}")
 
@@ -163,8 +163,8 @@ def check_config_snapshot(cfg: dict, metadata_path: pathlib.Path) -> list[str]:
     snap_fd: dict = snap.get("fusion_distance_m", {})
     cfg_fd: dict = profile.get("fusion_distance_m", {})
     for cls in [406, 408, 410]:
-        sv = snap_fd.get(cls) or snap_fd.get(str(cls))
-        cv = cfg_fd.get(cls) or cfg_fd.get(str(cls))
+        sv = snap_fd[cls] if cls in snap_fd else snap_fd.get(str(cls))
+        cv = cfg_fd[cls] if cls in cfg_fd else cfg_fd.get(str(cls))
         if sv != cv:
             diffs.append(f"fusion_distance_m[{cls}]: snapshot={sv} config={cv}")
 
@@ -176,6 +176,21 @@ def check_config_snapshot(cfg: dict, metadata_path: pathlib.Path) -> list[str]:
         ("kp_lightgreentone",       kp_rendering.get("lightgreentone")),
         ("kp_medianboxsize2",       kp_rendering.get("medianboxsize2")),
         ("kp_template_opacity_pct", kp_rendering.get("template_opacity_pct")),
+    ):
+        snap_val = snap.get(key)
+        if snap_val is not None and snap_val != cfg_val:
+            diffs.append(f"{key}: snapshot={snap_val} config={cfg_val}")
+
+    # Paramètres KP — vectorisation (shade_to_isom : clés normalisées en str pour résister
+    # au json round-trip qui convertit les clés int → str)
+    kp_vect = kp.get("vectorization", {}) or {}
+    cfg_shade = {str(k): v for k, v in kp_vect.get("shade_to_isom", {}).items()}
+    snap_shade = snap.get("kp_shade_to_isom")
+    if snap_shade is not None and snap_shade != cfg_shade:
+        diffs.append(f"kp_shade_to_isom: snapshot={snap_shade} config={cfg_shade}")
+    for key, cfg_val in (
+        ("kp_coverage_simplify_m", kp_vect.get("coverage_simplify_m")),
+        ("kp_keep_template",       kp_vect.get("keep_template")),
     ):
         snap_val = snap.get(key)
         if snap_val is not None and snap_val != cfg_val:

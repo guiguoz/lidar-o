@@ -12,7 +12,7 @@
 | Axe | État |
 |---|---|
 | DIAGNOSTIC HAG simple | ÉTABLI — TERMINÉ |
-| CLASSIFICATION 406/408/410 | ABANDONNÉE DANS LE LIVRABLE ACTUEL |
+| CLASSIFICATION 406/408/410 | SUSPENDUE (branche HAG) — REPRISE via vectorisation KP (PLAN 3) |
 | WORKFLOW KP + FOND OCAD | RETENU |
 | TEMPLATE OMAP | FONCTIONNEL |
 | VECTORISATION VÉGÉTATION | SUSPENDUE — _vege mbs2=16 mesuré, critère non atteint |
@@ -437,9 +437,10 @@ vectoriel Lidar'O  (courbes, falaises, points relief)
 OCAD / OOM — tracé et modification des limites de végétation
 ```
 
-La végétation 406/408/410 **n'est plus produite comme couche automatique dans l'OMAP**.
-Elle n'est pas supprimée du code — `src/vegetation.py` et les seuils existent toujours —
-mais elle n'est pas intégrée au livrable cartographique actuel.
+**Mise à jour 2026-10 (PLAN 3)** : la végétation 406/408/410 **est de nouveau produite automatiquement
+dans l'OMAP**, via la chaîne KP vectorisée (`step_vegetation_kp` → `vegetation_kp.gpkg`).
+La chaîne HAG (`src/vegetation.py`, seuils density_hag) reste dans le code mais n'alimente plus
+le livrable principal — elle sert de fallback QA si `vegetation_kp.gpkg` est absent.
 
 ---
 
@@ -449,7 +450,7 @@ La vectorisation automatique de la végétation reste un objectif, mais l'approc
 `density_hag → seuil → polygonisation` n'a pas produit de contours suffisamment utiles
 (fragmentation extrême : 12 310 composantes de 4 m en moyenne à 2 m de résolution).
 
-### 12.1 Piste non testée — vectorisation du rendu KP
+### 12.1 Vectorisation du rendu KP — implémentée (PLAN 3)
 
 ```
 vegetation KP  (vegetation.png ou _vege.png par dalle)
@@ -487,9 +488,11 @@ qualité cartographique des polygones résultants n'a pas été évaluée.
 La variante `_vege` + `medianboxsize2=16` ne fournit pas une matière première suffisamment
 favorable pour lancer une expérience de vectorisation.
 
-La piste « vectoriser un rendu KP » reste ouverte mais n'est pas relancée. Elle pourra être
-réévaluée avec une autre représentation ou une autre méthode de segmentation. Aucune nouvelle
-campagne de réglage n'est engagée à ce stade.
+**Mise à jour 2026-10 (PLAN 3)** : la piste a été relancée et implémentée via `coverage_simplify`
+(tolérance 2 m, validée V3 bras C). La chaîne complète est dans `step_vegetation_kp` (`main.py`)
+et documentée dans `docs/pipeline_vegetation_kp.md`. Le critère de frontières pixel §12.1 ne
+s'applique pas à cette approche : `coverage_simplify` opère sur la topologie des polygones, pas
+sur une segmentation pixel-à-pixel.
 
 ### 12.2 Piste lissage géométrique des contours
 
@@ -639,8 +642,9 @@ a été héritée d'une session antérieure. Elle décrivait un état du pipelin
 vers KP**, où les couches 406/408/410 étaient encore injectées dans le `.omap`. Depuis le pivot
 (`main.py:510-511`) :
 
-- le `.omap` ne contient plus de couches vectorielles 406/408/410 ;
-- les valeurs 1511/767/497 sont introuvables dans l'intégralité du dépôt ;
+- au moment de rédaction (pré-PLAN 3), le `.omap` ne contenait plus de couches vectorielles 406/408/410 ;
+- depuis PLAN 3 (2026-10), elles sont de nouveau présentes via `vegetation_kp.gpkg` ;
+- les valeurs 1511/767/497 restent introuvables dans l'intégralité du dépôt ;
 - 942/611/465 sont les comptes corrects **après clip au hull FFCO** (323,8 ha), produits par
   `report_hull_metrics()` — c'est la bonne métrique de comparaison avec le référentiel FFCO.
 
@@ -655,6 +659,178 @@ vers KP**, où les couches 406/408/410 étaient encore injectées dans le `.omap
 | Le pipeline couvre 100 % du terrain | Tautologie : mesure sur le hull propre du pipeline ; le recall FFCO est 35–82 % selon la classe |
 | Gain de X pp sur la classe 406 | Sans pondération par surface FFCO, une comparaison en pp entre classes est trompeuse |
 | QA mesure 942/611/465 sur artefact, livrable = 1511/767/497 | 942/611/465 est le compte hull-clippé correct ; 1511/767/497 décrivait un état antérieur au pivot KP |
+
+---
+
+## PLAN 3 — verdict final (2026-10-07)
+
+Objectif : intégrer la vectorisation du rendu KP dans la chaîne de production et supprimer l'ancien chemin HAG→OMAP.
+
+### Acquis expérimentaux
+
+| Point | Statut | Référence |
+|---|---|---|
+| Raster KP retenu comme source de classification | ÉTABLI | V1 f9ea539 |
+| `shade_to_isom` gelé (table PLAN 3) | ÉTABLI | V3 3d579ba |
+| Polygonisation RAW lossless (aucune perte avant `coverage_simplify`) | ÉTABLI | V1 f9ea539 |
+| `coverage_simplify` tolerance=2 m retenu | ÉTABLI | V3 3d579ba |
+| Topologie inter-classes : T-junctions structurelles, garde-fou per-classe, simplification globale | ÉTABLI | P16 866916f |
+| OOM validé avec template (opacity=0,5) | ATTESTÉ porteur | V4 5fffba7 |
+| OOM validé sans template | ATTESTÉ porteur | V4 5fffba7 |
+
+**T-junctions** : quand rasterio polygonise chaque classe séparément, les frontières inter-classes produisent des T-junctions. `coverage_is_valid` per-classe = True, global = False. La garde-fou per-classe détecte les erreurs intra-classe ; `coverage_simplify` est appliqué sur l'ensemble des classes pour traiter les frontières partagées sans créer de recouvrements.
+
+### Production — état intégré
+
+- Chaîne : `step_vegetation_kp` → `vegetation_kp.gpkg` → `step_assemble` → `.omap`
+- Source unique de la végétation dans le `.omap` : `vegetation_kp.gpkg`
+- QA KP par défaut ; fallback QA HAG si `vegetation_kp.gpkg` absent (nommé dans les logs et `run_metadata.json`)
+- Paramètres KP suivis dans `config_snapshot.json`
+- Ancien chemin `scripts/mask_vegetation.py:main()` + `build_veg_layers` + `regenerate_omap` supprimés (P20, ffaaea9)
+
+### Grimbosq — chiffres de référence
+
+1340/409/18 (406/408/410). Validation visuelle OOM 2026-10-04 (attestation porteur).
+
+Artefacts V4 (commit 5fffba7 — `work/expe/vectorisation/`) :
+
+| Fichier | XML | Objets | 406 | 408 | 410 | Symboles inconnus |
+|---|---|---|---|---|---|---|
+| `v4_with_template.omap` | valide | 1767 | 1340 | 409 | 18 | aucun |
+| `v4_no_template.omap` | valide | 1767 | 1340 | 409 | 18 | aucun |
+
+> `ctrl_omap.py` sans gabarit ISOM produit des IDs bruts : id_86 → 406 (1340), id_89 → 408 (409), id_93 → 410 (18).
+
+Attributs XML templates (vérifiés) :
+- `v4_with_template` : `<templates count="1" first_front_template="1">`, `<template type="TemplateImage" open="true" name="KP vegetation (fond)" relpath="vegetation.png" opacity="0.5" georef="true">` (non auto-fermant)
+- `v4_no_template` : `<templates count="0" first_front_template="0">`, zéro TemplateImage
+
+Bbox `vegetation_kp.gpkg` (global 406+408+410) : [448000, 6886000, 449997, 6888997] ⊂ emprise config [448000, 6886000, 450001, 6889001].
+
+### Non démontré
+
+- Portabilité de `shade_to_isom` sur un terrain différent de Grimbosq
+- Comportement des classes 406/408/410 sur une autre forêt ou composition différente
+- Qualité géométrique hors Grimbosq
+
+→ étape suivante : test de portabilité sur au moins un autre terrain.
+
+### Docker
+
+Commit df15ceb met à jour le Dockerfile (ligne 58 : `kp_raster`, `kp_install`, `setup_terrain`, `trier_ref`). Image **non reconstruite** dans cette session — la conformité Dockerfile/image n'est pas vérifiée.
+
+### Suite de tests
+
+| Arbre | Collectés | Passés | Skippés | Échoués | Note |
+|---|---|---|---|---|---|
+| Dépôt `origin/master@4e750b4` | 148 | 146 | 1 | 1 | Échec environnemental : `test_init_terrain::TestCmdCheck` (module `pdal` absent). |
+
+`tests/test_vegetation_kp.py` est identique à `origin/master` (13 tests au registre depuis 4ec6848). Aucun test supplémentaire commité : `src/topology.py` + `tests/test_topology.py` sont déplacés sous `work/expe/topology/` (gitignore, local uniquement).
+
+### Registre des commits PLAN 3
+
+| Étape | Hash | Statut | Description |
+|---|---|---|---|
+| Intégration P2–P15 | 7f4805d | origin/master | feat: intégrer la chaîne KP vectorisée |
+| Tests P2–P11 | 5cba21a | origin/master | test: couverture P2–P11 |
+| V4 validation OOM | 5fffba7 | origin/master | docs: V4 PASS — validation OOM 2026-10-04 |
+| Fix topologie inter-classes | 866916f | origin/master | fix: coverage_simplify global + garde-fou intra-classe |
+| Tests mutation topologie | 4ec6848 | origin/master | test: verrouiller coverage_simplify global par mutation |
+| Fix erreurs bloquantes KP absente | 652f200 | origin/master | fix: erreurs bloquantes source KP absente + doc pipeline |
+| Tests erreurs bloquantes KP absente | 7dda3ed | origin/master | test: couvrir les erreurs bloquantes source KP absente |
+| Docs README + Dockerfile | df15ceb | origin/master | docs: README + Dockerfile reflètent l'intégration KP |
+| P20 nettoyage HAG→OMAP | ffaaea9 | origin/master | refactor: supprimer l'ancien chemin HAG→OMAP |
+| P21 verdict final | 3d0854c | origin/master | docs: verdict final — chaîne vegetation_kp intégrée |
+
+### Artefacts hors registre
+
+- `work/expe/vectorisation/v4_with_template_test.omap`, `v4_no_template_test.omap` : fichiers post-édition OOM (test porteur) — non commités, untracked
+- OMAPs de validation P18 (`output/grimbosq_with_template.omap`, `output/grimbosq_without_template.omap`) : produits dans `output/` (gitignore), non au registre
+
+---
+
+## PLAN 4 — verdict final (2026-10-09)
+
+Objectif : faire de KP le chemin de production officiel et rendre PDAL optionnel pour le mode KP.
+
+### Validé
+
+Les points ci-dessous sont vérifiés par les tests ou par observation directe du code.
+
+**Indépendance KP/PDAL (P0)**
+
+- Audit statique (`src/run_engine.py`) : aucun appel à `pdal` dans le chemin KP.
+- Sonde d'exécution (P0.3, worktree a7db172, PATH sans `miniconda3/Library/bin`, leurre `pdal.bat` qui
+  enregistre ses invocations) : 42 DXF produits, log du leurre vide, comptes 406/408/410 = 1340/409/18
+  (identiques à PLAN 3). KP n'invoque pas PDAL à l'exécution.
+
+**Contrat `vegetation_source` (P1a + P1b, arena)**
+
+- `resolve_veg_source(terrain, cfg)` retourne `"kp"` ou `"hag"` selon la clé
+  `terrains.<t>.vegetation_source` ; une valeur inconnue lève `ValueError`.
+- Absent = KP par défaut (INFO). Aucune clé globale. Aucun mode `legacy`.
+- 15 tests couvrent le contrat dans `tests/test_pipeline_mode.py`.
+
+**Vérification conditionnelle PDAL (P2+P3)**
+
+- `check_deps(require_pdal=False)` : exclut `pdal` de la liste des modules requis.
+- `cmd_check(..., veg_mode="kp")` : n'exige pas PDAL ; `veg_mode="hag"` l'exige avec
+  message `conda install` explicite.
+- Emprise non vérifiable (dalles non-IGN sans PDAL) → `⚠` dans le rapport, jamais `✓`.
+- CRS non vérifiable (métadonnées PDAL indisponibles) → `⚠` dans le rapport.
+- `veg_mode` propagé dans les trois appelants : `main._cmd_check`, `main._cmd_run`,
+  `src/setup_terrain.py`.
+- 4 tests couvrent les cas dans `tests/test_init_terrain.py::TestCmdCheck`.
+
+**Suite de tests**
+
+| Commit | Collectés | Passés | Skippés | Échoués |
+|--------|-----------|--------|---------|---------|
+| `8d8e972` (origin/master) | 193 | 193 | 0 | 0 |
+
+Les 193 tests valident les contrats d'interface et les comportements unitaires listés ci-dessus.
+Ils ne valident pas les résultats cartographiques ni le pipeline end-to-end.
+
+---
+
+### Décidé (choix porteur)
+
+Ces points résultent de décisions d'architecture validées par le porteur du projet, pas de mesures.
+
+| Décision | Effet |
+|----------|-------|
+| `absent = KP par défaut` | Toute configuration sans `vegetation_source` est traitée en mode KP sans avertissement bloquant |
+| `vegetation_source: "kp"` pour grimbosq | Terrain de référence explicitement KP |
+| `sainte_honorine` → kp | Terrain basculé en KP (décision porteur 2026-10) |
+| 7 terrains retirés | `monthureux`, `luxeuil`, `bouhard`, `bas_des_conches`, `kilemaed`, `kuti`, `port_en_bessin` supprimés de `config.yaml` — sans usage actif |
+| Terrain KP non-IGN sans PDAL → continuer avec `⚠` | Pas une erreur bloquante ; le pipeline peut continuer sans contrôle d'emprise |
+
+---
+
+### Non vérifié
+
+Les points suivants ne sont pas couverts par les tests ni par la sonde d'exécution.
+
+- **Pipeline end-to-end en mode HAG** : aucun terrain `vegetation_source: "hag"` n'est configuré dans
+  `config.yaml`. Le chemin HAG n'a pas été exercé depuis le pivot KP.
+- **PDAL absent en production** : les tests patchent `importlib.util.find_spec`. Le comportement réel
+  avec PDAL réellement absent de l'environnement conda n'a pas été vérifié en dehors de la sonde P0.3.
+- **Georef et contrôles sur terrains non-IGN** : la logique `⚠ emprise non vérifiable` est couverte par
+  test avec noms arbitraires mais n'a pas été exercée sur un terrain réel non-IGN.
+- **Docker** : le Dockerfile (commit df15ceb, PLAN 3) n'a pas été reconstruit depuis le pivot KP.
+  La conformité Dockerfile/image n'est pas vérifiée pour PLAN 4.
+
+---
+
+### Restant à faire
+
+- **P4 Documentation** : `README`, `docs/quick_start.md`, `docs/pipeline_vegetation_kp.md`,
+  `docs/installabilite_audit.md` — à mettre en cohérence avec KP par défaut, PDAL optionnel en KP,
+  PDAL requis en HAG.
+- **Test de portabilité HAG** : valider le chemin HAG sur au moins un terrain réel pour confirmer que
+  le routage `veg_mode="hag"` aboutit bien à un run complet avec PDAL.
+- **Docker** : reconstruire l'image et vérifier que les dépendances sont cohérentes avec les modes
+  KP et HAG.
 
 ---
 
@@ -677,3 +853,5 @@ vers KP**, où les couches 406/408/410 étaient encore injectées dans le `.omap
 | 13 | Fenêtres verticales alternatives | [0,3–1,5 m] vs [0,3–3,0 m] | AUC détériore, couverture divise par 3 |
 | 14 | Agrégation spatiale 2 m/5 m/10 m | AUC global et conditionnel | Gain marginal (+0,004 global) ; plafond non levé |
 | 15 | Intensité de retour HAG[0,3:3,0 m] | AUC FN_406 vs blanc | AUC=0,364 (inversé=0,636) — gradient physiquement incohérent ; biais de sélection |
+| 16 | Strate basse LiDAR comme canal undergrowth | Planche Phase 1 — 4 candidats (C1–C4), σ=2 m, seuil 0,5–1,0 pt/m² | Couverture 38–76 % sur fen3_410 — signal trop diffus, non discriminant (Porte 1 NON, 2026-10-01) |
+| 17 | Canal de sous-bois (signal HAG basse strate comme couche indicative) | Phase 0 — zones A/B/C/D, dalle 0448\_6888, trois bandes B1 [0,2–1,0], B2 [0,3–1,5], B3 [0,2–2,0] m | B1 occ : A=0,062 < C=0,071 < D=0,076 ; médianes nulles A et C ; B=0,275 valide le protocole ; contrastes B2/B3 (×1,17–1,27) insuffisants pour établir une spécificité — pas de signature HAG basse propre aux zones 406 blanches — trois antécédents convergents (Gate 1, exp1\_10, diag\_hag\_classes) l'avaient laissé attendre (Phase 0 NON, 2026-10-02) |
