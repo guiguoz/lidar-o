@@ -97,55 +97,35 @@ python main.py --version
 
 ## Premier projet
 
-### 1. Télécharger les données
-
-| Donnée | Source | Emplacement |
-|---|---|---|
-| Dalles LiDAR HD (`*.copc.laz`) | [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd) | `LIDAR/` ou `--tiles-dir DIR` |
-| BD TOPO (GPKG département, France) | [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo) | `data/bdtopo/` |
-
-Une dalle 1 km² suffit pour un premier test.
-
-### 2. Initialiser le terrain
-
-```bash
-# Depuis des coordonnées géographiques (CRS déduit automatiquement)
-python main.py init ma_foret --center 49.043 -0.421
-
-# Ou avec une emprise projetée explicite
-python main.py init ma_foret --bbox 448000 6886000 451000 6889000 --crs EPSG:2154
-```
-
-### 3. Vérifier et configurer
-
-```bash
-python main.py setup ma_foret   # dialogue interactif : LiDAR, BD TOPO, KP
-python main.py check ma_foret   # contrôle complet avant traitement
-```
-
-### 4. Lancer le pipeline
-
-```bash
-python main.py run ma_foret --tiles-dir LIDAR/
-```
-
-Durée typique : 45–60 min pour 6 dalles (2×3 km), dominé par Karttapullautin.
-
-### 5. Ouvrir le résultat
-
-Fichier produit : `output/ma_foret.omap` — ouvrir dans OpenOrienteering Mapper.
-
----
-
-## Interface graphique
-
 ```bash
 python main.py gui
 ```
 
-Ouvre une fenêtre avec sélecteurs LiDAR / BD TOPO, grille de couverture des dalles, sélecteur de **moteur végétation** (`kp` / `supervised_e`), sélecteur de **mode d'export** (actif uniquement en `supervised_e`) et bouton **Générer**.
+1. **Nom du projet** — saisir un nom (ex. `ma_foret`)
+2. **Choisir le dossier LiDAR…** — sélectionner le dossier contenant les dalles `.copc.laz`
+3. **Charger BD TOPO…** — sélectionner le fichier `.gpkg` du département
+4. **Générer**
 
-Si le nom de projet saisi n'existe pas encore dans `config.yaml`, la GUI le crée automatiquement à partir des noms de fichiers IGN des dalles chargées. `python main.py init` reste nécessaire pour les coordonnées non-IGN ou une emprise personnalisée.
+Résultat : `output/ma_foret.omap` — ouvrir dans OpenOrienteering Mapper.
+
+Le projet est créé automatiquement dans `config.yaml` à partir des noms de fichiers IGN. Aucune commande à saisir pour les données IGN France standard.
+
+### CLI (avancé / données non-IGN)
+
+```bash
+python main.py init ma_foret --center 49.043 -0.421  # déclare le terrain
+python main.py setup ma_foret                         # configuration interactive
+python main.py run ma_foret --tiles-dir LIDAR/        # lance le pipeline
+```
+
+À utiliser pour les coordonnées non-IGN, les emprises personnalisées ou les workflows scriptés.
+
+### Données d'entrée
+
+| Donnée | Source | Emplacement |
+|---|---|---|
+| Dalles LiDAR HD (`*.copc.laz`) | [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd) | dossier au choix |
+| BD TOPO (GPKG département, France) | [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo) | fichier au choix |
 
 ---
 
