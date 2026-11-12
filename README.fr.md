@@ -8,11 +8,8 @@ Le cartographe conserve la vérification terrain, la correction de la végétati
 
 ---
 
-<!-- CAPTURE D'ÉCRAN — EN ATTENTE
-     Lancer : python main.py gui
-     Capturer la fenêtre Lidar'O avec un terrain chargé et les cases LiDAR / BD TOPO renseignées.
-     Enregistrer sous : docs/images/capture_gui.png
-     Retirer tout chemin personnel visible avant l'enregistrement. -->
+![Interface graphique Lidar'O](docs/images/capture_gui.png)
+*Interface graphique — sélecteurs LiDAR, BD TOPO, moteur végétation et mode d'export*
 
 ![Base de carte Lidar'O dans OpenOrienteering Mapper](docs/images/extrait_grimbosq.jpg)
 *Résultat Lidar'O ouvert dans OpenOrienteering Mapper — terrain Grimbosq (Normandie)*

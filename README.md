@@ -11,6 +11,9 @@ The mapper retains field verification, vegetation correction, and fine detail wo
 
 ---
 
+![Lidar'O GUI](docs/images/capture_gui.png)
+*Lidar'O GUI — LiDAR / BD TOPO selectors, vegetation engine and export mode*
+
 ![Lidar'O result in OpenOrienteering Mapper](docs/images/extrait_grimbosq.jpg)
 *Lidar'O output opened in OpenOrienteering Mapper — Grimbosq terrain (Normandy, France)*
 
