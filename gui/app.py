@@ -4,10 +4,12 @@ from __future__ import annotations
 import logging
 import pathlib
 import queue
+import re
 import tkinter as tk
 import tkinter.filedialog as fd
 import tkinter.messagebox as mb
 import tkinter.scrolledtext as st
+import tkinter.ttk as ttk
 from typing import TYPE_CHECKING
 
 import yaml
@@ -25,6 +27,28 @@ _COLOR_MISSING = "#f44336"
 _COLOR_UNKNOWN = "#9e9e9e"
 _COLOR_BG = "#fafafa"
 _COLOR_UNVERIFIED = "#ff9800"
+
+# Chemin relatif (depuis la racine du projet) vers le modèle supervised_e.
+_SE_MODEL_PATH = pathlib.Path("experiments") / "loto_v1" / "final_model" / "model_e_final.pkl"
+
+
+def _patch_global_yaml_key(key: str, value: str, config_path: pathlib.Path) -> None:
+    """Écrit ou remplace une clé de niveau global dans config.yaml.
+
+    Remplace la première occurrence active ou commentée de la clé ;
+    ajoute la ligne en tête de fichier si absente.
+    """
+    text = config_path.read_text(encoding="utf-8")
+    active = re.compile(r"^" + re.escape(key) + r"\s*:.*$", re.MULTILINE)
+    commented = re.compile(r"^#\s*" + re.escape(key) + r"\s*:.*$", re.MULTILINE)
+    new_line = f'{key}: "{value}"'
+    if active.search(text):
+        text = active.sub(new_line, text)
+    elif commented.search(text):
+        text = commented.sub(new_line, text)
+    else:
+        text = new_line + "\n" + text
+    config_path.write_text(text, encoding="utf-8")
 
 
 def _bdtopo_status(
@@ -78,7 +102,7 @@ class LidarOApp:
         self._build_ui()
         self._load_config()
         self._check_kp()
-        self._terrain_var.trace_add("write", lambda *_: self._refresh_mode_label())
+        self._terrain_var.trace_add("write", lambda *_: self._on_terrain_changed())
         import sys as _sys
         self._log(f"Python : {_sys.executable}")
 
@@ -86,7 +110,7 @@ class LidarOApp:
         top = tk.Frame(self.root, bg=_COLOR_BG, padx=8, pady=8)
         top.pack(fill=tk.X)
 
-        tk.Label(top, text="Terrain :", bg=_COLOR_BG).pack(side=tk.LEFT)
+        tk.Label(top, text="Nom du projet :", bg=_COLOR_BG).pack(side=tk.LEFT)
         self._terrain_entry = tk.Entry(top, textvariable=self._terrain_var, width=20)
         self._terrain_entry.pack(side=tk.LEFT, padx=4)
 
@@ -120,9 +144,24 @@ class LidarOApp:
         self._kp_label = tk.Label(right, text="recherche…", bg=_COLOR_BG, fg="#888")
         self._kp_label.pack(anchor=tk.W)
 
-        tk.Label(right, text="Mode végétation :", bg=_COLOR_BG).pack(anchor=tk.W, pady=(8, 0))
-        self._mode_label = tk.Label(right, text="—", bg=_COLOR_BG, fg="#888")
-        self._mode_label.pack(anchor=tk.W)
+        tk.Label(right, text="Moteur végétation :", bg=_COLOR_BG).pack(anchor=tk.W, pady=(8, 0))
+        self._veg_var = tk.StringVar(value="kp")
+        self._veg_combo = ttk.Combobox(
+            right, textvariable=self._veg_var,
+            values=["kp", "supervised_e"],
+            state="readonly", width=16,
+        )
+        self._veg_combo.pack(anchor=tk.W)
+        self._veg_combo.bind("<<ComboboxSelected>>", lambda _: self._on_veg_changed())
+
+        tk.Label(right, text="Mode d'export :", bg=_COLOR_BG).pack(anchor=tk.W, pady=(4, 0))
+        self._export_var = tk.StringVar(value="faithful")
+        self._export_combo = ttk.Combobox(
+            right, textvariable=self._export_var,
+            values=["faithful", "generalized"],
+            state="disabled", width=16,
+        )
+        self._export_combo.pack(anchor=tk.W)
 
         bottom = tk.Frame(self.root, bg=_COLOR_BG, padx=8, pady=4)
         bottom.pack(fill=tk.X)
@@ -142,7 +181,7 @@ class LidarOApp:
         )
         self._cancel_btn.pack(side=tk.LEFT, padx=4)
 
-        self._status_label = tk.Label(bottom, text="", bg=_COLOR_BG)
+        self._status_label = tk.Label(bottom, text="Charger les dalles LiDAR.", bg=_COLOR_BG, fg="#555")
         self._status_label.pack(side=tk.LEFT, padx=8)
 
         log_frame = tk.LabelFrame(self.root, text="Journal", bg=_COLOR_BG)
@@ -156,8 +195,8 @@ class LidarOApp:
             self._cfg = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
         else:
             self._cfg = {}
-        if hasattr(self, "_mode_label"):
-            self._refresh_mode_label()
+        if hasattr(self, "_veg_combo"):
+            self._on_terrain_changed()
 
     def _log(self, msg: str) -> None:
         self._log_text.configure(state=tk.NORMAL)
@@ -339,88 +378,106 @@ class LidarOApp:
         except Exception as exc:
             log.warning("_recheck_bdtopo : %s", exc)
 
-    def _refresh_mode_label(self) -> None:
-        """Met à jour le label du mode végétation depuis config.yaml."""
+    def _on_terrain_changed(self) -> None:
+        """Synchronise le combo moteur depuis config si le terrain existe, puis valide."""
         terrain = self._terrain_var.get().strip()
-        if not terrain:
-            self._mode_label.config(text="—", fg="#888")
-            return
         terrain_cfg = (self._cfg.get("terrains") or {}).get(terrain, {})
         mode = terrain_cfg.get("vegetation_source", "kp")
-        if mode == "kp":
-            self._mode_label.config(text="kp (Karttapullautin)", fg="#555")
-        else:
-            self._mode_label.config(text=mode, fg="#1976d2")
+        self._veg_var.set(mode if mode in ("kp", "supervised_e") else "kp")
+        self._on_veg_changed()
+
+    def _on_veg_changed(self) -> None:
+        """Active le sélecteur d'export uniquement pour supervised_e, puis valide."""
+        is_se = self._veg_var.get() == "supervised_e"
+        self._export_combo.config(state="readonly" if is_se else "disabled")
+        self._refresh_run_button()
 
     def _refresh_run_button(self) -> None:
-        ready = bool(self._lidar_dir and self._tiles)
-        self._run_btn.config(state=tk.NORMAL if ready else tk.DISABLED)
+        """Vérifie les prérequis et affiche la raison de blocage dans la barre d'état."""
+        if not self._lidar_dir or not self._tiles:
+            self._run_btn.config(state=tk.DISABLED)
+            self._status_label.config(text="Charger les dalles LiDAR.")
+            return
+        terrain = self._terrain_var.get().strip()
+        if not terrain:
+            self._run_btn.config(state=tk.DISABLED)
+            self._status_label.config(text="Saisir un nom de projet.")
+            return
+        if self._veg_var.get() == "supervised_e" and not _SE_MODEL_PATH.exists():
+            self._run_btn.config(state=tk.DISABLED)
+            self._status_label.config(text=f"Modèle absent : {_SE_MODEL_PATH}")
+            return
+        self._run_btn.config(state=tk.NORMAL)
+        self._status_label.config(text="")
 
     def _ensure_terrain_in_config(self, terrain: str) -> bool:
-        """Crée le terrain dans config.yaml depuis les dalles si absent. Retourne False si échec."""
-        if (self._cfg.get("terrains") or {}).get(terrain):
-            return True
+        """Crée le terrain si absent, puis écrit vegetation_source depuis la GUI. Retourne False si échec."""
+        config_path = pathlib.Path("config.yaml")
 
-        if not self._tiles:
-            mb.showerror("Terrain", "Charger des dalles LiDAR avant de lancer.")
-            return False
-
-        try:
-            from src.check_terrain import _ign_tile_extent, _tile_extent, _tiles_union
-            extents = [_ign_tile_extent(f.name) or _tile_extent(f) for f in self._tiles]
-            valid = [e for e in extents if e]
-            if not valid:
-                mb.showerror(
-                    "Terrain",
-                    "Impossible de déduire l'emprise depuis les dalles.\n"
-                    "Utiliser : python main.py init " + terrain + " --center lat lon",
-                )
+        # Étape 1 : créer l'entrée terrain si elle n'existe pas
+        if not (self._cfg.get("terrains") or {}).get(terrain):
+            if not self._tiles:
+                mb.showerror("Nom du projet", "Charger des dalles LiDAR avant de lancer.")
+                return False
+            try:
+                from src.check_terrain import _ign_tile_extent, _tile_extent, _tiles_union
+                extents = [_ign_tile_extent(f.name) or _tile_extent(f) for f in self._tiles]
+                valid = [e for e in extents if e]
+                if not valid:
+                    mb.showerror(
+                        "Nom du projet",
+                        "Impossible de déduire l'emprise depuis les dalles.\n"
+                        "Utiliser : python main.py init " + terrain + " --center lat lon",
+                    )
+                    return False
+                bbox = _tiles_union(valid)
+                ign_names = [f for f in self._tiles if _ign_tile_extent(f.name)]
+                epsg = 2154 if ign_names else 4326
+                from src.init_terrain import update_config_yaml, write_georef_xml
+                update_config_yaml(terrain, bbox, epsg, config_path)
+                write_georef_xml(terrain, bbox, epsg, pathlib.Path("assets"))
+                self._log(f"Projet '{terrain}' créé : bbox {[int(v) for v in bbox]}  CRS EPSG:{epsg}")
+            except Exception as exc:
+                mb.showerror("Nom du projet", f"Création du projet échouée :\n{exc}")
                 return False
 
-            bbox = _tiles_union(valid)
-            ign_names = [f for f in self._tiles if _ign_tile_extent(f.name)]
-            epsg = 2154 if ign_names else 4326
-
-            config_path = pathlib.Path("config.yaml")
-            assets_dir = pathlib.Path("assets")
-
-            from src.init_terrain import patch_terrain_yaml, update_config_yaml, write_georef_xml
-            update_config_yaml(terrain, bbox, epsg, config_path)
-            write_georef_xml(terrain, bbox, epsg, assets_dir)
-
-            fields: dict[str, str] = {}
+        # Étape 2 : toujours écrire vegetation_source + chemins depuis l'état GUI
+        try:
+            from src.init_terrain import patch_terrain_yaml
+            fields: dict = {"vegetation_source": self._veg_var.get()}
             if self._lidar_dir:
                 fields["lidar_dir"] = str(self._lidar_dir).replace("\\", "/")
             if self._bdtopo_path:
                 fields["bdtopo_path"] = str(self._bdtopo_path).replace("\\", "/")
             if self._kp_binary:
                 fields["kp_binary"] = str(self._kp_binary).replace("\\", "/")
-            if fields:
-                patch_terrain_yaml(terrain, fields, config_path)
-
+            patch_terrain_yaml(terrain, fields, config_path)
             self._load_config()
-            self._log(
-                f"Terrain '{terrain}' créé : bbox {[int(v) for v in bbox]}  CRS EPSG:{epsg}"
-            )
             return True
-
         except Exception as exc:
-            mb.showerror("Terrain", f"Création du terrain échouée :\n{exc}")
+            mb.showerror("Nom du projet", f"Mise à jour du projet échouée :\n{exc}")
             return False
 
     def _run_pipeline(self) -> None:
         terrain = self._terrain_var.get().strip()
         if not terrain:
-            mb.showwarning("Terrain", "Saisir un nom de terrain")
+            mb.showwarning("Nom du projet", "Saisir un nom de projet dans le champ Nom du projet.")
             return
 
         if not self._ensure_terrain_in_config(terrain):
             return
 
+        config_path = pathlib.Path("config.yaml")
+        if config_path.exists():
+            _patch_global_yaml_key("vegetation_export_mode", self._export_var.get(), config_path)
+
         self._run_btn.config(state=tk.DISABLED)
         self._cancel_btn.config(state=tk.NORMAL)
         self._status_label.config(text="Exécution en cours…")
-        self._log(f"=== Lancement pipeline — terrain '{terrain}' ===")
+        veg = self._veg_var.get()
+        exp = self._export_var.get() if veg == "supervised_e" else ""
+        label = veg + (f" / {exp}" if exp else "")
+        self._log(f"=== Lancement pipeline — projet '{terrain}' — moteur {label} ===")
 
         lidar_dir = self._lidar_dir
 

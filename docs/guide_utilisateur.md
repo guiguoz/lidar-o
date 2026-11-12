@@ -394,18 +394,21 @@ PROJET PRÊT
 
 | Élément | Description |
 |---|---|
-| **Terrain** | Nom du terrain (doit exister dans `config.yaml`) |
+| **Nom du projet** | Identifiant libre du terrain (créé automatiquement dans `config.yaml` si absent) |
 | **Choisir le dossier LiDAR…** | Sélectionner le dossier contenant les dalles `.copc.laz` ou `.laz` |
 | **Charger BD TOPO…** | Sélectionner le fichier `.gpkg` département |
 | **Grille de dalles** | Visualisation de la couverture LiDAR (vert = présent, rouge = manquant) |
 | **État BD TOPO** | Résultat du contrôle couches + couverture spatiale (vert / orange / rouge) |
 | **Karttapullautin** | Présence et version du binaire KP |
-| **Mode végétation** | Mode lu depuis `config.yaml` pour le terrain saisi (lecture seule) |
-| **Générer** | Lance le pipeline complet |
+| **Moteur végétation** | Sélecteur : `kp` (défaut) ou `supervised_e` — écrit dans `config.yaml` au lancement |
+| **Mode d'export** | Actif uniquement avec `supervised_e` : `faithful` (défaut) ou `generalized` |
+| **Barre de statut** | Raison de blocage si **Générer** est grisé (voir ci-dessous) |
+| **Générer** | Lance le pipeline complet (actif uniquement si toutes les conditions sont remplies) |
 | **Journal** | Affiche la progression en temps réel |
 
-> La GUI nécessite que le terrain soit déjà initialisé (`python main.py init`).
-> Elle ne remplace pas `setup` pour la première configuration.
+> Si le nom de projet n'existe pas encore dans `config.yaml`, la GUI le crée automatiquement
+> à partir des noms de fichiers IGN des dalles LiDAR chargées.
+> `python main.py init` reste nécessaire pour les coordonnées non-IGN ou une bbox personnalisée.
 
 **Sélection du dossier LiDAR**
 La fenêtre de sélection affiche des dossiers, pas des fichiers — les `.laz` n'y apparaissent pas.
@@ -426,8 +429,24 @@ Quand vous choisissez un dossier LiDAR, l'interface lit les en-têtes de chaque 
 **Re-contrôle BD TOPO automatique**
 Dès qu'un nouveau répertoire LiDAR est sélectionné, le contrôle BD TOPO est relancé automatiquement avec la nouvelle emprise (si un fichier BD TOPO est déjà chargé). Pas besoin de re-sélectionner le `.gpkg`.
 
-**Mode végétation (lecture seule)**
-Le label *Mode végétation* affiche la valeur de `vegetation_source` lue dans `config.yaml` pour le terrain saisi. Le mode ne se change pas depuis l'interface — modifier `config.yaml` directement ou relancer `python main.py setup <terrain>`.
+**Moteur végétation et mode d'export**
+Le sélecteur *Moteur végétation* permet de choisir entre `kp` et `supervised_e` directement depuis la GUI.
+Au clic sur **Générer**, la valeur est écrite dans `config.yaml` sous la clé `vegetation_source` du terrain.
+Le sélecteur *Mode d'export* (`faithful` / `generalized`) n'est actif qu'en mode `supervised_e` ;
+il est grisé et sans effet en mode `kp`. La valeur choisie est écrite comme clé globale `vegetation_export_mode` dans `config.yaml` avant chaque lancement.
+
+Si le terrain existe déjà avec un moteur différent, l'entrée est mise à jour — pas dupliquée.
+
+**Pré-vol et barre de statut**
+Le bouton **Générer** est grisé tant qu'une condition n'est pas remplie.
+La barre de statut indique la raison précise :
+
+| Message dans la barre | Condition manquante |
+|---|---|
+| `Charger les dalles LiDAR.` | Aucune dalle `.laz` chargée |
+| `Saisir un nom de projet.` | Champ *Nom du projet* vide |
+| `Modèle absent : experiments/loto_v1/…` | Mode `supervised_e` mais fichier modèle introuvable |
+| *(barre vide)* | Toutes les conditions remplies — **Générer** est actif |
 
 **Interpréteur Python**
 Au démarrage, le journal affiche le chemin de l'interpréteur Python utilisé par la GUI :
