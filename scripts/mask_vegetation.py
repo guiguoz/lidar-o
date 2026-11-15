@@ -30,8 +30,9 @@ from src.omap_writer import Layer
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 log = logging.getLogger(__name__)
 
-ROOT = pathlib.Path(".")
-_full_cfg = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
+ROOT = pathlib.Path(__file__).parent.parent.resolve()
+from src.paths import get_config_path as _get_config_path  # noqa: E402
+_full_cfg = yaml.safe_load(_get_config_path().read_text(encoding="utf-8"))
 _cfg = _full_cfg.get("mask", {})
 ROAD_BUFFER_M: float = _cfg.get("road_buffer_m", 5.0)
 HAB_BUFFER_M: float = _cfg.get("hab_buffer_m", 0.0)

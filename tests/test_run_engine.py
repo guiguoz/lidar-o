@@ -14,7 +14,7 @@ import textwrap
 
 import pytest
 
-from src.run_engine import _build_ini, build_ini_content
+from src.run_engine import _build_ini, _resolve_base_ini, build_ini_content, generate_ini, run_kp
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -185,3 +185,157 @@ class TestBuildIniContent:
         assert ini_file.read_text(encoding="utf-8") != new_ini_content, (
             "L'ini devrait différer après changement de medianboxsize2 — cache doit être invalidé"
         )
+
+
+# ── _resolve_base_ini ────────────────────────────────────────────────────────
+
+class TestResolveBaseIni:
+    def test_prefers_pullauta_ini_over_default(self, tmp_path):
+        (tmp_path / "pullauta.ini").write_text("batch=0\n", encoding="utf-8")
+        (tmp_path / "assets").mkdir()
+        (tmp_path / "assets" / "pullauta_default.ini").write_text("batch=0\n", encoding="utf-8")
+        assert _resolve_base_ini(tmp_path) == tmp_path / "pullauta.ini"
+
+    def test_falls_back_to_default(self, tmp_path):
+        (tmp_path / "assets").mkdir()
+        (tmp_path / "assets" / "pullauta_default.ini").write_text("batch=0\n", encoding="utf-8")
+        assert _resolve_base_ini(tmp_path) == tmp_path / "assets" / "pullauta_default.ini"
+
+    def test_returns_none_when_absent(self, tmp_path):
+        assert _resolve_base_ini(tmp_path) is None
+
+    def test_ignores_assets_dir_without_ini(self, tmp_path):
+        (tmp_path / "assets").mkdir()
+        assert _resolve_base_ini(tmp_path) is None
+
+
+# ── generate_ini — nouveau comportement ──────────────────────────────────────
+
+class TestGenerateIniWithDefault:
+    def test_uses_default_template_when_present(self, tmp_path):
+        """assets/pullauta_default.ini : paramètres du template inclus dans l'ini généré."""
+        assets = tmp_path / "assets"
+        assets.mkdir()
+        (assets / "pullauta_default.ini").write_text(
+            "batch=0\nundergrowth=0.35\nthresold1=0.20|3|0.1\n",
+            encoding="utf-8",
+        )
+        out_dir = tmp_path / "out"
+        out_dir.mkdir()
+        ini = generate_ini(
+            tiles_dir=tmp_path / "laz",
+            output_dir=out_dir,
+            work_dir=out_dir,
+            root=tmp_path,
+        )
+        content = ini.read_text(encoding="utf-8")
+        assert "undergrowth=0.35" in content
+        assert "thresold1=0.20|3|0.1" in content
+        assert "batch=1" in content
+
+    def test_overrides_paths_in_template(self, tmp_path):
+        """lazfolder/batchoutfolder sont remplacés par les chemins absolus."""
+        assets = tmp_path / "assets"
+        assets.mkdir()
+        (assets / "pullauta_default.ini").write_text(
+            "batch=0\nlazfolder=./in\nbatchoutfolder=./out\n",
+            encoding="utf-8",
+        )
+        laz_dir = tmp_path / "laz"
+        out_dir = tmp_path / "output"
+        out_dir.mkdir()
+        ini = generate_ini(
+            tiles_dir=laz_dir,
+            output_dir=out_dir,
+            work_dir=out_dir,
+            root=tmp_path,
+        )
+        content = ini.read_text(encoding="utf-8")
+        assert "lazfolder=./in" not in content
+        assert str(laz_dir.resolve()).replace("\\", "/") in content
+
+    def test_warns_when_no_template(self, tmp_path, caplog):
+        """Sans template : avertissement logué."""
+        import logging
+        out_dir = tmp_path / "out"
+        out_dir.mkdir()
+        with caplog.at_level(logging.WARNING, logger="src.run_engine"):
+            generate_ini(
+                tiles_dir=tmp_path / "laz",
+                output_dir=out_dir,
+                work_dir=out_dir,
+                root=tmp_path,
+            )
+        assert any("pullauta_default.ini" in r.message for r in caplog.records)
+
+
+# ── run_kp — capture stdout/stderr + détection panique ───────────────────────
+
+class TestRunKp:
+    from types import SimpleNamespace
+
+    def _mock_result(self, returncode=0, stdout="", stderr=""):
+        from types import SimpleNamespace
+        return SimpleNamespace(returncode=returncode, stdout=stdout, stderr=stderr)
+
+    def test_success_writes_log(self, tmp_path):
+        """Succès : kp_run.log écrit avec sortie KP."""
+        from unittest.mock import patch
+        ok_output = "Karttapullautin v2.12.1\nAll done!\n"
+        with patch("subprocess.run", return_value=self._mock_result(stdout=ok_output)):
+            run_kp(tmp_path / "pullauta.exe", tmp_path)
+        log = (tmp_path / "kp_run.log").read_text(encoding="utf-8")
+        assert "All done!" in log
+
+    def test_nonzero_returncode_raises(self, tmp_path):
+        """Code retour ≠ 0 → RuntimeError mentionnant le code."""
+        from unittest.mock import patch
+        with patch("subprocess.run", return_value=self._mock_result(returncode=1, stdout="err")):
+            with pytest.raises(RuntimeError, match="code retour 1"):
+                run_kp(tmp_path / "pullauta.exe", tmp_path)
+
+    def test_panic_on_stdout_raises(self, tmp_path):
+        """Panique sur stdout avec exit=0 → RuntimeError signalant la panique."""
+        from unittest.mock import patch
+        panic = (
+            "thread 'main' panicked at src/config.rs:174:63:\n"
+            "called `Option::unwrap()` on a `None` value\n"
+        )
+        with patch("subprocess.run", return_value=self._mock_result(stdout=panic)):
+            with pytest.raises(RuntimeError, match="paniqué"):
+                run_kp(tmp_path / "pullauta.exe", tmp_path)
+
+    def test_panic_on_stderr_raises(self, tmp_path):
+        """Panique sur stderr avec exit=0 → RuntimeError."""
+        from unittest.mock import patch
+        panic = "thread 'main' panicked at src/config.rs:174:63:\n"
+        with patch("subprocess.run", return_value=self._mock_result(stderr=panic)):
+            with pytest.raises(RuntimeError, match="paniqué"):
+                run_kp(tmp_path / "pullauta.exe", tmp_path)
+
+    def test_panic_log_path_in_message(self, tmp_path):
+        """Le message d'erreur panique mentionne kp_run.log."""
+        from unittest.mock import patch
+        panic = "thread 'main' panicked at src/config.rs:1:\n"
+        with patch("subprocess.run", return_value=self._mock_result(stdout=panic)):
+            with pytest.raises(RuntimeError) as exc_info:
+                run_kp(tmp_path / "pullauta.exe", tmp_path)
+        assert "kp_run.log" in str(exc_info.value)
+
+    def test_panic_writes_log_before_raising(self, tmp_path):
+        """kp_run.log est écrit même en cas de panique."""
+        from unittest.mock import patch
+        panic = "thread 'main' panicked at src/config.rs:1:\ncalled unwrap on None\n"
+        with patch("subprocess.run", return_value=self._mock_result(stdout=panic)):
+            with pytest.raises(RuntimeError):
+                run_kp(tmp_path / "pullauta.exe", tmp_path)
+        log = (tmp_path / "kp_run.log").read_text(encoding="utf-8")
+        assert "panicked" in log
+
+    def test_returncode_in_log(self, tmp_path):
+        """kp_run.log contient le code de retour."""
+        from unittest.mock import patch
+        with patch("subprocess.run", return_value=self._mock_result(returncode=0, stdout="ok\n")):
+            run_kp(tmp_path / "pullauta.exe", tmp_path)
+        log = (tmp_path / "kp_run.log").read_text(encoding="utf-8")
+        assert "returncode: 0" in log

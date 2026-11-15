@@ -253,11 +253,13 @@ def test_step_vegetation_kp_raises_if_outKp_present_no_png(tmp_path: pathlib.Pat
     from unittest.mock import patch
     import main as m
 
-    out_kp = tmp_path / "out_kp_test"
-    out_kp.mkdir()  # répertoire présent, vide (pas de PNG)
+    # out_kp est maintenant dans OUTPUT (pas ROOT) depuis le refactor output_root
+    output_dir = tmp_path / "output"
+    out_kp = output_dir / "out_kp_test"
+    out_kp.mkdir(parents=True)  # répertoire présent, vide (pas de PNG)
 
     with patch.object(m, "ROOT", tmp_path), \
-         patch.object(m, "OUTPUT", tmp_path / "output"):
+         patch.object(m, "OUTPUT", output_dir):
         with pytest.raises(RuntimeError, match="vege_bitmode"):
             m.step_vegetation_kp("test", {}, force=True)
 
@@ -288,15 +290,45 @@ def test_step_assemble_raises_if_outKp_present_no_gpkg(tmp_path: pathlib.Path) -
     from unittest.mock import patch
     import main as m
 
-    out_kp = tmp_path / "out_kp_test"
-    out_kp.mkdir()
     output_dir = tmp_path / "output"
     output_dir.mkdir()
+    out_kp = output_dir / "out_kp_test"
+    out_kp.mkdir()
     # vegetation_kp.gpkg intentionnellement absent
 
     with patch.object(m, "ROOT", tmp_path), \
          patch.object(m, "OUTPUT", output_dir), \
          patch.object(m, "DATA", tmp_path / "data"):
+        with pytest.raises(RuntimeError, match="vegetation_kp.gpkg absent"):
+            m.step_assemble("test", {}, force=True)
+
+
+def test_step_assemble_outKp_in_output_not_root(tmp_path: pathlib.Path) -> None:
+    """Régression : step_assemble cherche out_kp/ dans OUTPUT, pas dans ROOT.
+
+    Avant correction, ROOT/out_kp_terrain était cherché → DXF Sandbox invisibles.
+    Ce test prouve que seul OUTPUT/out_kp_terrain est pris en compte.
+    """
+    from unittest.mock import patch
+    import main as m
+
+    root_dir = tmp_path / "root"
+    root_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    # out_kp dans ROOT seulement (ancien comportement bugué) — ne doit PAS être trouvé
+    root_out_kp = root_dir / "out_kp_test"
+    root_out_kp.mkdir()
+
+    # out_kp dans OUTPUT (correct) — doit être trouvé et déclencher RuntimeError
+    output_out_kp = output_dir / "out_kp_test"
+    output_out_kp.mkdir()
+
+    with patch.object(m, "ROOT", root_dir), \
+         patch.object(m, "OUTPUT", output_dir), \
+         patch.object(m, "DATA", tmp_path / "data"):
+        # Le garde-fou doit se déclencher sur OUTPUT/out_kp_test, pas ROOT/out_kp_test
         with pytest.raises(RuntimeError, match="vegetation_kp.gpkg absent"):
             m.step_assemble("test", {}, force=True)
 
@@ -382,8 +414,10 @@ def test_step_vegetation_kp_accepte_les_tjunctions_interclasses(
     import main as m
     import src.kp_raster as kp
 
-    out_kp = tmp_path / "out_kp_test"
-    out_kp.mkdir()
+    # out_kp est maintenant dans OUTPUT (pas ROOT) depuis le refactor output_root
+    output_dir = tmp_path / "output"
+    out_kp = output_dir / "out_kp_test"
+    out_kp.mkdir(parents=True)
     for i in range(6):
         (out_kp / f"d{i}_vege.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\0" * 32)
 
@@ -405,7 +439,7 @@ def test_step_vegetation_kp_accepte_les_tjunctions_interclasses(
     assert not shapely.coverage_is_valid(np.array(geoms_raw, dtype=object))
 
     with patch.object(m, "ROOT", tmp_path), \
-         patch.object(m, "OUTPUT", tmp_path / "output"), \
+         patch.object(m, "OUTPUT", output_dir), \
          patch.object(kp, "build_class_raster", fake_build_class_raster):
         m.step_vegetation_kp("test", {}, force=True)  # ne doit pas lever
 

@@ -20,6 +20,9 @@ KP_PINNED_VERSION = "2.12.1"
 _KP_REPO = "karttapullautin/karttapullautin"
 _GITHUB_API = "https://api.github.com"
 
+# Racine app/ — src/ est à l'intérieur ; patchable dans les tests.
+_app_dir = pathlib.Path(__file__).parent.parent
+
 
 def asset_name() -> str:
     """Nom de l'asset GitHub selon la plateforme courante.
@@ -162,7 +165,7 @@ def locate_binary(
     """
     if cfg is not None and terrain is not None:
         kp_binary_cfg = (
-            cfg.get("terrains", {}).get(terrain, {}).get("kp_binary")
+            (cfg.get("terrains") or {}).get(terrain, {}).get("kp_binary")
         )
         if kp_binary_cfg:
             p = pathlib.Path(kp_binary_cfg)
@@ -178,9 +181,12 @@ def locate_binary(
         log.warning("KP_BINARY='%s' défini mais absent", env_path)
 
     exe_name = "pullauta.exe" if sys.platform == "win32" else "pullauta"
-    project_bin = pathlib.Path(__file__).parent.parent / "bin" / exe_name
-    if project_bin.exists():
-        return project_bin
+    # Deux emplacements possibles :
+    #   app/bin/   — développement (binaire à côté de l'application)
+    #   ../bin/    — distribution (structure : dist_root/{app/,bin/,models/,...})
+    for candidate in (_app_dir / "bin" / exe_name, _app_dir.parent / "bin" / exe_name):
+        if candidate.exists():
+            return candidate
 
     which = shutil.which("pullauta")
     if which:

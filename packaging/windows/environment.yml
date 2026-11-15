@@ -1,0 +1,22 @@
+name: lidar-o-dist
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Versions exactes — env d'entraînement : miniconda3 Anaconda 2026-04-14 sur machine dev
+  # Python 3.13.13 | sklearn 1.8.0 | numpy 2.5.0 | scipy 1.17.1
+  # Modèle : experiments/loto_v1/final_model/model_e_final.pkl
+  # SHA-256 modèle : 48da30428cb0f42479ad5d28d668174a5e710bfdde02fa44c5f539aad320eeb5
+  - python=3.13.13
+  - scikit-learn=1.8.0
+  - numpy=2.5.0
+  - scipy=1.17.1
+  - rasterio=1.5.0
+  - python-pdal=3.5.3
+  - geopandas=1.1.3
+  - shapely=2.1.2
+  - pyogrio=0.12.1
+  - pillow=12.2.0
+  - ezdxf=1.4.4
+  - pyyaml=6.0.3
+  # tkinter inclus dans python conda-forge (pas de paquet séparé)

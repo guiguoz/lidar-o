@@ -295,7 +295,7 @@ def _show_lidar_grid(
     extents = {f: _tile_extent(f) for f in tiles}
     valid_extents = [e for e in extents.values() if e]
 
-    terrain_cfg = cfg.get("terrains", {}).get(terrain, {})
+    terrain_cfg = (cfg.get("terrains") or {}).get(terrain, {})
     expected_names: list[str] | None = None
     bbox = terrain_cfg.get("bbox")
     if bbox:
@@ -322,7 +322,7 @@ def _show_lidar_grid(
         cy = (ymin + ymax) / 2
         try:
             from src.init_terrain import projected_to_wgs84
-            crs = cfg.get("terrains", {}).get(terrain, {}).get("crs", "EPSG:2154")
+            crs = (cfg.get("terrains") or {}).get(terrain, {}).get("crs", "EPSG:2154")
             epsg = int(crs.split(":")[-1]) if ":" in crs else 2154
             lat, lon = projected_to_wgs84(cx, cy, epsg)
             center_str = f"centre : {lat:.3f}°N {abs(lon):.3f}°{'O' if lon < 0 else 'E'}"

@@ -113,6 +113,7 @@ class TestEnsureTerrainEcritVegSource:
 
     def test_nouveau_terrain_supervised_e_persiste(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(gui_app, "get_config_path", lambda: tmp_path / "config.yaml")
         lidar, tile = self._setup(tmp_path)
 
         app = _make_app({}, [tile], veg="supervised_e", lidar_dir=lidar)
@@ -123,6 +124,7 @@ class TestEnsureTerrainEcritVegSource:
 
     def test_nouveau_terrain_kp_persiste(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(gui_app, "get_config_path", lambda: tmp_path / "config.yaml")
         lidar, tile = self._setup(tmp_path)
 
         app = _make_app({}, [tile], veg="kp", lidar_dir=lidar)
@@ -134,6 +136,7 @@ class TestEnsureTerrainEcritVegSource:
     def test_terrain_existant_moteur_mis_a_jour(self, tmp_path, monkeypatch):
         """Un terrain déjà configuré avec kp voit son moteur basculé sur supervised_e."""
         monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(gui_app, "get_config_path", lambda: tmp_path / "config.yaml")
         (tmp_path / "assets").mkdir()
         config_text = (
             "crs: EPSG:2154\n"
@@ -156,6 +159,7 @@ class TestEnsureTerrainEcritVegSource:
 
     def test_chemin_lidar_persiste(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(gui_app, "get_config_path", lambda: tmp_path / "config.yaml")
         lidar, tile = self._setup(tmp_path)
 
         app = _make_app({}, [tile], veg="kp", lidar_dir=lidar)
@@ -166,6 +170,7 @@ class TestEnsureTerrainEcritVegSource:
 
     def test_echec_sans_tuiles(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(gui_app, "get_config_path", lambda: tmp_path / "config.yaml")
         (tmp_path / "config.yaml").write_text("crs: EPSG:2154\nterrains:\n", encoding="utf-8")
 
         app = _make_app({}, tiles=[], lidar_dir=tmp_path / "LIDAR")
@@ -187,6 +192,7 @@ class TestParcoursManuels:
         vegetation_export_mode: faithful dans config → sys.argv correct.
         """
         monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(gui_app, "get_config_path", lambda: tmp_path / "config.yaml")
         (tmp_path / "assets").mkdir()
         (tmp_path / "config.yaml").write_text(
             "crs: EPSG:2154\n# vegetation_export_mode: \"faithful\"\nterrains:\n",
@@ -265,6 +271,7 @@ class TestParcoursManuels:
     def test_validate_run_bloque_si_modele_absent(self, tmp_path, monkeypatch):
         """Si supervised_e et modèle absent → Générer doit être bloqué."""
         monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(gui_app, "_SE_MODEL_PATH", tmp_path / "model_e_final.pkl")
         tile = tmp_path / "LHD_FXX_0448_6886_PTS_LAMB93_IGN69.copc.laz"
         tile.write_bytes(b"")
         app = _make_app({}, [tile], veg="supervised_e", terrain="test")

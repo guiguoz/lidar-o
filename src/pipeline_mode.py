@@ -48,7 +48,7 @@ def resolve_veg_source(terrain: str, cfg: dict) -> VegMode:
     Clé absente = 'kp' (défaut). Valeur inconnue = ValueError.
     Voir le contrat des modes en tête de module.
     """
-    source = cfg.get("terrains", {}).get(terrain, {}).get("vegetation_source")
+    source = (cfg.get("terrains") or {}).get(terrain, {}).get("vegetation_source")
     if source is None:
         log.info(_KP_DEFAUT_INFO, terrain)
         return "kp"

@@ -223,6 +223,76 @@ def test_locate_binary_returns_none_if_absent() -> None:
     assert result is None
 
 
+def test_locate_binary_finds_binary_in_app_bin(tmp_path: pathlib.Path) -> None:
+    """Structure dev : binaire dans app/bin/ (à côté des sources)."""
+    from src.kp_install import locate_binary
+
+    app_bin = tmp_path / "bin"
+    app_bin.mkdir()
+    fake_exe = app_bin / "pullauta.exe"
+    fake_exe.touch()
+
+    with (
+        patch.dict("os.environ", {}, clear=True),
+        patch("src.kp_install.shutil.which", return_value=None),
+        patch("src.kp_install._app_dir", tmp_path),
+    ):
+        result = locate_binary()
+
+    assert result == fake_exe
+
+
+def test_locate_binary_finds_binary_in_dist_root(tmp_path: pathlib.Path) -> None:
+    """Structure distribution : binaire dans dist_root/bin/, app/ est un sous-dossier.
+
+    dist_root/
+      app/        <- _app_dir (src/ est dedans)
+      bin/
+        pullauta.exe
+    """
+    from src.kp_install import locate_binary
+
+    app_dir = tmp_path / "app"
+    app_dir.mkdir()
+    dist_bin = tmp_path / "bin"
+    dist_bin.mkdir()
+    fake_exe = dist_bin / "pullauta.exe"
+    fake_exe.touch()
+
+    with (
+        patch.dict("os.environ", {}, clear=True),
+        patch("src.kp_install.shutil.which", return_value=None),
+        patch("src.kp_install._app_dir", app_dir),
+    ):
+        result = locate_binary()
+
+    assert result == fake_exe
+
+
+def test_locate_binary_prefers_app_bin_over_dist_root(tmp_path: pathlib.Path) -> None:
+    """app/bin/ est prioritaire sur dist_root/bin/ (dev override possible)."""
+    from src.kp_install import locate_binary
+
+    app_dir = tmp_path / "app"
+    (app_dir / "bin").mkdir(parents=True)
+    app_exe = app_dir / "bin" / "pullauta.exe"
+    app_exe.touch()
+
+    dist_bin = tmp_path / "bin"
+    dist_bin.mkdir()
+    dist_exe = dist_bin / "pullauta.exe"
+    dist_exe.touch()
+
+    with (
+        patch.dict("os.environ", {}, clear=True),
+        patch("src.kp_install.shutil.which", return_value=None),
+        patch("src.kp_install._app_dir", app_dir),
+    ):
+        result = locate_binary()
+
+    assert result == app_exe
+
+
 # ── test_bdtopo_dept_extraction ───────────────────────────────────────────────
 
 @pytest.mark.parametrize(

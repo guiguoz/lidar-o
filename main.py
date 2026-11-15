@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import pathlib
 import subprocess
 import sys
@@ -39,19 +40,96 @@ import yaml
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 log = logging.getLogger(__name__)
 
-ROOT = pathlib.Path(".")
+ROOT = pathlib.Path(__file__).parent.resolve()
 ASSETS = ROOT / "assets"
 DATA = ROOT / "data"
 OUTPUT = ROOT / "output"  # remplacé dans main() selon output_dir du terrain
 SCRIPTS = ROOT / "scripts"
 PYTHON = sys.executable
 
-STEPS = ["fetch", "pdal", "process_hag", "relief", "vegetation_kp", "vegetation", "mask", "assemble", "qa"]
+STEPS = ["fetch", "pdal", "process_hag", "relief", "vegetation_kp", "supervised_e", "vegetation", "mask", "assemble", "qa"]
 _STEP_IDX = {s: i for i, s in enumerate(STEPS)}
 
 
-def _load_config() -> dict:
-    return yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
+def _add_pipeline_log_handler(output_dir: pathlib.Path) -> None:
+    """Ajoute un FileHandler sur le logger racine → OUTPUT/pipeline.log."""
+    log_path = output_dir / "pipeline.log"
+    fh = logging.FileHandler(log_path, mode="a", encoding="utf-8")
+    fh.setLevel(logging.INFO)
+    fh.setFormatter(logging.Formatter("%(asctime)s  %(levelname)-8s  %(message)s"))
+    logging.getLogger().addHandler(fh)
+    log.info("Journal pipeline : %s", log_path)
+
+
+def _count_omap_objects(omap_path: pathlib.Path) -> dict:
+    """Compte les objets placés par famille ISOM dans le .omap produit.
+
+    Utilise les codes ISOM des définitions de symboles du gabarit, non des
+    indices de position qui varient d'un gabarit à l'autre.
+    Seuls les objets réellement placés (dans <parts>) sont comptés —
+    les prototypes internes aux définitions de symboles sont exclus.
+    """
+    import xml.etree.ElementTree as ET
+    NS = "{http://openorienteering.org/apps/mapper/xml/v2}"
+    try:
+        root = ET.parse(str(omap_path)).getroot()
+        barrier = root.find(f"{NS}barrier")
+        if barrier is None:
+            raise ValueError("élément <barrier> absent")
+
+        # 1. Table symbole_id → code ISOM (float pour comparaison de plages)
+        sym_map: dict[str, float] = {}
+        sym_root = barrier.find(f"{NS}symbols")
+        if sym_root is not None:
+            for sym in sym_root:
+                sid = sym.get("id")
+                code_str = sym.get("code", "")
+                if sid and code_str:
+                    try:
+                        sym_map[sid] = float(code_str)
+                    except ValueError:
+                        pass
+
+        # 2. Objets placés uniquement (pas les prototypes dans <symbols>)
+        placed_total = 0
+        placed_codes: list[float] = []
+        parts_root = barrier.find(f"{NS}parts")
+        if parts_root is not None:
+            for part in parts_root.findall(f"{NS}part"):
+                objs_el = part.find(f"{NS}objects")
+                if objs_el is None:
+                    continue
+                for obj in objs_el.findall(f"{NS}object"):
+                    placed_total += 1
+                    sym_ref = obj.get("symbol")
+                    if sym_ref and sym_ref in sym_map:
+                        placed_codes.append(sym_map[sym_ref])
+
+        def _n(lo: float, hi: float) -> int:
+            return sum(1 for c in placed_codes if lo <= c < hi)
+
+        return {
+            "total":           placed_total,
+            "vegetation":      _n(400, 420),
+            "routes":          _n(500, 520),
+            "batiments":       _n(521, 560),  # ISOM 521+ uniquement (bâtiments individuels)
+            "zones_interdites": _n(520, 521), # ISOM 520 : zone à ne pas pénétrer
+            "eau":             _n(300, 400),
+            "relief":          _n(100, 200),
+        }
+    except Exception as exc:
+        return {"erreur": str(exc)}
+
+
+def _load_config(config_path: "pathlib.Path | None" = None) -> dict:
+    from src.paths import get_config_path
+    cfg = yaml.safe_load(get_config_path(explicit=config_path).read_text(encoding="utf-8")) or {}
+    terrains = cfg.get("terrains")
+    if terrains is not None and not isinstance(terrains, dict):
+        raise TypeError(
+            f"config.yaml : 'terrains' doit être un dictionnaire (trouvé : {type(terrains).__name__})"
+        )
+    return cfg
 
 
 def _is_fresh(artifact: pathlib.Path, reference: pathlib.Path) -> bool:
@@ -80,11 +158,15 @@ def step_check_config(cfg: dict) -> None:
 # ── Étape 1 : fetch ───────────────────────────────────────────────────────────
 
 def _run_fetch_script(terrain: str) -> None:
-    subprocess.run([PYTHON, str(SCRIPTS / "fetch.py"), terrain], check=True)
+    subprocess.run(
+        [PYTHON, "-m", "scripts.fetch", terrain],
+        cwd=ROOT,
+        check=True,
+    )
 
 
 def step_fetch(terrain: str, cfg: dict, force: bool) -> None:
-    tcfg = cfg.get("terrains", {}).get(terrain, {})
+    tcfg = (cfg.get("terrains") or {}).get(terrain, {})
     bdtopo_path = tcfg.get("bdtopo_path")
     dept = tcfg.get("departement")
 
@@ -164,7 +246,8 @@ def step_process_hag(cfg: dict, force: bool) -> None:
         log.warning("process_hag : density_hag_classified.tif périmé — relance")
 
     subprocess.run(
-        [PYTHON, str(SCRIPTS / "process_hag.py"), "--src", str(hag_tif), "--dst", str(OUTPUT)],
+        [PYTHON, "-m", "scripts.process_hag", "--src", str(hag_tif), "--dst", str(OUTPUT)],
+        cwd=ROOT,
         check=True,
     )
 
@@ -191,7 +274,7 @@ def step_relief(
 
     from src.run_engine import build_ini_content, run_engine
 
-    out_kp = ROOT / f"out_kp_{terrain}"
+    out_kp = OUTPUT / f"out_kp_{terrain}"
     dxf_files = sorted(out_kp.glob("*.dxf")) if out_kp.exists() else []
 
     if not force and dxf_files:
@@ -199,7 +282,6 @@ def step_relief(
         ref_mtime = _newest_mtime(*laz_files)
         if ref_mtime and all(f.stat().st_mtime >= ref_mtime for f in dxf_files):
             # DXF frais vs LAZ — vérifier aussi que l'ini n'a pas changé.
-            terrain_cfg = cfg.get("terrains", {}).get(terrain, {})
             kp_cliff = cfg.get("karttapullautin", {}).get("cliff", {}) or {}
             kp_rendering = cfg.get("karttapullautin", {}).get("rendering", {}) or {}
             expected_ini = build_ini_content(
@@ -220,7 +302,7 @@ def step_relief(
             log.warning("relief : DXF périmés — relance KP")
 
     try:
-        run_engine(terrain, cfg, tiles_dir, ROOT)
+        run_engine(terrain, cfg, tiles_dir, ROOT, output_root=OUTPUT)
         dxf_count = len(sorted(out_kp.glob("*.dxf")))
         return f"ok : {dxf_count} DXF dans {out_kp.name}/"
     except Exception as exc:
@@ -241,7 +323,7 @@ def step_vegetation_kp(terrain: str, cfg: dict, force: bool) -> None:
     import shapely
     import shapely.geometry as sg
 
-    out_kp = ROOT / f"out_kp_{terrain}"
+    out_kp = OUTPUT / f"out_kp_{terrain}"
     veg_kp_gpkg = OUTPUT / "vegetation_kp.gpkg"
 
     png_files: list[pathlib.Path] = []
@@ -290,7 +372,7 @@ def step_vegetation_kp(terrain: str, cfg: dict, force: bool) -> None:
         else:
             log.warning("vegetation_kp : vegetation_kp.gpkg périmé — relance")
 
-    terrain_cfg = cfg.get("terrains", {}).get(terrain, {})
+    terrain_cfg = (cfg.get("terrains") or {}).get(terrain, {})
     terrain_crs: str = terrain_cfg.get("crs", "EPSG:2154")
     bbox = terrain_cfg.get("bbox")
     tol = float(vect_cfg.get("coverage_simplify_m", 2.0))
@@ -417,7 +499,7 @@ def step_supervised_e(
     """
     from src.supervised_e import run_supervised_e, EXPORT_MODE_FAITHFUL
 
-    terrain_cfg = cfg.get("terrains", {}).get(terrain, {})
+    terrain_cfg = (cfg.get("terrains") or {}).get(terrain, {})
     bbox = terrain_cfg.get("bbox")
     if bbox is None:
         sys.exit(
@@ -444,9 +526,15 @@ def step_supervised_e(
     )
     pred_tif = result["prediction_tif"]
     veg_gpkg = result.get("vegetation_gpkg")
-    log.info("supervised_e : prédiction dans %s", pred_tif.relative_to(ROOT))
+    try:
+        log.info("supervised_e : prédiction dans %s", pred_tif.relative_to(ROOT))
+    except ValueError:
+        log.info("supervised_e : prédiction dans %s", pred_tif)
     if veg_gpkg and veg_gpkg.exists():
-        log.info("supervised_e : vegetation dans %s", veg_gpkg.relative_to(ROOT))
+        try:
+            log.info("supervised_e : vegetation dans %s", veg_gpkg.relative_to(ROOT))
+        except ValueError:
+            log.info("supervised_e : vegetation dans %s", veg_gpkg)
     return pred_tif
 
 
@@ -456,7 +544,7 @@ def step_mask(terrain: str, cfg: dict, force: bool) -> None:
     import shapely.geometry as sg
     from scripts.mask_vegetation import _fetch_osm, apply_mask, build_mask
 
-    terrain_cfg = cfg.get("terrains", {}).get(terrain, {})
+    terrain_cfg = (cfg.get("terrains") or {}).get(terrain, {})
     terrain_crs = terrain_cfg.get("crs", "EPSG:2154")
 
     bdtopo_gpkg = DATA / f"{terrain}_bdtopo.gpkg"
@@ -823,7 +911,7 @@ def step_assemble(terrain: str, cfg: dict, force: bool, veg_mode: str = "kp") ->
     veg_kp_gpkg = OUTPUT / "vegetation_kp.gpkg"
     veg_se_gpkg = OUTPUT / f"vegetation_supervised_e_{_se_export_mode}.gpkg"
     bdtopo_gpkg = DATA / f"{terrain}_bdtopo.gpkg"
-    out_kp = ROOT / f"out_kp_{terrain}"
+    out_kp = OUTPUT / f"out_kp_{terrain}"
     osm_cache = DATA / f"osm_landuse_{terrain}.json"
 
     # Verrou supprimé : vegetation_masked.gpkg n'est plus une dépendance de l'assemblage.
@@ -843,7 +931,7 @@ def step_assemble(terrain: str, cfg: dict, force: bool, veg_mode: str = "kp") ->
     if out.exists():
         log.warning("assemble : %s périmé — relance", out.name)
 
-    terrain_cfg = cfg.get("terrains", {}).get(terrain, {})
+    terrain_cfg = (cfg.get("terrains") or {}).get(terrain, {})
     terrain_crs = terrain_cfg.get("crs", "EPSG:2154")
     bbox = terrain_cfg.get("bbox")
     bbox_geom = sg.box(*bbox) if bbox else None
@@ -914,7 +1002,7 @@ def step_assemble(terrain: str, cfg: dict, force: bool, veg_mode: str = "kp") ->
         else:
             # Si out_kp/ existe, KP a tourné et vegetation_kp doit être présent — état anormal.
             # Sinon, KP n'a jamais été lancé : carte sans végétation vectorielle est attendue.
-            if (ROOT / f"out_kp_{terrain}").exists():
+            if (OUTPUT / f"out_kp_{terrain}").exists():
                 raise RuntimeError(
                     f"assemble : out_kp_{terrain}/ présent mais vegetation_kp.gpkg absent — "
                     "relancer step_vegetation_kp (--from-step vegetation_kp) avant step_assemble."
@@ -947,6 +1035,9 @@ def step_assemble(terrain: str, cfg: dict, force: bool, veg_mode: str = "kp") ->
 
     if ocad_veg_path:
         img_templates = [t for t in [_build_ocad_veg_template(ocad_veg_path, out)] if t is not None]
+    elif veg_mode == "supervised_e":
+        img_templates = []
+        log.info("supervised_e : template KP végétation désactivé par défaut")
     else:
         kp_cfg = cfg.get("karttapullautin", {}) or {}
         img_templates = _build_img_templates(out_kp, kp_cfg, out)
@@ -1008,7 +1099,7 @@ def step_qa(terrain: str, cfg: dict) -> None:
     for cls in [406, 408, 410]:
         print(f"    {cls} : {total_by_class.get(cls, 0):,} polygones")
 
-    terrain_cfg = cfg.get("terrains", {}).get(terrain, {})
+    terrain_cfg = (cfg.get("terrains") or {}).get(terrain, {})
     ffco_gpkg_path = terrain_cfg.get("ffco_gpkg")
     ffco_layer = terrain_cfg.get("ffco_layer", "grimbosq_areas")
     hull = load_ffco_hull(ffco_gpkg_path, layer_name=ffco_layer) if ffco_gpkg_path else None
@@ -1191,7 +1282,7 @@ def _cmd_run() -> None:
     veg_mode = resolve_veg_source(args.terrain, cfg)
 
     if not args.tiles_dir and not args.tiles:
-        lidar_dir_cfg = cfg.get("terrains", {}).get(args.terrain, {}).get("lidar_dir")
+        lidar_dir_cfg = (cfg.get("terrains") or {}).get(args.terrain, {}).get("lidar_dir")
         if lidar_dir_cfg:
             args.tiles_dir = lidar_dir_cfg
 
@@ -1203,11 +1294,19 @@ def _cmd_run() -> None:
                 f"  python main.py setup {args.terrain}"
             )
 
-    terrain_cfg = cfg.get("terrains", {}).get(args.terrain, {})
+    terrain_cfg = (cfg.get("terrains") or {}).get(args.terrain, {})
     output_dir = terrain_cfg.get("output_dir") or (
         f"output_{args.terrain}" if args.terrain != "grimbosq" else "output"
     )
-    OUTPUT = ROOT / output_dir
+    output_dir_root = (
+        terrain_cfg.get("output_dir_root")
+        or cfg.get("output_dir_root")
+        or os.environ.get("LIDAR_OUTPUT_ROOT")
+    )
+    if output_dir_root:
+        OUTPUT = pathlib.Path(output_dir_root) / output_dir
+    else:
+        OUTPUT = ROOT / output_dir
 
     start_idx = _STEP_IDX[args.from_step] if args.from_step else 0
 
@@ -1215,6 +1314,7 @@ def _cmd_run() -> None:
         return _STEP_IDX[step] >= start_idx
 
     OUTPUT.mkdir(parents=True, exist_ok=True)
+    _add_pipeline_log_handler(OUTPUT)
 
     step_check_config(cfg)
 
@@ -1229,6 +1329,9 @@ def _cmd_run() -> None:
                 f"ERREUR : --from-step {args.from_step!r} incompatible avec mode kp "
                 f"(vegetation_source: kp ne planifie pas les étapes HAG)."
             )
+    elif veg_mode == "supervised_e":
+        log.info("SKIP pdal — mode supervised_e (lit les LAZ directement)")
+        log.info("SKIP process_hag — mode supervised_e")
     elif args.skip_pdal:
         log.info("SKIP pdal (--skip-pdal)")
         log.info("SKIP process_hag (--skip-pdal)")
@@ -1265,16 +1368,28 @@ def _cmd_run() -> None:
         step_vegetation_kp(args.terrain, cfg, args.force)
 
     if veg_mode == "supervised_e":
-        # Collecte des LAZ (mêmes sources que l'étape pdal)
-        _se_tiles: list[str] = []
-        if args.tiles_dir:
-            td = pathlib.Path(args.tiles_dir)
-            _se_tiles = [str(p) for p in sorted(td.glob("*.copc.laz"))]
-            if not _se_tiles:
-                _se_tiles = [str(p) for p in sorted(td.glob("*.laz"))]
-        elif getattr(args, "tiles", None):
-            _se_tiles = args.tiles
-        step_supervised_e(args.terrain, cfg, _se_tiles, args.force)
+        if should_run("supervised_e"):
+            # Collecte des LAZ (mêmes sources que l'étape pdal)
+            _se_tiles: list[str] = []
+            if args.tiles_dir:
+                td = pathlib.Path(args.tiles_dir)
+                _se_tiles = [str(p) for p in sorted(td.glob("*.copc.laz"))]
+                if not _se_tiles:
+                    _se_tiles = [str(p) for p in sorted(td.glob("*.laz"))]
+            elif getattr(args, "tiles", None):
+                _se_tiles = args.tiles
+            step_supervised_e(args.terrain, cfg, _se_tiles, args.force)
+        else:
+            # Reprise depuis une étape ultérieure — vérifier que les sorties existent
+            from src.supervised_e import EXPORT_MODE_FAITHFUL
+            _export_mode = cfg.get("vegetation_export_mode", EXPORT_MODE_FAITHFUL)
+            _veg_gpkg = OUTPUT / f"vegetation_supervised_e_{_export_mode}.gpkg"
+            if not _veg_gpkg.exists():
+                sys.exit(
+                    f"ERREUR : reprise depuis '{args.from_step}' avec moteur supervised_e, "
+                    f"mais {_veg_gpkg.name!r} absent dans {OUTPUT}.\n"
+                    f"Relancer depuis supervised_e (--from-step supervised_e) ou depuis le début."
+                )
 
     if veg_mode not in ("kp", "supervised_e") and should_run("vegetation"):
         step_vegetation(args.terrain, cfg, args.force)
@@ -1282,11 +1397,24 @@ def _cmd_run() -> None:
     if veg_mode not in ("kp", "supervised_e") and should_run("mask"):
         step_mask(args.terrain, cfg, args.force)
 
+    omap_counts: dict = {}
     if should_run("assemble"):
         step_assemble(args.terrain, cfg, args.force, veg_mode=veg_mode)
+        omap_counts = _count_omap_objects(OUTPUT / f"{args.terrain}.omap")
+        log.info("Objets .omap : %s", omap_counts)
 
     if should_run("qa"):
         step_qa(args.terrain, cfg)
+
+    # Persiste relief_status + comptes .omap dans run_metadata.json (écrit par step_qa)
+    _meta_path = OUTPUT / "run_metadata.json"
+    if _meta_path.exists():
+        import json as _json
+        _meta = _json.loads(_meta_path.read_text(encoding="utf-8"))
+        _meta["relief_status"] = relief_status
+        if omap_counts:
+            _meta["omap_object_counts"] = omap_counts
+        _meta_path.write_text(_json.dumps(_meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
     log.info("──────────────────────────────────────────")
     log.info("Pipeline terminé — terrain : %s", args.terrain)

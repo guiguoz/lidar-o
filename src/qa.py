@@ -558,15 +558,9 @@ def report_recall_by_class(
 # ── Snapshot config dans run_metadata ────────────────────────────────────────
 
 def _git_hash() -> str | None:
-    """Hash court du commit courant, None si git indisponible."""
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            stderr=subprocess.DEVNULL,
-            text=True,
-        ).strip() or None
-    except Exception:
-        return None
+    """Hash court du commit de build (COMMIT.txt en distribution, git live en dev)."""
+    from src.paths import get_build_commit
+    return get_build_commit()
 
 
 def write_config_snapshot(
@@ -610,9 +604,13 @@ def write_config_snapshot(
     except Exception:
         pass
 
+    from src.paths import get_app_version, get_model_path, get_runtime_version
     meta["config_snapshot"] = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
-        "git_hash": _git_hash(),
+        "app_version": get_app_version(),
+        "build_commit": _git_hash(),
+        "model_file": get_model_path().name,
+        "runtime_version": get_runtime_version(),
         # Paramètres HAG / classification
         "generalization_profile": profile_name,
         "min_area_m2": profile.get("min_area_m2", {}),

@@ -153,7 +153,8 @@ def main() -> None:
     out_dir = pathlib.Path(args.dst) if args.dst else src.parent
 
     # ── Config ────────────────────────────────────────────────────────────────
-    cfg = yaml.safe_load(pathlib.Path("config.yaml").read_text(encoding="utf-8"))
+    from src.paths import get_config_path
+    cfg = yaml.safe_load(get_config_path().read_text(encoding="utf-8"))
     veg = cfg["vegetation"]
 
     preset_name = veg.get("active_preset", "grimbosq_v0")

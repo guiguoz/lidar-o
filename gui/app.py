@@ -28,8 +28,9 @@ _COLOR_UNKNOWN = "#9e9e9e"
 _COLOR_BG = "#fafafa"
 _COLOR_UNVERIFIED = "#ff9800"
 
-# Chemin relatif (depuis la racine du projet) vers le modèle supervised_e.
-_SE_MODEL_PATH = pathlib.Path("experiments") / "loto_v1" / "final_model" / "model_e_final.pkl"
+from src.paths import get_app_version, get_assets_dir, get_config_path, get_model_path
+
+_SE_MODEL_PATH = get_model_path()
 
 
 def _patch_global_yaml_key(key: str, value: str, config_path: pathlib.Path) -> None:
@@ -86,7 +87,7 @@ class LidarOApp:
 
     def __init__(self) -> None:
         self.root = tk.Tk()
-        self.root.title("Lidar'O")
+        self.root.title(f"Lidar’O {get_app_version()}")
         self.root.configure(bg=_COLOR_BG)
 
         self._cfg: dict = {}
@@ -98,6 +99,7 @@ class LidarOApp:
         self._tile_extents: dict[pathlib.Path, tuple | None] = {}
         self._worker: PipelineWorker | None = None
         self._queue: queue.Queue = queue.Queue()
+        self._last_meta: dict = {}
 
         self._build_ui()
         self._load_config()
@@ -190,7 +192,11 @@ class LidarOApp:
         self._log_text.pack(fill=tk.BOTH, expand=True)
 
     def _load_config(self) -> None:
-        config_path = pathlib.Path("config.yaml")
+        try:
+            config_path = get_config_path()
+        except FileNotFoundError:
+            self._cfg = {}
+            return
         if config_path.exists():
             self._cfg = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
         else:
@@ -412,7 +418,7 @@ class LidarOApp:
 
     def _ensure_terrain_in_config(self, terrain: str) -> bool:
         """Crée le terrain si absent, puis écrit vegetation_source depuis la GUI. Retourne False si échec."""
-        config_path = pathlib.Path("config.yaml")
+        config_path = get_config_path()
 
         # Étape 1 : créer l'entrée terrain si elle n'existe pas
         if not (self._cfg.get("terrains") or {}).get(terrain):
@@ -435,7 +441,7 @@ class LidarOApp:
                 epsg = 2154 if ign_names else 4326
                 from src.init_terrain import update_config_yaml, write_georef_xml
                 update_config_yaml(terrain, bbox, epsg, config_path)
-                write_georef_xml(terrain, bbox, epsg, pathlib.Path("assets"))
+                write_georef_xml(terrain, bbox, epsg, get_assets_dir())
                 self._log(f"Projet '{terrain}' créé : bbox {[int(v) for v in bbox]}  CRS EPSG:{epsg}")
             except Exception as exc:
                 mb.showerror("Nom du projet", f"Création du projet échouée :\n{exc}")
@@ -467,9 +473,8 @@ class LidarOApp:
         if not self._ensure_terrain_in_config(terrain):
             return
 
-        config_path = pathlib.Path("config.yaml")
-        if config_path.exists():
-            _patch_global_yaml_key("vegetation_export_mode", self._export_var.get(), config_path)
+        config_path = get_config_path()
+        _patch_global_yaml_key("vegetation_export_mode", self._export_var.get(), config_path)
 
         self._run_btn.config(state=tk.DISABLED)
         self._cancel_btn.config(state=tk.NORMAL)
@@ -480,12 +485,19 @@ class LidarOApp:
         self._log(f"=== Lancement pipeline — projet '{terrain}' — moteur {label} ===")
 
         lidar_dir = self._lidar_dir
+        self._last_meta = {}
 
         def _run() -> None:
-            import sys as _sys
+            import json, sys as _sys
+            import main as _main_module
             _sys.argv = ["main.py", terrain, "--tiles-dir", str(lidar_dir)]
-            from main import _cmd_run
-            _cmd_run()
+            _main_module._cmd_run()
+            meta_path = _main_module.OUTPUT / "run_metadata.json"
+            if meta_path.exists():
+                try:
+                    self._last_meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
 
         self._worker = PipelineWorker(self._queue)
         self._worker.start(_run)
@@ -507,8 +519,14 @@ class LidarOApp:
                     self._log(f"  {msg.step} : {msg.message}")
                 elif isinstance(msg, Done):
                     if msg.success:
-                        self._status_label.config(text="Terminé ✓")
-                        self._log("=== Pipeline terminé avec succès ===")
+                        rs = self._last_meta.get("relief_status", "")
+                        if rs.startswith("ignoré"):
+                            self._status_label.config(text="Terminé avec avertissements")
+                            self._log("=== Pipeline terminé avec avertissements ===")
+                            self._log(f"    relief : {rs}")
+                        else:
+                            self._status_label.config(text="Terminé ✓")
+                            self._log("=== Pipeline terminé avec succès ===")
                     else:
                         self._status_label.config(text="Erreur")
                         self._log(f"=== ERREUR : {msg.error} ===")

@@ -1163,7 +1163,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 
     cfg = yaml.safe_load(pathlib.Path(args.config).read_text(encoding="utf-8"))
-    terrain_cfg = cfg.get("terrains", {}).get(args.terrain, {})
+    terrain_cfg = (cfg.get("terrains") or {}).get(args.terrain, {})
     crs: str = terrain_cfg.get("crs", "EPSG:2154")
     bbox = terrain_cfg.get("bbox")
 

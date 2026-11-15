@@ -50,10 +50,24 @@ def _match_row(row, match: dict) -> bool:
     return True
 
 
-def _apply_filter(gdf: gpd.GeoDataFrame, filter_expr: str | None) -> gpd.GeoDataFrame:
+def _apply_filter(
+    gdf: gpd.GeoDataFrame,
+    filter_expr: str | None,
+    layer_name: str = "",
+) -> gpd.GeoDataFrame:
     if not filter_expr:
         return gdf
-    return gdf.query(filter_expr)
+    try:
+        return gdf.query(filter_expr)
+    except NameError as exc:
+        # pandas query engine lève NameError quand une colonne référencée dans
+        # filter_expr est absente du DataFrame (traité comme variable Python).
+        prefix = f"Couche '{layer_name}' — " if layer_name else ""
+        raise KeyError(
+            f"{prefix}filtre '{filter_expr}' référence une colonne absente du GPKG.\n"
+            f"Pandas : {exc}\n"
+            f"Colonnes disponibles : {list(gdf.columns)}"
+        ) from exc
 
 
 def process_layer(
@@ -80,7 +94,7 @@ def process_layer(
 
     filter_expr = layer_cfg.get("filter")
     if filter_expr:
-        gdf = _apply_filter(gdf, filter_expr)
+        gdf = _apply_filter(gdf, filter_expr, layer_name)
         log.info("  %s : %d après filtre '%s'", layer_name, len(gdf), filter_expr)
 
     rules: list[dict] = layer_cfg.get("rules", [])
@@ -184,7 +198,7 @@ def main() -> None:
 
     import yaml as _yaml
     _cfg = _yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
-    _tcfg = _cfg.get("terrains", {}).get(args.terrain, {})
+    _tcfg = (_cfg.get("terrains") or {}).get(args.terrain, {})
     _out_dir_name = _tcfg.get("output_dir") or (
         f"output_{args.terrain}" if args.terrain != "grimbosq" else "output"
     )

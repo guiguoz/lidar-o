@@ -324,8 +324,18 @@ def load_model(model_path: pathlib.Path | None = None) -> dict[str, Any]:
     Vérifie la cohérence (n_features=63) avant de retourner.
     Ne charge que depuis un chemin local explicite (pas de réseau).
     """
-    path = pathlib.Path(model_path or DEFAULT_MODEL_PATH)
+    if model_path is None:
+        from src.paths import get_model_path
+        model_path = get_model_path()
+    path = pathlib.Path(model_path)
     if not path.exists():
+        from src.paths import is_distribution
+        if is_distribution():
+            raise FileNotFoundError(
+                f"Modèle E final introuvable : {path}\n"
+                "Le fichier models/model_e_final.pkl est manquant.\n"
+                "Réinstaller le paquet ou relancer setup.bat pour restaurer models/."
+            )
         raise FileNotFoundError(
             f"Modèle E final introuvable : {path}\n"
             "Exécuter experiments/loto_v1/train_final_e.py d'abord."
@@ -510,7 +520,16 @@ def save_vegetation_gpkg(
         n_by_layer[layer_name] = len(polys)
         log.info("  %s : %d polygones", layer_name, len(polys))
 
-    tmp.rename(out_path)
+    # os.replace remplace la destination même si elle existe (Windows-safe)
+    try:
+        tmp.replace(out_path)
+    except PermissionError as exc:
+        log.error(
+            "%s verrouillé — impossible de remplacer (%s). "
+            "Fermer tout programme utilisant ce fichier et relancer.",
+            out_path.name, exc,
+        )
+        raise
 
     # Métadonnées durables : sidecar JSON (nom fichier encode déjà le mode)
     meta = {
@@ -621,6 +640,16 @@ def run_supervised_e(
     pred_path = output_dir / "supervised_e_prediction.tif"
     veg_gpkg  = output_dir / f"vegetation_supervised_e_{export_mode}.gpkg"
     cov_tif   = output_dir / "supervised_e_coverage.tif"
+
+    if pred_path.exists() and veg_gpkg.exists() and not force:
+        log.info(
+            "supervised_e : raster + GPKG déjà présents — skip inférence et vectorisation."
+        )
+        return {
+            "prediction_tif": pred_path,
+            "vegetation_gpkg": veg_gpkg,
+            "coverage_tif": cov_tif,
+        }
 
     if pred_path.exists() and not force:
         log.info("Raster prédiction déjà présent — rechargement pour vectorisation.")

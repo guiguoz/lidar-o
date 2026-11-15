@@ -1,0 +1,1 @@
+C:\Users\glemi\miniconda3\envs\lidar-o-dist\python.exe: No module named pip

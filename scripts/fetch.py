@@ -28,16 +28,22 @@ from shapely.geometry import box
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 log = logging.getLogger(__name__)
 
-ROOT = pathlib.Path(".")
-CONFIG_PATH = ROOT / "config.yaml"
+ROOT = pathlib.Path(__file__).parent.parent.resolve()
 DATA_DIR = ROOT / "data"
+
+# Garantit que la racine app/ est dans sys.path quand le script est lancé
+# directement (python scripts/fetch.py) — la racine n'est pas ajoutée
+# automatiquement dans ce cas, contrairement à l'invocation -m scripts.fetch.
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 LayerGroup = Literal["priority", "masque", "optionnel"]
 ALL_GROUPS: list[LayerGroup] = ["priority", "masque", "optionnel"]
 
 
 def load_config() -> dict:
-    return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+    from src.paths import get_config_path
+    return yaml.safe_load(get_config_path().read_text(encoding="utf-8"))
 
 
 def find_gpkg(gpkg_dir: pathlib.Path, departement: str) -> pathlib.Path:
@@ -110,7 +116,7 @@ def main() -> None:
     cfg = load_config()
 
     # Terrain
-    terrains = cfg.get("terrains", {})
+    terrains = cfg.get("terrains") or {}
     if args.terrain not in terrains:
         sys.exit(
             f"Terrain '{args.terrain}' absent de config.yaml.\n"
