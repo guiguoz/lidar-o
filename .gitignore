@@ -54,6 +54,7 @@ data/*_bdtopo.gpkg
 data/osm_landuse_*.json
 *.gpkg
 !work/expe/vectorisation/*.gpkg
+work/expe/vectorisation/v3_arm_c.gpkg
 airelles.json
 out_kp/
 out_kp*/
@@ -64,6 +65,9 @@ rapports/
 karttapullautin*/
 temp*/
 *.xyz.bin
+
+# Documents internes (copies privées à conserver hors du dépôt)
+docs/AUTORISATION_MODELE.md
 
 # Divers
 *.tar
