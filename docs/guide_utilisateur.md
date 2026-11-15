@@ -56,70 +56,82 @@ Avant de commencer, vous aurez besoin de :
 |---|---|---|
 | `.copc.laz` — dalles LiDAR | Points 3D utilisés pour le relief (courbes de niveau) et pour le moteur végétation | Oui — toujours |
 | `.gpkg` — BD TOPO département | Objets anthropiques : routes, bâtiments, hydrographie, zones boisées et urbaines (masquage végétation) | Oui pour la France — peut être omis hors France |
-| `model_e_final.pkl` — modèle supervised_e | Modèle pré-entraîné pour la détection automatique de la végétation en mode `supervised_e` | Seulement en mode `supervised_e` — non public |
+| `model_e_final.pkl` — modèle supervised_e | Modèle pré-entraîné pour la détection automatique de la végétation en mode `supervised_e` | Seulement en mode `supervised_e` — inclus dans le paquet Windows |
 | `output/*.omap` — résultat | Carte assemblée à ouvrir dans OpenOrienteering Mapper | Produit par l'application |
 
 La BD TOPO ne remplace ni les dalles LiDAR (nécessaires au relief et à la végétation), ni le modèle supervised_e (nécessaire à ce mode uniquement).
 
 ### Ce qui est inclus et ce qui ne l'est pas
 
-| Inclus dans le dépôt | À télécharger séparément |
+| Inclus dans le paquet Windows | À télécharger séparément |
 |---|---|
-| Code source de l'application | Python + dépendances (Miniconda) |
-| Gabarit de symboles ISOM 2017-2 | Karttapullautin (téléchargé automatiquement par `setup`) |
-| Configuration exemple (Grimbosq) | Dalles LiDAR HD IGN |
-| — | BD TOPO département IGN |
-| — | Modèle supervised_e (si vous utilisez ce mode — non public) |
+| Application complète + GUI | Dalles LiDAR HD IGN |
+| Python + dépendances géospatiales | BD TOPO département IGN |
+| Gabarit de symboles ISOM 2017-2 | — |
+| Karttapullautin v2.12.1 (binaire) | — |
+| Modèle de végétation supervised_e | — |
 
 ---
 
 ## B — Télécharger l'application
 
-### Aucun installateur disponible
+### Paquet Windows autonome (recommandé)
 
-Lidar'O ne dispose pas de release ni d'exécutable prêt à lancer. L'installation se fait depuis les sources.
+**[→ Télécharger LidarO-v0.1.0-Windows-x64.zip](https://github.com/guiguoz/lidar-o/releases/tag/v0.1.0)** (~738 Mo)
 
-### Méthode 1 — Archive ZIP (sans Git)
+Aucune installation de Python, Conda, GDAL ou PDAL requise.
 
-1. Ouvrir la page du dépôt : `https://github.com/guiguoz/lidar-o`
-2. Cliquer sur le bouton vert **Code** → **Download ZIP**
-3. Extraire l'archive dans un dossier de votre choix (ex. `C:\lidar-o\`)
-4. Résultat attendu dans le dossier :
+1. Télécharger le ZIP depuis la page de release
+2. **Extraire entièrement** l'archive dans un dossier de votre choix (ex. `C:\LidarO\`)
+
+Résultat attendu après extraction :
 
 ```
-lidar-o\
-├── main.py
-├── config.yaml
-├── src\
-├── gui\
-├── scripts\
-├── assets\
+LidarO-v0.1.0-Windows-x64\
+├── setup.bat
+├── LidarO.bat
+├── LidarO_cli.bat
+├── python.tar.gz
+├── app\
+├── bin\
+├── models\
 ├── docs\
-└── ...
+│   └── DEMARRER.html
+└── VERSION.txt
 ```
 
-### Méthode 2 — Git (recommandé pour les mises à jour)
+Passer ensuite à la [section C — Installer](#c--installer).
 
-Si Git est installé (`git --version` dans le terminal) :
+### Depuis les sources (développeurs)
+
+Si vous souhaitez modifier le code ou travailler avec la dernière version en développement :
 
 ```bat
 git clone https://github.com/guiguoz/lidar-o.git
 cd lidar-o
 ```
 
+Voir la [section Développeurs du README](../README.fr.md#développeurs--installation-depuis-les-sources) pour les dépendances.
+
 ---
 
 ## C — Installer
 
-### Ouvrir le terminal au bon endroit
+### Paquet Windows — initialisation (une seule fois)
 
-1. Ouvrir l'**Explorateur de fichiers** et naviguer jusqu'au dossier `lidar-o`
-2. Dans la barre d'adresse, taper `cmd` et appuyer sur Entrée
-3. Un terminal noir s'ouvre dans le bon répertoire
+Après avoir extrait le ZIP (section B) :
 
-**Vérifier :** la ligne de commande doit afficher quelque chose comme `C:\lidar-o>`
+1. Dans le dossier `LidarO-v0.1.0-Windows-x64\`, double-cliquer sur **`setup.bat`**
+2. Une fenêtre de terminal s'ouvre et affiche la progression
+3. **Attendre que la fenêtre se ferme d'elle-même** (~2 min selon la machine)
 
-### Installer Python géospatial (Miniconda)
+> `setup.bat` extrait l'environnement Python embarqué. Cette étape ne se relance pas si elle a déjà réussi.
+
+**En cas d'erreur :** relancer `setup.bat`. Si le problème persiste, vérifier l'espace disque disponible (prévoir au moins 3 Go libres dans le dossier d'installation).
+
+### Depuis les sources — Installer Python géospatial (Miniconda)
+
+> Cette section ne concerne que les développeurs travaillant depuis les sources.
 
 Le Python inclus dans Windows (ou installé via le Microsoft Store) ne possède pas les bibliothèques géospatiales nécessaires. Il faut Miniconda.
 
@@ -130,9 +142,6 @@ Aller sur [https://docs.conda.io/en/latest/miniconda.html](https://docs.conda.io
 **2. Installer Miniconda**
 
 Double-cliquer sur le `.exe` téléchargé. Laisser les options par défaut.
-À la fin, cocher « Add Miniconda3 to my PATH » si l'option est proposée, sinon l'ajouter manuellement (voir note ci-dessous).
-
-> **Note — PATH :** Si les commandes `conda` et `python` ne sont pas reconnues après installation, ouvrir le **Miniconda Prompt** (raccourci créé par Miniconda dans le menu Démarrer) plutôt que `cmd`.
 
 **3. Installer les dépendances**
 
@@ -143,19 +152,13 @@ conda install -c conda-forge python=3.11 geopandas shapely scipy numpy ^
     python-pdal pdal rasterio ezdxf requests pyyaml
 ```
 
-Cette commande installe toutes les bibliothèques nécessaires. Durée : 2–10 min selon la connexion.
+Durée : 2–10 min selon la connexion.
 
-**4. Vérifier l'installation**
+**4. Vérifier**
 
 ```bat
 python -c "import geopandas, rasterio, numpy; print('OK')"
 ```
-
-Résultat attendu : `OK`
-
-> **Mode supervised_e uniquement :** ce mode nécessite des bibliothèques supplémentaires (`scikit-learn`, `laspy`) et un fichier modèle de 786 Mo non distribué dans le dépôt.
-> Si vous utilisez uniquement le mode `kp` (par défaut), aucune bibliothèque supplémentaire n'est nécessaire.
-> Voir [docs/supervised_e.md](supervised_e.md) pour l'installation de ce mode.
 
 ### Docker
 
@@ -165,8 +168,6 @@ Si vous êtes sur Linux ou souhaitez une installation isolée :
 docker build -t lidar-o .
 docker run -v /chemin/vers/donnees:/data lidar-o run mon_terrain --tiles-dir /data/lidar
 ```
-
-L'image Docker installe automatiquement toutes les dépendances.
 
 ---
 

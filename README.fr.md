@@ -8,6 +8,26 @@ Le cartographe conserve la vérification terrain, la correction de la végétati
 
 ---
 
+## Télécharger pour Windows (v0.1.0)
+
+**[→ Télécharger LidarO-v0.1.0-Windows-x64.zip](https://github.com/guiguoz/lidar-o/releases/tag/v0.1.0)** (~738 Mo)
+
+Aucune installation de Python, Conda, GDAL ou PDAL requise.
+
+**Installation :**
+
+1. Télécharger et **extraire entièrement** le ZIP → dossier `LidarO-v0.1.0-Windows-x64/`
+2. Double-clic `setup.bat` — initialisation unique (~2 min), **attendre sa réussite**
+3. Double-clic `LidarO.bat` → GUI
+
+> **Guide inclus :** ouvrir `docs/DEMARRER.html` dans le dossier extrait pour le parcours pas à pas.
+
+> **Dossier de résultats :** choisir un dossier hors du dossier application (par exemple `Documents\mes-cartes\`), pour éviter de perdre les calculs lors d'une mise à jour.
+
+> **Version expérimentale** — testée sous Windows 11 — vérification terrain nécessaire avant diffusion d'une carte officielle — mises à jour manuelles (télécharger la nouvelle version dans un nouveau dossier, relancer `setup.bat`).
+
+---
+
 ![Interface graphique Lidar'O](docs/images/capture_gui.png)
 *Interface graphique — sélecteurs LiDAR, BD TOPO, moteur végétation et mode d'export*
 
@@ -45,13 +65,15 @@ assemblage et géoréférencement
 | Mode | Principe | Statut |
 |---|---|---|
 | `kp` (par défaut) | Karttapullautin extrait une image de végétation depuis le LiDAR ; les couches 406/408/410 sont vectorisées à partir de cette image. | Stable |
-| `supervised_e` | Calcul direct depuis la structure verticale du nuage de points — 4 niveaux (401/406/408/410). Performances variables selon le type de forêt. | Expérimental |
+| `supervised_e` | Calcul direct depuis la structure verticale du nuage de points — 4 niveaux (401/406/408/410). | Expérimental |
 
 Les deux modes fonctionnent de manière autonome depuis les données LiDAR, sans référentiel cartographique extérieur à l'inférence.
 
-> **Mode supervised_e** — nécessite un fichier modèle pré-entraîné de 786 Mo (`experiments/loto_v1/final_model/model_e_final.pkl`), non distribué dans le dépôt.
-> Sans ce fichier, le mode `kp` fonctionne normalement.
-> Voir [docs/supervised_e.md](docs/supervised_e.md) pour l'installation, la configuration et les résultats.
+**Quelle combinaison choisir ?**
+
+- **`kp`** (défaut) : toujours disponible, sans modèle supplémentaire.
+- **`supervised_e` + `faithful`** : utilise le modèle pré-entraîné inclus dans le paquet Windows. La végétation produite est une estimation indicative à partir de la structure verticale du nuage de points — elle ne se substitue pas à un relevé terrain et ne prétend pas à une équivalence avec un résultat OCAD.
+- **`supervised_e` + `generalized`** : même estimation, avec simplification géométrique (MMU + lissage).
 
 **Mode d'export** (`vegetation_export_mode`, `supervised_e` uniquement) :
 
@@ -62,70 +84,26 @@ Les deux modes fonctionnent de manière autonome depuis les données LiDAR, sans
 
 ---
 
-## Installation
-
-**Aucun installateur disponible** — installation depuis les sources uniquement.
-
-### Prérequis
-
-- **Windows** : [Miniconda](https://docs.conda.io/en/latest/miniconda.html) recommandé pour les dépendances géospatiales
-- **Linux / Docker** : image fournie (`Dockerfile`)
-- **OpenOrienteering Mapper** : [openorienteering.org](https://www.openorienteering.org/) pour ouvrir le `.omap` produit
-
-### Étapes rapides (Windows)
-
-```bat
-rem 1. Cloner le dépôt
-git clone https://github.com/guiguoz/lidar-o.git
-cd lidar-o
-
-rem 2. Installer les dépendances (Miniconda Prompt)
-conda install -c conda-forge python=3.11 geopandas shapely scipy numpy ^
-    python-pdal pdal rasterio ezdxf requests pyyaml
-```
-
-Vérifier :
-
-```bat
-python main.py --version
-```
-
-> Pour les étapes détaillées (environnement virtuel, dépannage, Docker) →
-> [docs/guide_utilisateur.md § C — Installer](docs/guide_utilisateur.md#c--installer)
-
----
-
-## Premier projet
-
-```bash
-python main.py gui
-```
-
-1. **Nom du projet** — saisir un nom (ex. `ma_foret`)
-2. **Choisir le dossier LiDAR…** — sélectionner le dossier contenant les dalles `.copc.laz`
-3. **Charger BD TOPO…** — sélectionner le fichier `.gpkg` du département
-4. **Générer**
-
-Résultat : `output/ma_foret.omap` — ouvrir dans OpenOrienteering Mapper.
-
-Le projet est créé automatiquement dans `config.yaml` à partir des noms de fichiers IGN. Aucune commande à saisir pour les données IGN France standard.
-
-### CLI (avancé / données non-IGN)
-
-```bash
-python main.py init ma_foret --center 49.043 -0.421  # déclare le terrain
-python main.py setup ma_foret                         # configuration interactive
-python main.py run ma_foret --tiles-dir LIDAR/        # lance le pipeline
-```
-
-À utiliser pour les coordonnées non-IGN, les emprises personnalisées ou les workflows scriptés.
-
-### Données d'entrée
+## Données d'entrée
 
 | Donnée | Source | Emplacement |
 |---|---|---|
 | Dalles LiDAR HD (`*.copc.laz`) | [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd) | dossier au choix |
 | BD TOPO (GPKG département, France) | [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo) | fichier au choix |
+
+---
+
+## Premier projet
+
+1. Lancer la GUI via `LidarO.bat`
+2. **Nom du projet** — saisir un nom (ex. `ma_foret`)
+3. **Choisir le dossier LiDAR…** — sélectionner le dossier contenant les dalles `.copc.laz`
+4. **Charger BD TOPO…** — sélectionner le fichier `.gpkg` du département
+5. **Générer**
+
+Résultat : fichier `.omap` dans le dossier de résultats choisi — ouvrir dans OpenOrienteering Mapper.
+
+Le projet est créé automatiquement à partir des noms de fichiers IGN. Aucune commande à saisir pour les données IGN France standard.
 
 ---
 
@@ -144,13 +122,54 @@ La végétation automatique est une **estimation** — elle doit être vérifié
 
 ## Guide complet
 
-→ **[docs/guide_utilisateur.md](docs/guide_utilisateur.md)** — installation pas à pas, configuration, exemple complet, dépannage
+→ **[docs/DEMARRER.html](docs/DEMARRER.html)** (inclus dans le paquet Windows) — installation, configuration, exemple complet, dépannage
+→ **[docs/guide_utilisateur.md](docs/guide_utilisateur.md)** — même contenu en Markdown, accessible depuis le dépôt
 → **[Télécharger la BD TOPO](docs/guide_utilisateur.md#télécharger-et-préparer-la-bd-topo-france-uniquement)** — pas-à-pas IGN : format, département, extraction, rangement
 
 Documentation technique :
-- [docs/supervised_e.md](docs/supervised_e.md) — mode supervised_e : architecture, modèle, résultats LOTO
+- [docs/supervised_e.md](docs/supervised_e.md) — mode supervised_e : architecture, modèle, résultats
 - [docs/portabilite.md](docs/portabilite.md) — utilisation hors France
 - [docs/bilan_v0.md](docs/bilan_v0.md) — expérimentations et résultats historiques
+
+---
+
+## Développeurs — installation depuis les sources
+
+> Cette section s'adresse aux développeurs souhaitant modifier le code ou utiliser Lidar'O hors du paquet Windows.
+
+### Prérequis
+
+- **Windows** : [Miniconda](https://docs.conda.io/en/latest/miniconda.html) pour les dépendances géospatiales
+- **Linux / Docker** : image fournie (`Dockerfile`)
+- **OpenOrienteering Mapper** : [openorienteering.org](https://www.openorienteering.org/) pour ouvrir le `.omap` produit
+
+### Étapes rapides (Windows)
+
+```bat
+rem 1. Cloner le dépôt
+git clone https://github.com/guiguoz/lidar-o.git
+cd lidar-o
+
+rem 2. Installer les dépendances (Miniconda Prompt)
+conda install -c conda-forge python=3.11 geopandas shapely scipy numpy ^
+    python-pdal pdal rasterio ezdxf requests pyyaml
+```
+
+Lancer :
+
+```bat
+python main.py gui
+```
+
+### CLI (avancé / données non-IGN)
+
+```bash
+python main.py init ma_foret --center 49.043 -0.421  # déclare le terrain
+python main.py setup ma_foret                         # configuration interactive
+python main.py run ma_foret --tiles-dir LIDAR/        # lance le pipeline
+```
+
+À utiliser pour les coordonnées non-IGN, les emprises personnalisées ou les workflows scriptés.
 
 ---
 
@@ -195,4 +214,4 @@ Utilisation libre, modification libre. Tout dérivé ou service réseau doit êt
 Dépendances tiers :
 - Gabarit ISOM 2017-2 extrait d'[OpenOrienteering Mapper](https://www.openorienteering.org/) (GPL-3.0)
 - Table CRT extraite de [Blaze / Trailblaze Software](https://github.com/Trailblaze-Software/Blaze) (GPL-3.0)
-- [Karttapullautin](https://github.com/karttapullautin/karttapullautin) — non inclus dans le dépôt, téléchargé automatiquement par `setup`
+- [Karttapullautin](https://github.com/karttapullautin/karttapullautin) v2.12.1 — binaire inclus dans le paquet Windows (GPL-3.0 ; source : [releases/tag/v2.12.1](https://github.com/karttapullautin/karttapullautin/releases/tag/v2.12.1)) ; en installation depuis les sources, téléchargé automatiquement par `setup`
