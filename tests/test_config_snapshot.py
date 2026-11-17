@@ -180,12 +180,12 @@ def test_snapshot_captures_keep_template(tmp_path: pathlib.Path) -> None:
     assert any("kp_keep_template" in d for d in diffs), diffs
 
 
-def test_snapshot_contains_git_hash(tmp_path: pathlib.Path) -> None:
-    """Le snapshot inclut git_hash (peut être None hors dépôt git)."""
+def test_snapshot_contains_build_commit(tmp_path: pathlib.Path) -> None:
+    """Le snapshot inclut build_commit (hash court git ou None hors dépôt)."""
     cfg = _base_cfg()
     write_config_snapshot(cfg, tmp_path)
     snap = _read_snapshot(tmp_path)
-    assert "git_hash" in snap
+    assert "build_commit" in snap
 
 
 # ── Intégration split dans write_config_snapshot ────────────────────────────

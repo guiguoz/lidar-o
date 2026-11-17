@@ -4,9 +4,10 @@ max_area_km2: 9.0             # Emprise max v1 — rejet bloquant au-delà (une 
 # output_dir_root: ""         # Répertoire parent des sorties — vide = racine de l'application.
 #                              # Peut aussi être défini via la variable d'env LIDAR_OUTPUT_ROOT.
 
-# vegetation_export_mode: "faithful"  # "faithful" (défaut) | "generalized"
+# vegetation_export_mode: "faithful"  # "faithful" (défaut) | "generalized" | "smoothed"
 #   faithful     : aucun filtrage de composante — roundtrip raster→vecteur→raster à 0% de perte
 #   generalized  : supprime composantes < 16 m² (1 pixel 2×2 m) — archive v1
+#   smoothed     : lissage gaussien des frontières communes (arc_sigma=1.5 m, simplify=0.5 m)
 
 vegetation:
   # Source par terrain : terrains.<nom>.vegetation_source = "kp" | "hag" | absente (= KP par défaut).

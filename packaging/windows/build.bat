@@ -13,7 +13,7 @@ if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 set "REPO=%SCRIPT_DIR%\..\.."
 
 :: Version applicative ? mettre a jour manuellement avant chaque release
-set "APP_VERSION=v0.1.0"
+set "APP_VERSION=v0.4.0"
 
 set "DIST=%SCRIPT_DIR%\dist\LidarO-%APP_VERSION%-Windows-x64"
 
@@ -67,8 +67,9 @@ xcopy /s /q /y "%REPO%\scripts\" "%DIST%\app\scripts\" >nul
 xcopy /q /y    "%REPO%\main.py"  "%DIST%\app\"         >nul
 xcopy /q /y    "%REPO%\assets\"  "%DIST%\app\assets\"  >nul
 :: Exclure les georef de test/developpement (non destines a la distribution publique)
-del /q "%DIST%\app\assets\georef_grimbosq_validation_relief.xml" >nul 2>nul
-del /q "%DIST%\app\assets\georef_mon_projet.xml"                 >nul 2>nul
+del /q "%DIST%\app\assets\georef_grimbosq_validation_relief.xml"      >nul 2>nul
+del /q "%DIST%\app\assets\georef_mon_projet.xml"                       >nul 2>nul
+del /q "%DIST%\app\assets\georef_grimbosq_kp_validation_v2.xml"       >nul 2>nul
 
 :: Modules n?cessaires ? src/supervised_e.py (imports transitifs)
 copy /y "%REPO%\experiments\loto_v1\descriptors_ext.py" "%DIST%\app\experiments\loto_v1\" >nul
