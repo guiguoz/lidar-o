@@ -160,7 +160,7 @@ class LidarOApp:
         self._export_var = tk.StringVar(value="faithful")
         self._export_combo = ttk.Combobox(
             right, textvariable=self._export_var,
-            values=["faithful", "generalized"],
+            values=["faithful", "generalized", "smoothed"],
             state="disabled", width=16,
         )
         self._export_combo.pack(anchor=tk.W)

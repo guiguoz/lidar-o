@@ -2,9 +2,10 @@ crs: EPSG:2154
 scale: 10000                  # 1:10000 par défaut ; accepté : 10000 | 15000
 max_area_km2: 9.0             # Emprise max v1 — rejet bloquant au-delà (une carte CO = 1-5 km²)
 
-# vegetation_export_mode: "faithful"  # "faithful" (défaut) | "generalized"
-#   faithful     : aucun filtrage de composante — roundtrip raster→vecteur→raster à 0% de perte
+vegetation_export_mode: "faithful"
+#   faithful     : aucun filtrage de composante — roundtrip raster→vecteur→raster à 0% de perte (défaut)
 #   generalized  : supprime composantes < 16 m² (1 pixel 2×2 m) — archive v1
+#   smoothed     : lissage gaussien des frontières communes (arc_sigma=1.5 m, simplify=0.5 m)
 
 vegetation:
   # Source par terrain : terrains.<nom>.vegetation_source = "kp" | "hag" | absente (= KP par défaut).
@@ -266,6 +267,13 @@ terrains:
   #   ffco_gpkg: "my_reference.gpkg"  # optional: reference map for QA metrics
   # ─────────────────────────────────────────────────────────────────────────
 
+
+  grimbosq_kp_validation_v2:
+    bbox: [448000, 6886000, 450000, 6887000]
+    crs: "EPSG:2154"
+    output_dir: "e:/tmp/sandbox_results/output_grimbosq_kp_validation_v2"
+    vegetation_source: "supervised_e"
+    bdtopo_path: "data/bdtopo/BDT_3-5_GPKG_LAMB93_D014-ED2026-06-15.gpkg"
 
   grimbosq:
     bbox: [448000, 6886000, 450001, 6889001]

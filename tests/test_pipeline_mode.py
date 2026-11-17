@@ -193,14 +193,18 @@ class TestP1bCleGlobaleSupprimee:
         assert "source" not in cfg["vegetation"], "clé globale vegetation.source réintroduite"
 
     def test_config_reelle_inventaire_arbitre(self):
-        """Tous les terrains restants sont en KP (explicite ou par défaut)."""
+        """Inventaire figé des modes par terrain — mise à jour requise à chaque ajout."""
         import pathlib
         import yaml
 
         racine = pathlib.Path(__file__).resolve().parents[1]
         cfg = yaml.safe_load((racine / "config.yaml").read_text(encoding="utf-8"))
         terrains = cfg.get("terrains") or {}
-        attendu = {n: "kp" for n in terrains}
+        # Modes attendus par terrain — à maintenir à jour explicitement
+        attendu = {
+            "grimbosq_kp_validation_v2": "supervised_e",
+            "grimbosq": "kp",
+        }
         assert {n: resolve_veg_source(n, cfg) for n in terrains} == attendu
 
 

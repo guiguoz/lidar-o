@@ -507,11 +507,14 @@ def step_supervised_e(
             f"Ajouter terrains.{terrain}.bbox: [xmin, ymin, xmax, ymax] dans config.yaml"
         )
 
-    if not laz_files:
+    _pred_tif = OUTPUT / "supervised_e_prediction.tif"
+    if not laz_files and not _pred_tif.exists():
         sys.exit(
-            "ERREUR supervised_e : aucun fichier LAZ. "
-            "Passer --tiles-dir ou --tiles."
+            "ERREUR supervised_e : aucun fichier LAZ et aucun raster de prédiction existant.\n"
+            "Passer --tiles-dir ou --tiles pour l'inférence."
         )
+    if not laz_files:
+        log.info("supervised_e : raster existant détecté — revectorisation sans réinférence.")
 
     export_mode = cfg.get("vegetation_export_mode", EXPORT_MODE_FAITHFUL)
 

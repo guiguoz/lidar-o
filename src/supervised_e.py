@@ -81,6 +81,7 @@ _CACHE_VERSION = "v1-res2m-9bins"
 
 EXPORT_MODE_FAITHFUL    = "faithful"
 EXPORT_MODE_GENERALIZED = "generalized"
+EXPORT_MODE_SMOOTHED    = "smoothed"
 _GENERALIZED_MIN_AREA_M2 = 16.0  # supprime composantes < 1 pixel (2×2 m)
 
 # classe 1 (blanc) = fond implicite — pas de polygone créé
@@ -462,12 +463,16 @@ def vectorize_prediction(
 
     Mode faithful     : min_area=0.0 — aucun filtrage, roundtrip pixel-perfect.
     Mode generalized  : min_area=16 m² — supprime composantes < 1 pixel (2×2 m).
+    Mode smoothed     : délégué à smooth_veg.smoothed_vectorize (lissage gaussien des arcs).
 
     Classe 1 (blanc) = fond implicite — aucun polygone créé.
     Pixels support=0 exclus de tous les polygones.
 
     Retourne dict {class_id: [Polygon, ...]} pour class_id in {0, 2, 3, 4}.
     """
+    if export_mode == EXPORT_MODE_SMOOTHED:
+        import smooth_veg as _sv
+        return _sv.smoothed_vectorize(pred, support, transform)
     min_area = 0.0 if export_mode == EXPORT_MODE_FAITHFUL else _GENERALIZED_MIN_AREA_M2
     polys_by_class: dict[int, list[Polygon]] = {}
 
@@ -492,6 +497,7 @@ def save_vegetation_gpkg(
     crs: str,
     out_path: pathlib.Path,
     export_mode: str = EXPORT_MODE_FAITHFUL,
+    smoothed_algo_version: str | None = None,
 ) -> pathlib.Path:
     """Exporte les polygones de végétation dans un GeoPackage.
 
@@ -538,6 +544,8 @@ def save_vegetation_gpkg(
         "n_polygons": n_by_layer,
         "source": "supervised_e",
     }
+    if smoothed_algo_version is not None:
+        meta["smoothed_algo_version"] = smoothed_algo_version
     out_path.with_suffix(".json").write_text(
         _json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
     )
@@ -613,11 +621,14 @@ def run_supervised_e(
       model_path  : PKL modèle final (None = DEFAULT_MODEL_PATH)
       crs         : EPSG string
       force       : recalculer même si cache valide
-      export_mode : EXPORT_MODE_FAITHFUL (défaut) ou EXPORT_MODE_GENERALIZED
+      export_mode : EXPORT_MODE_FAITHFUL (défaut), EXPORT_MODE_GENERALIZED ou EXPORT_MODE_SMOOTHED
 
-    Contrat fidèle (export_mode="faithful") :
-      Aucun filtrage de composante, aucune simplification. Roundtrip
-      raster → vecteur → raster identique sur tous les pixels support.
+    Contrats :
+      faithful    — aucun filtrage, roundtrip raster → vecteur → raster identique.
+      generalized — supprime composantes < 16 m².
+      smoothed    — lissage gaussien des frontières communes (smooth_veg.ALGO_VERSION).
+                    Cache invalidé automatiquement si ALGO_VERSION change.
+                    Validation géométrique obligatoire (ValueError si échec).
 
     Retourne un dict :
       "prediction_tif"  : raster de prédiction (uint8, 2 bandes)
@@ -642,14 +653,39 @@ def run_supervised_e(
     cov_tif   = output_dir / "supervised_e_coverage.tif"
 
     if pred_path.exists() and veg_gpkg.exists() and not force:
-        log.info(
-            "supervised_e : raster + GPKG déjà présents — skip inférence et vectorisation."
-        )
-        return {
-            "prediction_tif": pred_path,
-            "vegetation_gpkg": veg_gpkg,
-            "coverage_tif": cov_tif,
-        }
+        if export_mode == EXPORT_MODE_SMOOTHED:
+            # Cache valide seulement si la version algo correspond
+            import smooth_veg as _sv
+            import json as _json
+            sidecar = veg_gpkg.with_suffix(".json")
+            if sidecar.exists():
+                try:
+                    cached = _json.loads(sidecar.read_text(encoding="utf-8"))
+                    if cached.get("smoothed_algo_version") == _sv.ALGO_VERSION:
+                        log.info(
+                            "supervised_e : GPKG smoothed present (algo=%s) — skip.",
+                            _sv.ALGO_VERSION,
+                        )
+                        return {
+                            "prediction_tif": pred_path,
+                            "vegetation_gpkg": veg_gpkg,
+                            "coverage_tif": cov_tif,
+                        }
+                except Exception:
+                    pass
+            log.info(
+                "supervised_e : GPKG smoothed perime (version algo differente) — revectorisation."
+            )
+            # fall-through vers le rechargement du raster
+        else:
+            log.info(
+                "supervised_e : raster + GPKG déjà présents — skip inférence et vectorisation."
+            )
+            return {
+                "prediction_tif": pred_path,
+                "vegetation_gpkg": veg_gpkg,
+                "coverage_tif": cov_tif,
+            }
 
     if pred_path.exists() and not force:
         log.info("Raster prédiction déjà présent — rechargement pour vectorisation.")
@@ -687,8 +723,18 @@ def run_supervised_e(
 
     # 7. Vectorisation + GPKG végétation
     log.info("Vectorisation (mode=%s)...", export_mode)
-    polys_by_class = vectorize_prediction(pred, support, transform, export_mode)
-    save_vegetation_gpkg(polys_by_class, crs, veg_gpkg, export_mode)
+    if export_mode == EXPORT_MODE_SMOOTHED:
+        import smooth_veg as _sv
+        polys_by_class = _sv.smoothed_vectorize(pred, support, transform)
+        log.info("Validation geometrique (smoothed)...")
+        _sv.validate_smoothed_coverage(polys_by_class, support, transform)
+        save_vegetation_gpkg(
+            polys_by_class, crs, veg_gpkg, export_mode,
+            smoothed_algo_version=_sv.ALGO_VERSION,
+        )
+    else:
+        polys_by_class = vectorize_prediction(pred, support, transform, export_mode)
+        save_vegetation_gpkg(polys_by_class, crs, veg_gpkg, export_mode)
 
     return {
         "prediction_tif": pred_path,
