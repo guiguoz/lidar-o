@@ -6,43 +6,36 @@ lance KP sur le dossier de dalles, et vérifie les DXF produits.
 from __future__ import annotations
 
 import logging
-import os
 import pathlib
-import shutil
 import subprocess
 import time
 
 import yaml
+from src.kp_install import (
+    KP_PINNED_VERSION,
+    locate_binary as _locate_binary,
+    read_binary_version,
+)
 
 log = logging.getLogger(__name__)
 logging.getLogger("ezdxf").setLevel(logging.WARNING)  # supprime le bruit ACAD_xxx à la lecture DXF
 
-_KP_RELEASES_URL = "https://github.com/karttapullautin/karttapullautin/releases"
-
 
 # ── Localisation du binaire ───────────────────────────────────────────────────
 
-def locate_binary() -> pathlib.Path:
-    """KP_BINARY env var → PATH → échec explicite avec lien releases."""
-    env_path = os.environ.get("KP_BINARY")
-    if env_path:
-        p = pathlib.Path(env_path)
-        if p.exists():
-            return p
-        raise FileNotFoundError(
-            f"KP_BINARY={env_path} défini mais fichier absent.\n"
-            f"Télécharger : {_KP_RELEASES_URL}"
-        )
-
-    which = shutil.which("pullauta")
-    if which:
-        return pathlib.Path(which)
-
+def locate_binary(
+    cfg: dict | None = None,
+    terrain: str | None = None,
+) -> pathlib.Path:
+    """KP_BINARY env var → PATH → config → FileNotFoundError."""
+    p = _locate_binary(cfg, terrain)
+    if p is not None:
+        return p
     raise FileNotFoundError(
         "Karttapullautin (pullauta) introuvable.\n"
-        f"  • Définir KP_BINARY=/chemin/vers/pullauta, ou\n"
-        f"  • Ajouter le répertoire contenant pullauta au PATH.\n"
-        f"  • Télécharger : {_KP_RELEASES_URL}"
+        "  • Définir KP_BINARY=/chemin/vers/pullauta, ou\n"
+        "  • Ajouter le répertoire contenant pullauta au PATH, ou\n"
+        "  • Lancer : python main.py setup <terrain>"
     )
 
 
@@ -70,7 +63,13 @@ def _build_ini(
     """
     laz_str = str(lazfolder).replace("\\", "/")
     out_str = str(batchoutfolder).replace("\\", "/")
-    overrides: dict[str, str] = {"batch": "1", "lazfolder": laz_str, "batchoutfolder": out_str}
+    overrides: dict[str, str] = {
+        "batch": "1",
+        "lazfolder": laz_str,
+        "batchoutfolder": out_str,
+        "savetempfiles": "1",   # pipeline lit les DXF à la racine de batchoutfolder
+        "output_dxf": "1",      # pipeline exige les DXF — pas seulement les PNG
+    }
     if cliffheight is not None:
         overrides["cliffheight"] = str(cliffheight)
     if cliffangle is not None:
@@ -130,7 +129,7 @@ def _build_ini(
         f"cliffnosmallciffs=5.5\n"
         + (f"cliffheight={cliffheight}\n" if cliffheight is not None else "")
         + (f"cliffangle={cliffangle}\n" if cliffangle is not None else "")
-        f"# végétation\n"
+        + f"# végétation\n"
         f"undergrowth=0.35\n"
         f"undergrowth2=0.56\n"
         f"greenground=0.9\n"
@@ -143,6 +142,47 @@ def _build_ini(
         f"pointvolumefactor=0.1\n"
         f"pointvolumeexponent=1\n"
         f"parallel_laz_decompression=1\n"
+        + (f"lightgreentone={lightgreentone}\n" if lightgreentone is not None else "")
+        + (f"medianboxsize2={medianboxsize2}\n" if medianboxsize2 is not None else "")
+    )
+
+
+def _resolve_base_ini(root: pathlib.Path) -> pathlib.Path | None:
+    """Cherche le template pullauta.ini par ordre de priorité.
+
+    1. root/pullauta.ini (override local, non versionné)
+    2. root/assets/pullauta_default.ini (livré avec le paquet)
+    3. None → _build_ini génère un template minimal (secours uniquement)
+
+    KP 2.12.1 requiert plusieurs paramètres absents du template minimal
+    (thresold1-5, firstandlastreturnfactor, etc.) — leur absence provoque
+    une panique Rust avec exit=0 non détectable sans capture du stdout/stderr.
+    """
+    for candidate in (root / "pullauta.ini", root / "assets" / "pullauta_default.ini"):
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def build_ini_content(
+    tiles_dir: pathlib.Path,
+    output_dir: pathlib.Path,
+    root: pathlib.Path,
+    cliffheight: float | None = None,
+    cliffangle: float | None = None,
+    lightgreentone: int | None = None,
+    medianboxsize2: int | None = None,
+) -> str:
+    """Retourne le contenu de pullauta.ini sans l'écrire.
+
+    Même logique que generate_ini — utiliser pour comparer avec un ini existant
+    avant de décider si un re-run KP est nécessaire.
+    """
+    base_ini = _resolve_base_ini(root)
+    return _build_ini(
+        tiles_dir.resolve(), output_dir.resolve(), base_ini,
+        cliffheight=cliffheight, cliffangle=cliffangle,
+        lightgreentone=lightgreentone, medianboxsize2=medianboxsize2,
     )
 
 
@@ -158,10 +198,15 @@ def generate_ini(
 ) -> pathlib.Path:
     """Génère pullauta.ini dans work_dir avec chemins absolus.
 
-    Utilise root/pullauta.ini comme template s'il existe.
+    Utilise root/pullauta.ini ou assets/pullauta_default.ini comme template.
     cliffheight/cliffangle/lightgreentone/medianboxsize2 : injectés si renseignés.
     """
-    base_ini = root / "pullauta.ini"
+    base_ini = _resolve_base_ini(root)
+    if base_ini is None:
+        log.warning(
+            "pullauta_default.ini absent de assets/ — template minimal utilisé. "
+            "KP 2.12.1 peut paniquer si des paramètres obligatoires manquent."
+        )
     content = _build_ini(
         tiles_dir.resolve(), output_dir.resolve(), base_ini,
         cliffheight=cliffheight, cliffangle=cliffangle,
@@ -169,18 +214,50 @@ def generate_ini(
     )
     ini_path = work_dir / "pullauta.ini"
     ini_path.write_text(content, encoding="utf-8")
-    log.info("pullauta.ini → %s", ini_path)
+    log.info("pullauta.ini → %s (template: %s)", ini_path, base_ini or "minimal")
     return ini_path
 
 
 # ── Lancement KP ─────────────────────────────────────────────────────────────
 
 def run_kp(binary: pathlib.Path, work_dir: pathlib.Path) -> None:
-    """Lance KP en mode batch depuis work_dir (lit pullauta.ini dans ce répertoire)."""
+    """Lance KP en mode batch depuis work_dir (lit pullauta.ini dans ce répertoire).
+
+    Capture stdout/stderr et détecte les paniques Rust qui retournent exit=0.
+    Écrit kp_run.log dans work_dir pour récupération post-mortem (inclut pullauta.ini).
+    """
+    ini_path = work_dir / "pullauta.ini"
+    ini_content = ini_path.read_text(encoding="utf-8") if ini_path.exists() else "(pullauta.ini absent)"
     log.info("KP : %s  (cwd=%s)", binary.resolve(), work_dir)
-    result = subprocess.run([str(binary.resolve())], cwd=str(work_dir))
+    result = subprocess.run(
+        [str(binary.resolve())],
+        cwd=str(work_dir),
+        capture_output=True,
+        text=True,
+    )
+    combined = (result.stdout or "") + (result.stderr or "")
+    kp_log_path = work_dir / "kp_run.log"
+    kp_log_path.write_text(
+        f"binary: {binary.resolve()}\ncwd: {work_dir}\nreturncode: {result.returncode}\n"
+        f"\n--- pullauta.ini ---\n{ini_content}"
+        f"\n--- stdout ---\n{result.stdout or ''}"
+        f"\n--- stderr ---\n{result.stderr or ''}",
+        encoding="utf-8",
+    )
+    for line in combined.splitlines():
+        log.info("KP: %s", line)
     if result.returncode != 0:
-        raise RuntimeError(f"KP a échoué (code retour {result.returncode})")
+        raise RuntimeError(
+            f"KP a échoué (code retour {result.returncode}) — voir {kp_log_path.name}"
+        )
+    if "panicked at" in combined:
+        # KP 2.12.1 peut paniquer et retourner 0 (p.ex. paramètre ini absent)
+        snippet = next((l for l in combined.splitlines() if "panicked" in l), "")
+        raise RuntimeError(
+            f"KP a paniqué (exit=0) : {snippet}\n"
+            f"Vérifier que assets/pullauta_default.ini est présent et complet. "
+            f"Journal : {kp_log_path}"
+        )
 
 
 def run_kp_makevegenew(binary: pathlib.Path, work_dir: pathlib.Path) -> None:
@@ -319,19 +396,34 @@ def run_engine(
     cfg: dict,
     tiles_dir: pathlib.Path,
     root: pathlib.Path,
+    output_root: pathlib.Path | None = None,
 ) -> pathlib.Path:
     """Lance KP en mode batch et vérifie les sorties DXF.
 
     Retourne le répertoire contenant les DXF produits.
     Lève RuntimeError si la vérification échoue.
+
+    output_root : répertoire parent de out_kp_{terrain}/.
+      Utiliser OUTPUT (répertoire terrain) pour que les sorties soient
+      dans un dossier récupérable (ex. monté C:\\sandbox_results).
+      Par défaut : root (comportement historique).
     """
-    terrain_cfg = cfg.get("terrains", {}).get(terrain, {})
+    terrain_cfg = (cfg.get("terrains") or {}).get(terrain, {})
     bbox = terrain_cfg.get("bbox")
 
-    binary = locate_binary()
+    binary = locate_binary(cfg, terrain)
     log.info("KP binaire : %s", binary)
 
-    out_kp = root / f"out_kp_{terrain}"
+    kp_version_expected = terrain_cfg.get("kp_version") or KP_PINNED_VERSION
+    actual = read_binary_version(binary)
+    if actual and actual != kp_version_expected:
+        log.warning(
+            "KP version %s ≠ attendu %s — paramètres peuvent différer",
+            actual,
+            kp_version_expected,
+        )
+
+    out_kp = (output_root if output_root is not None else root) / f"out_kp_{terrain}"
     out_kp.mkdir(parents=True, exist_ok=True)
 
     kp_cliff = cfg.get("karttapullautin", {}).get("cliff", {}) or {}
@@ -346,6 +438,25 @@ def run_engine(
         cliffheight=cliffheight, cliffangle=cliffangle,
         lightgreentone=lightgreentone, medianboxsize2=medianboxsize2,
     )
+
+    # Diagnostic : log des fichiers LAZ et du début de l'ini (utile pour le post-mortem)
+    _laz_in = sorted(tiles_dir.glob("*.copc.laz")) + sorted(tiles_dir.glob("*.laz"))
+    log.info("KP lazfolder : %d fichier(s) dans %s", len(_laz_in), tiles_dir)
+    for _f in _laz_in:
+        log.info("  %s (%d octets)", _f.name, _f.stat().st_size)
+    _ini_path = out_kp / "pullauta.ini"
+    if _ini_path.exists():
+        log.info("KP ini (lazfolder + batchoutfolder) :")
+        for _line in _ini_path.read_text(encoding="utf-8").splitlines():
+            if any(_line.startswith(k) for k in ("lazfolder", "batchoutfolder", "batch=")):
+                log.info("  %s", _line)
+
+    # KP skips tiles whose output PNG already exists — purger avant le run.
+    for ext in ("*.png", "*.pgw", "*.dxf", "*.bin"):
+        for f in out_kp.glob(ext):
+            if f.name != "pullauta.ini":
+                f.unlink()
+    log.info("KP : répertoire purgé (%s)", out_kp.name)
 
     launch_time = time.time()
     run_kp(binary, work_dir=out_kp)

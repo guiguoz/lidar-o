@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lidar&rsquo;O &mdash; Guide de démarrage</title>
+<style>
+  body { font-family: Segoe UI, sans-serif; max-width: 820px; margin: 2em auto; padding: 0 1.5em; color: #222; line-height: 1.6; }
+  h1 { font-size: 1.8em; border-bottom: 2px solid #2a7; padding-bottom: 0.3em; }
+  h2 { font-size: 1.25em; margin-top: 2em; border-left: 4px solid #2a7; padding-left: 0.6em; }
+  h3 { font-size: 1em; margin-top: 1.4em; }
+  code, pre { background: #f4f4f4; border-radius: 3px; }
+  code { padding: 0.1em 0.4em; font-size: 0.95em; }
+  pre { padding: 0.8em 1em; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+  th, td { border: 1px solid #ccc; padding: 0.4em 0.8em; text-align: left; }
+  th { background: #f0f0f0; }
+  .note { background: #fffbe6; border-left: 4px solid #e6b800; padding: 0.6em 1em; margin: 1em 0; }
+  .warn { background: #fff0f0; border-left: 4px solid #c00; padding: 0.6em 1em; margin: 1em 0; }
+  .ok   { background: #f0fff4; border-left: 4px solid #2a7; padding: 0.6em 1em; margin: 1em 0; }
+  a { color: #2a7; }
+  ol li, ul li { margin-bottom: 0.4em; }
+</style>
+</head>
+<body>
+
+<h1>Lidar&rsquo;O &mdash; Guide de démarrage</h1>
+
+<p>Ce guide est destiné aux utilisateurs qui n&rsquo;ont pas de connaissance de Python
+ni du terminal. Il couvre l&rsquo;installation, la première utilisation, la configuration
+des dossiers, et la désinstallation.</p>
+
+<hr>
+
+<h2 id="prerequis">A &mdash; Prérequis système</h2>
+
+<table>
+<tr><th>Élément</th><th>Minimum</th><th>Recommandé</th></tr>
+<tr><td>Système</td><td>Windows 10 (64 bits)</td><td>Windows 11</td></tr>
+<tr><td>RAM</td><td>8 Go</td><td>16 Go ou plus</td></tr>
+<tr><td>Disque libre</td><td>20 Go</td><td>50 Go ou plus</td></tr>
+<tr><td>CPU</td><td>4 cœurs</td><td>8 cœurs</td></tr>
+<tr><td>Internet</td><td>Pour télécharger les données LiDAR et BD TOPO</td><td>&mdash;</td></tr>
+</table>
+
+<div class="note">
+  <strong>Données nécessaires avant de commencer :</strong>
+  <ul>
+    <li>Dalles LiDAR HD <code>.copc.laz</code> de votre zone (disponibles gratuitement sur <a href="https://geoplateforme.ign.fr">IGN Géoplateforme</a>)</li>
+    <li>BD TOPO de votre département, fichier <code>.gpkg</code> (même source, France uniquement)</li>
+    <li>Coordonnées de l&rsquo;emprise de votre terrain (en Lambert-93 de préférence)</li>
+  </ul>
+</div>
+
+<hr>
+
+<h2 id="installation">B &mdash; Installation (une seule fois)</h2>
+
+<ol>
+  <li>Extrayez l&rsquo;archive téléchargée (ex. <code>LidarO-v0.4.0-Windows-x64.zip</code>) dans un dossier de votre choix.<br>
+      <strong>Conseil :</strong> utilisez un chemin court sans accents ni espaces, par exemple <code>C:\LidarO\</code>.</li>
+  <li>Double-cliquez sur <strong><code>setup.bat</code></strong>.<br>
+      Une fenêtre s&rsquo;ouvre et affiche la progression. L&rsquo;opération dure 2 à 5 minutes selon la vitesse du disque.<br>
+      Attendez le message : <em>&laquo;&nbsp;Installation terminée&nbsp;&raquo;</em> avant de fermer la fenêtre.</li>
+  <li>Pour vérifier que tout est en ordre, double-cliquez sur <strong><code>LidarO_diagnostic.bat</code></strong>.<br>
+      Toutes les lignes doivent afficher <code>[OK]</code>. En cas d&rsquo;erreur, relancez <code>setup.bat</code>.</li>
+</ol>
+
+<div class="warn">
+  <strong>Ne déplacez pas le dossier après l&rsquo;installation.</strong> L&rsquo;environnement Python est lié au chemin d&rsquo;installation.
+  Si vous devez déplacer Lidar&rsquo;O, supprimez le sous-dossier <code>python\</code> et relancez <code>setup.bat</code>.
+</div>
+
+<hr>
+
+<h2 id="lancement">C &mdash; Premier lancement</h2>
+
+<p>Double-cliquez sur <strong><code>LidarO.bat</code></strong>. L&rsquo;interface graphique s&rsquo;ouvre.</p>
+
+<p>Au premier lancement, Lidar&rsquo;O crée automatiquement un fichier de configuration dans :</p>
+<pre>%APPDATA%\LidarO\config.yaml</pre>
+<p>(Chemin complet typique : <code>C:\Users\VotreNom\AppData\Roaming\LidarO\config.yaml</code>)</p>
+
+<div class="note">
+  Ce fichier de configuration est <strong>conservé lors des mises à jour</strong> de l&rsquo;application. Vous ne perdrez pas vos paramètres en réinstallant.
+</div>
+
+<hr>
+
+<h2 id="sorties">D &mdash; Dossier des résultats</h2>
+
+<p>Par défaut, les résultats (fichiers <code>.omap</code>, journaux, rasters intermédiaires) sont
+écrits dans le sous-dossier <code>output\</code> du dossier d&rsquo;installation.</p>
+
+<div class="warn">
+  <strong>Si vous installez Lidar&rsquo;O dans un dossier protégé</strong> (par exemple <code>C:\Program Files\</code>),
+  le dossier <code>output\</code> sera inaccessible en écriture sans droits administrateur.
+  Configurez plutôt un dossier de sortie dans vos documents (voir ci-dessous).
+</div>
+
+<h3>Configurer un dossier de sortie personnalisé</h3>
+
+<p>Ouvrez <code>%APPDATA%\LidarO\config.yaml</code> avec le Bloc-notes et ajoutez ou modifiez la ligne :</p>
+<pre>output_dir_root: "C:/Users/VotreNom/Documents/LidarO_sorties"</pre>
+<p>Utilisez des slashes (<code>/</code>) même sous Windows. Le dossier sera créé automatiquement.</p>
+
+<p>Vous pouvez aussi définir cette variable une fois pour toutes via :</p>
+<pre>LIDAR_OUTPUT_ROOT=C:\Users\VotreNom\Documents\LidarO_sorties</pre>
+<p>dans les variables d&rsquo;environnement de Windows (Panneau de configuration → Système → Variables d&rsquo;environnement).</p>
+
+<hr>
+
+<h2 id="projet">E &mdash; Préparer un projet</h2>
+
+<h3>Télécharger les données LiDAR</h3>
+
+<ol>
+  <li>Allez sur <a href="https://geoplateforme.ign.fr">geoplateforme.ign.fr</a> → onglet <em>Téléchargement</em> → <em>LiDAR HD</em>.</li>
+  <li>Sélectionnez votre zone, téléchargez les dalles au format <code>.copc.laz</code>.</li>
+  <li>Placez-les dans un dossier dédié, par exemple <code>C:\Donnees\MonTerrain\laz\</code>.</li>
+</ol>
+
+<h3>Télécharger la BD TOPO</h3>
+
+<ol>
+  <li>Sur la même plateforme IGN → <em>BD TOPO</em> → sélectionnez votre département.</li>
+  <li>Téléchargez le fichier <code>.gpkg</code> (format GeoPackage).</li>
+  <li>Placez-le dans un dossier <code>data\bdtopo\</code> (configurable dans <code>config.yaml</code>).</li>
+</ol>
+
+<hr>
+
+<h2 id="interface">F &mdash; Interface graphique</h2>
+
+<p>L&rsquo;interface principale propose :</p>
+<ul>
+  <li><strong>Terrain</strong> : sélectionner ou créer un terrain depuis la liste.</li>
+  <li><strong>Moteur végétation</strong> : <code>supervised_e</code> (modèle pré-entraîné, recommandé) ou <code>kp</code> (interprétation directe KP).</li>
+  <li><strong>Mode export</strong> (<code>supervised_e</code> uniquement) :
+    <ul>
+      <li><code>faithful</code> — export fidèle, polygones tels quels <strong>(défaut)</strong></li>
+      <li><code>smoothed</code> — frontières communes arrondies (σ = 1,5 m) ; même modèle que faithful, contours adoucis</li>
+      <li><code>generalized</code> — polygones simplifiés (MMU + lissage cartographique)</li>
+    </ul>
+  </li>
+  <li><strong>Lancer</strong> : démarre le calcul. La progression s&rsquo;affiche dans la zone de log en bas de fenêtre.</li>
+</ul>
+
+<p>Le calcul peut durer de quelques minutes à plus d&rsquo;une heure selon la surface et la puissance de la machine.</p>
+
+<hr>
+
+<h2 id="resultats">G &mdash; Résultats</h2>
+
+<p>À la fin du calcul, le fichier <code>MonTerrain.omap</code> est disponible dans le dossier de sortie configuré.</p>
+
+<p>Ouvrez-le avec <a href="https://www.openorienteering.org/apps/mapper/">OpenOrienteering Mapper (OOM)</a>, disponible gratuitement.</p>
+
+<div class="ok">
+  <strong>Contenu typique d&rsquo;une carte :</strong> courbes de niveau, routes, bâtiments, hydrographie et végétation par classes d&rsquo;ouverture forestière. Les fichiers intermédiaires (<code>pipeline.log</code>, <code>run_metadata.json</code>) restent disponibles pour le diagnostic.
+</div>
+
+<hr>
+
+<h2 id="miseajour">H &mdash; Mise à jour</h2>
+
+<h3>Procédure</h3>
+
+<ol>
+  <li><strong>Sauvegardez</strong> votre ancien dossier d&rsquo;installation si vous souhaitez pouvoir revenir en arrière
+      (renommez-le, par exemple <code>LidarO-v0.1.0-Windows-x64-old</code>).</li>
+  <li>Extrayez la nouvelle archive dans un <strong>nouveau dossier</strong>.<br>
+      <strong>Ne pas extraire par-dessus l&rsquo;ancien</strong> : les deux versions doivent coexister
+      dans des dossiers séparés.</li>
+  <li>Double-cliquez <code>setup.bat</code> dans le nouveau dossier pour initialiser l&rsquo;environnement Python.<br>
+      Si la version du runtime n&rsquo;a pas changé, l&rsquo;extraction est ignorée automatiquement.</li>
+  <li>Lancez <code>LidarO.bat</code> depuis le nouveau dossier.</li>
+</ol>
+
+<h3>Ce qui est préservé</h3>
+
+<ul>
+  <li><strong>Vos paramètres</strong> (<code>%APPDATA%\LidarO\config.yaml</code>) sont conservés entre les versions.
+      La nouvelle installation ne les écrase pas.</li>
+  <li><strong>Vos résultats</strong> sont préservés <em>uniquement s&rsquo;ils se trouvent en dehors</em> du dossier
+      d&rsquo;installation (voir section D). Si <code>output_dir_root</code> n&rsquo;est pas configuré,
+      les sorties sont dans <code>output\</code> à l&rsquo;intérieur du dossier d&rsquo;installation
+      et ne seront pas copiées automatiquement.</li>
+  <li><strong>Vos données LiDAR et BD TOPO</strong> doivent se trouver hors du dossier d&rsquo;installation
+      pour ne pas avoir à les déplacer à chaque mise à jour.</li>
+</ul>
+
+<div class="warn">
+  <strong>Mise à jour non automatique.</strong> Il n&rsquo;y a pas de mécanisme de mise à jour
+  automatique. Vérifiez manuellement la disponibilité d&rsquo;une nouvelle version.
+</div>
+
+<hr>
+
+<h2 id="desinstallation">I &mdash; Désinstallation</h2>
+
+<h3>Désinstallation de l&rsquo;application</h3>
+<p>Supprimez simplement le dossier d&rsquo;installation (ex. <code>C:\LidarO\</code>). Aucun désinstallateur nécessaire, aucune entrée dans le registre Windows.</p>
+
+<h3>Vos projets et résultats</h3>
+<p>Les fichiers de résultats (<code>.omap</code>, journaux) sont <strong>préservés</strong> uniquement s&rsquo;ils se trouvent <strong>en dehors</strong> du dossier d&rsquo;installation.
+Si vous n&rsquo;avez pas configuré <code>output_dir_root</code>, les sorties sont dans le sous-dossier <code>output\</code> du dossier d&rsquo;installation et seront supprimées avec l&rsquo;application.</p>
+
+<h3>Préférences utilisateur (optionnel)</h3>
+<p>Le fichier <code>%APPDATA%\LidarO\config.yaml</code> est conservé lors de la désinstallation. Pour le supprimer :</p>
+<pre>%APPDATA%\LidarO\</pre>
+<p>Ouvrez ce chemin dans l&rsquo;Explorateur Windows et supprimez le dossier <code>LidarO</code>.</p>
+
+<hr>
+
+<h2 id="depannage">J &mdash; Dépannage</h2>
+
+<table>
+<tr><th>Symptôme</th><th>Cause probable</th><th>Solution</th></tr>
+<tr>
+  <td><code>LidarO_diagnostic.bat</code> affiche <em>installation absente</em></td>
+  <td><code>setup.bat</code> n&rsquo;a pas été lancé</td>
+  <td>Double-cliquer sur <code>setup.bat</code> et attendre le message de fin</td>
+</tr>
+<tr>
+  <td><code>LidarO_diagnostic.bat</code> affiche <em>installation en cours ou interrompue</em></td>
+  <td>setup.bat en cours d&rsquo;exécution, ou interrompu</td>
+  <td>Attendre la fin, ou relancer <code>setup.bat</code> si la fenêtre est fermée</td>
+</tr>
+<tr>
+  <td>La GUI s&rsquo;ouvre mais le calcul échoue avec une erreur PROJ ou GDAL</td>
+  <td>Variables d&rsquo;environnement manquantes</td>
+  <td>Toujours lancer via <code>LidarO.bat</code>, pas directement via <code>python main.py</code></td>
+</tr>
+<tr>
+  <td>Erreur d&rsquo;écriture dans le dossier de sortie</td>
+  <td>Dossier en lecture seule ou droits insuffisants</td>
+  <td>Configurer <code>output_dir_root</code> vers un dossier dans vos Documents</td>
+</tr>
+<tr>
+  <td>Carte produite sans végétation</td>
+  <td>Mode <code>kp</code> sélectionné au lieu de <code>supervised_e</code></td>
+  <td>Vérifier le sélecteur dans la GUI et relancer</td>
+</tr>
+<tr>
+  <td>Courbes de niveau absentes (relief = 0)</td>
+  <td>Problème rare de configuration KP</td>
+  <td>Lancer <code>LidarO_diagnostic.bat</code> et transmettre le journal au support</td>
+</tr>
+</table>
+
+<div class="note">
+  <strong>Journal de support :</strong> le fichier <code>pipeline.log</code> dans le dossier de sortie du terrain contient le détail complet du dernier calcul. Joignez-le à tout rapport de problème.
+</div>
+
+<hr>
+
+<h2 id="licences">K &mdash; Composants et licences</h2>
+
+<p>Lidar&rsquo;O embarque les composants tiers suivants :</p>
+
+<table>
+<tr><th>Composant</th><th>Version</th><th>Licence</th><th>Source</th></tr>
+<tr><td>Python</td><td>3.13</td><td>PSF (libre)</td><td>python.org</td></tr>
+<tr><td>GDAL/OGR</td><td>3.12</td><td>MIT</td><td>gdal.org</td></tr>
+<tr><td>PROJ</td><td>9.8</td><td>MIT</td><td>proj.org</td></tr>
+<tr><td>GEOS</td><td>3.14</td><td>LGPL 2.1</td><td>libgeos.org</td></tr>
+<tr><td>PDAL</td><td>3.5</td><td>BSD 3-Clause</td><td>pdal.io</td></tr>
+<tr><td>numpy, scipy, scikit-learn</td><td>&mdash;</td><td>BSD 3-Clause</td><td>scipy.org</td></tr>
+<tr><td>Geopandas, Shapely, Rasterio</td><td>&mdash;</td><td>BSD 3-Clause</td><td>geopandas.org</td></tr>
+<tr><td>Pillow, ezdxf, PyYAML</td><td>&mdash;</td><td>HPND / MIT / MIT</td><td>&mdash;</td></tr>
+<tr><td>OpenSSL</td><td>3.6</td><td>Apache 2.0</td><td>openssl.org</td></tr>
+<tr><td>Tk/Tcl</td><td>8.6</td><td>Tcl/Tk License (libre)</td><td>tcl.tk</td></tr>
+<tr><td>Karttapullautin (KP)</td><td>2.12.1</td><td>GPL-3.0</td><td><a href="https://github.com/karttapullautin/karttapullautin/releases/tag/v2.12.1">GitHub (source + binaire)</a></td></tr>
+<tr><td>Gabarit ISOM 2017-2</td><td>&mdash;</td><td>GPL-3.0</td><td>openorienteering.org</td></tr>
+<tr><td>Table kp_crt.crt</td><td>&mdash;</td><td>GPL-3.0</td><td>Blaze / Trailblaze Software</td></tr>
+</table>
+
+<p>Le détail des crédits est dans <code>app/assets/CREDITS.md</code>.</p>
+
+<div class="note" id="gpl-source">
+  <strong>Karttapullautin (KP) &mdash; fourniture du code source (GPL-3.0, art.&nbsp;6)</strong><br>
+  Ce logiciel intègre <code>pullauta.exe</code>, binaire de Karttapullautin v2.12.1,
+  distribué sous <strong>GNU General Public License v3.0</strong>.<br>
+  Le code source correspondant est disponible à l&rsquo;adresse suivante, sans frais :<br>
+  <a href="https://github.com/karttapullautin/karttapullautin/releases/tag/v2.12.1">
+    https://github.com/karttapullautin/karttapullautin/releases/tag/v2.12.1
+  </a><br>
+  Fichier : <code>karttapullautin-x86_64-win.tar.gz</code><br>
+  SHA-256 du binaire inclus : <code>3fd713b7b442b84649834d15badd1974eb1e928ec01bc3a948fdecf92883a0d8</code><br>
+  Sur demande écrite, nous fournirons également le code source sous forme lisible par machine.
+  Texte GPL-3.0 inclus dans <code>bin/LICENSE.karttapullautin</code>.
+</div>
+
+</body>
+</html>

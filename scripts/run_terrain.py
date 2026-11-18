@@ -26,7 +26,6 @@ import geopandas as gpd
 import yaml
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
-from src.vegetation import run_pipeline
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -346,6 +345,7 @@ def main() -> None:
 
     # ── 3. Pipeline généralisation ────────────────────────────────────────────
     log.info("Pipeline généralisation ...")
+    from src.vegetation import run_pipeline
     gdf, logs = run_pipeline(classified_tif, cfg, debug_dir=None)
 
     # ── 4. Sauvegarde ─────────────────────────────────────────────────────────

@@ -1,0 +1,409 @@
+{
+  "best_cfg_id": 3,
+  "best_cfg": {
+    "id": 3,
+    "type": "RF",
+    "n": 300,
+    "depth": null,
+    "leaf": 1,
+    "weight": "balanced"
+  },
+  "feature_names": [
+    "n_2m",
+    "support_2m",
+    "prop_g_2m",
+    "prop_lo_2m",
+    "prop_me_2m",
+    "prop_hi_2m",
+    "prop_veg_2m",
+    "ndvd_2m",
+    "frac_hi_veg_2m",
+    "frac_me_veg_2m",
+    "n_6m",
+    "support_6m",
+    "prop_g_6m",
+    "prop_lo_6m",
+    "prop_me_6m",
+    "prop_hi_6m",
+    "prop_veg_6m",
+    "ndvd_6m",
+    "frac_hi_veg_6m",
+    "frac_me_veg_6m",
+    "n_12m",
+    "support_12m",
+    "prop_g_12m",
+    "prop_lo_12m",
+    "prop_me_12m",
+    "prop_hi_12m",
+    "prop_veg_12m",
+    "ndvd_12m",
+    "frac_hi_veg_12m",
+    "frac_me_veg_12m"
+  ],
+  "train": {
+    "split": "train",
+    "n_known": 87223,
+    "n_pred_nodata": 0,
+    "macro_iou": 1.0,
+    "iou_presence": 1.0,
+    "precision_presence": 1.0,
+    "recall_presence": 1.0,
+    "per_class": [
+      {
+        "name": "decouvert",
+        "n_ref": 65576,
+        "tp": 65576,
+        "fp": 0,
+        "fn": 0,
+        "iou": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      {
+        "name": "blanc",
+        "n_ref": 6248,
+        "tp": 6248,
+        "fp": 0,
+        "fn": 0,
+        "iou": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      {
+        "name": "veg_406",
+        "n_ref": 8683,
+        "tp": 8683,
+        "fp": 0,
+        "fn": 0,
+        "iou": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      {
+        "name": "veg_408",
+        "n_ref": 4743,
+        "tp": 4743,
+        "fp": 0,
+        "fn": 0,
+        "iou": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      {
+        "name": "veg_410",
+        "n_ref": 1973,
+        "tp": 1973,
+        "fp": 0,
+        "fn": 0,
+        "iou": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      }
+    ]
+  },
+  "val": {
+    "split": "val",
+    "n_known": 64159,
+    "n_pred_nodata": 0,
+    "macro_iou": 0.641296,
+    "iou_presence": 0.784221,
+    "precision_presence": 0.846323,
+    "recall_presence": 0.914438,
+    "per_class": [
+      {
+        "name": "decouvert",
+        "n_ref": 43511,
+        "tp": 42220,
+        "fp": 1056,
+        "fn": 1291,
+        "iou": 0.947338,
+        "precision": 0.975598,
+        "recall": 0.970329
+      },
+      {
+        "name": "blanc",
+        "n_ref": 8832,
+        "tp": 7127,
+        "fp": 989,
+        "fn": 1705,
+        "iou": 0.72569,
+        "precision": 0.878142,
+        "recall": 0.806952
+      },
+      {
+        "name": "veg_406",
+        "n_ref": 6317,
+        "tp": 4887,
+        "fp": 2448,
+        "fn": 1430,
+        "iou": 0.557558,
+        "precision": 0.666258,
+        "recall": 0.773627
+      },
+      {
+        "name": "veg_408",
+        "n_ref": 1630,
+        "tp": 567,
+        "fp": 685,
+        "fn": 1063,
+        "iou": 0.244924,
+        "precision": 0.452875,
+        "recall": 0.347853
+      },
+      {
+        "name": "veg_410",
+        "n_ref": 3869,
+        "tp": 3399,
+        "fp": 781,
+        "fn": 470,
+        "iou": 0.730968,
+        "precision": 0.813158,
+        "recall": 0.878522
+      }
+    ]
+  },
+  "test": {
+    "split": "test",
+    "n_known": 70782,
+    "n_pred_nodata": 0,
+    "macro_iou": 0.677656,
+    "iou_presence": 0.846573,
+    "precision_presence": 0.915925,
+    "recall_presence": 0.917902,
+    "per_class": [
+      {
+        "name": "decouvert",
+        "n_ref": 41943,
+        "tp": 40953,
+        "fp": 1670,
+        "fn": 990,
+        "iou": 0.939009,
+        "precision": 0.960819,
+        "recall": 0.976397
+      },
+      {
+        "name": "blanc",
+        "n_ref": 11238,
+        "tp": 9464,
+        "fp": 1056,
+        "fn": 1774,
+        "iou": 0.769806,
+        "precision": 0.89962,
+        "recall": 0.842143
+      },
+      {
+        "name": "veg_406",
+        "n_ref": 6365,
+        "tp": 4668,
+        "fp": 3127,
+        "fn": 1697,
+        "iou": 0.491783,
+        "precision": 0.598845,
+        "recall": 0.733386
+      },
+      {
+        "name": "veg_408",
+        "n_ref": 4241,
+        "tp": 2535,
+        "fp": 1492,
+        "fn": 1706,
+        "iou": 0.442177,
+        "precision": 0.629501,
+        "recall": 0.597736
+      },
+      {
+        "name": "veg_410",
+        "n_ref": 6995,
+        "tp": 5472,
+        "fp": 345,
+        "fn": 1523,
+        "iou": 0.745504,
+        "precision": 0.940691,
+        "recall": 0.782273
+      }
+    ]
+  },
+  "ndvd_train": {
+    "split": "train_ndvd",
+    "n_known": 87223,
+    "n_pred_nodata": 0,
+    "macro_iou": 0.263579,
+    "iou_presence": 0.432302,
+    "precision_presence": 0.777153,
+    "recall_presence": 0.493474,
+    "per_class": [
+      {
+        "name": "decouvert",
+        "n_ref": 65576,
+        "tp": 65098,
+        "fp": 12347,
+        "fn": 478,
+        "iou": 0.835414,
+        "precision": 0.840571,
+        "recall": 0.992711
+      },
+      {
+        "name": "blanc",
+        "n_ref": 6248,
+        "tp": 0,
+        "fp": 0,
+        "fn": 6248,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0
+      },
+      {
+        "name": "veg_406",
+        "n_ref": 8683,
+        "tp": 2237,
+        "fp": 3617,
+        "fn": 6446,
+        "iou": 0.18187,
+        "precision": 0.382132,
+        "recall": 0.25763
+      },
+      {
+        "name": "veg_408",
+        "n_ref": 4743,
+        "tp": 505,
+        "fp": 1609,
+        "fn": 4238,
+        "iou": 0.079503,
+        "precision": 0.238884,
+        "recall": 0.106473
+      },
+      {
+        "name": "veg_410",
+        "n_ref": 1973,
+        "tp": 685,
+        "fp": 1125,
+        "fn": 1288,
+        "iou": 0.22111,
+        "precision": 0.378453,
+        "recall": 0.347187
+      }
+    ]
+  },
+  "ndvd_val": {
+    "split": "val_ndvd",
+    "n_known": 64159,
+    "n_pred_nodata": 0,
+    "macro_iou": 0.250121,
+    "iou_presence": 0.543938,
+    "precision_presence": 0.694954,
+    "recall_presence": 0.71454,
+    "per_class": [
+      {
+        "name": "decouvert",
+        "n_ref": 43511,
+        "tp": 42428,
+        "fp": 9582,
+        "fn": 1083,
+        "iou": 0.799126,
+        "precision": 0.815766,
+        "recall": 0.97511
+      },
+      {
+        "name": "blanc",
+        "n_ref": 8832,
+        "tp": 0,
+        "fp": 0,
+        "fn": 8832,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0
+      },
+      {
+        "name": "veg_406",
+        "n_ref": 6317,
+        "tp": 1633,
+        "fp": 3755,
+        "fn": 4684,
+        "iou": 0.162133,
+        "precision": 0.303081,
+        "recall": 0.258509
+      },
+      {
+        "name": "veg_408",
+        "n_ref": 1630,
+        "tp": 326,
+        "fp": 3259,
+        "fn": 1304,
+        "iou": 0.06668,
+        "precision": 0.090934,
+        "recall": 0.2
+      },
+      {
+        "name": "veg_410",
+        "n_ref": 3869,
+        "tp": 1283,
+        "fp": 1893,
+        "fn": 2586,
+        "iou": 0.222666,
+        "precision": 0.403967,
+        "recall": 0.33161
+      }
+    ]
+  },
+  "ndvd_test": {
+    "split": "test_ndvd",
+    "n_known": 70782,
+    "n_pred_nodata": 0,
+    "macro_iou": 0.231519,
+    "iou_presence": 0.489675,
+    "precision_presence": 0.742122,
+    "recall_presence": 0.59008,
+    "per_class": [
+      {
+        "name": "decouvert",
+        "n_ref": 41943,
+        "tp": 41059,
+        "fp": 15728,
+        "fn": 884,
+        "iou": 0.711952,
+        "precision": 0.723035,
+        "recall": 0.978924
+      },
+      {
+        "name": "blanc",
+        "n_ref": 11238,
+        "tp": 0,
+        "fp": 0,
+        "fn": 11238,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0
+      },
+      {
+        "name": "veg_406",
+        "n_ref": 6365,
+        "tp": 1362,
+        "fp": 4851,
+        "fn": 5003,
+        "iou": 0.121434,
+        "precision": 0.219218,
+        "recall": 0.213983
+      },
+      {
+        "name": "veg_408",
+        "n_ref": 4241,
+        "tp": 355,
+        "fp": 3865,
+        "fn": 3886,
+        "iou": 0.043795,
+        "precision": 0.084123,
+        "recall": 0.083707
+      },
+      {
+        "name": "veg_410",
+        "n_ref": 6995,
+        "tp": 2312,
+        "fp": 1250,
+        "fn": 4683,
+        "iou": 0.280412,
+        "precision": 0.649074,
+        "recall": 0.330522
+      }
+    ]
+  }
+}

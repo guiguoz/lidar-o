@@ -1,0 +1,140 @@
+# Méthode E — Spécification figée
+# Version : 1.0  |  Date : 2026-11-10
+# Config pré-spécifiée RF_leaf5 — aucune sélection sur validation interne.
+# NE PAS MODIFIER cette spécification sans versionner explicitement.
+
+version: "1.0"
+date: "2026-11-10"
+
+# ── Classificateur ────────────────────────────────────────────────────────────
+classifier:
+  type: RandomForestClassifier          # sklearn.ensemble
+  n_estimators: 300
+  max_depth: 20
+  min_samples_leaf: 5
+  class_weight: "balanced"             # pondération inverse des effectifs
+  n_jobs: -1
+  random_state: 42
+
+# ── Données LiDAR ─────────────────────────────────────────────────────────────
+data:
+  resolution_m: 2.0
+  crs: "EPSG:2154"                      # Lambert-93
+  point_filter: "Classification != 7"   # non-withheld uniquement
+
+  dtm:
+    classes_las: [2, 9]                 # Ground + Water
+    method: "min_z_per_cell"            # minimum Z par cellule
+    hole_fill: "nearest_neighbor"       # scipy.ndimage.distance_transform_edt indices
+    scope: "tous retours non-withheld"
+
+  hag:
+    formula: "Z - DTM(row, col)"
+    clip_min_m: 0.0                     # HAG négatif = 0
+
+  strates_t:
+    source: "omapmaker_strates.tif"     # 4 bandes, calculé par omapmaker_ref.run()
+    bands:
+      0: {name: "ground",  hag_min_m: 0.0,   hag_max_m: 0.2}
+      1: {name: "low",     hag_min_m: 0.2,   hag_max_m: 1.5}
+      2: {name: "medium",  hag_min_m: 1.5,   hag_max_m: 3.0}
+      3: {name: "high",    hag_min_m: 3.0,   hag_max_m: .inf}
+    unit: "count per cell (raw)"
+
+  strates_e:
+    source: "9 strates fines + ordres de retour depuis LAZ bruts"
+    bin_edges_m: [0.0, 0.2, 0.5, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0, .inf]
+    n_bins: 9
+    unit: "count per cell (raw)"
+    return_order:
+      n_first:  "ReturnNumber == 1"
+      n_last:   "ReturnNumber == NumberOfReturns"
+      n_unique: "NumberOfReturns == 1"
+
+# ── Descripteurs ──────────────────────────────────────────────────────────────
+features:
+  total: 63
+  t_features: 30               # issues de strates_t (4 strates coarses)
+  e_features_added: 33         # issues de strates_e (9 strates fines + retours)
+
+  gaussian_blur:
+    truncate: 2.0              # scipy.ndimage.gaussian_filter truncate param
+    scales:
+      "2m":  {sigma_m: 1.0, sigma_px: 0.5}
+      "6m":  {sigma_m: 3.0, sigma_px: 1.5}
+      "12m": {sigma_m: 6.0, sigma_px: 3.0}
+
+  support:
+    criterion: "n_total_native > MIN_SUPPORT"
+    MIN_SUPPORT: 1.0e-9
+    border_exclusion_px: 6     # partial_ctx : pixels à ≤6 px d'un NODATA
+
+  t_per_scale:   # 10 features × 3 échelles = 30
+    - n_{S}             # densité totale lissée
+    - support_{S}       # indicateur support (0/1)
+    - prop_g_{S}        # proportion sol
+    - prop_lo_{S}       # proportion végétation basse [0.2, 1.5)
+    - prop_me_{S}       # proportion végétation moyenne [1.5, 3.0)
+    - prop_hi_{S}       # proportion végétation haute [3.0, +∞)
+    - prop_veg_{S}      # proportion toute végétation
+    - ndvd_{S}          # NDVD (W_LOW=0.35, W_MED=0.55, W_HIGH=0.10)
+    - frac_hi_veg_{S}   # haute vég / (lo+me+hi)
+    - frac_me_veg_{S}   # moyenne vég / (lo+me+hi)
+
+  e_per_scale:   # 10 features × 3 échelles = 30
+    - fe_b1_{S}  ..  fe_b8_{S}  # proportions bins 1..8 (b0 exclu)
+    - fe_p50_{S}                 # quantile HAG 50 % (normalisé / 15 m)
+    - fe_p75_{S}                 # quantile HAG 75 % (normalisé / 15 m)
+
+  e_global:      # 3 features (résolution native 2 m, sans lissage)
+    - fe_pfirst   # n_first / n_total
+    - fe_plast    # n_last  / n_total
+    - fe_punique  # n_unique / n_total
+
+  concatenation_order: >
+    [T(2m)×10, T(6m)×10, T(12m)×10,
+     E(2m)×10, E(6m)×10, E(12m)×10,
+     fe_pfirst, fe_plast, fe_punique]
+
+  missing_values: "NaN pour cellules hors support ou bins vides"
+  missing_strategy: "SimpleImputer(strategy='mean') appris sur données train uniquement"
+
+# ── Entraînement ──────────────────────────────────────────────────────────────
+training:
+  random_seed: 42
+  max_px_per_terrain: 300_000
+  sampling: "uniform random without replacement (np.random.default_rng(42).choice)"
+  geographic_deduplication:
+    rule: >
+      Zone SA↔Caen (Y=[6888000,6889000], X=[448000,450000]) présente dans
+      les deux terrains. Caen prioritaire ; rows 1000-1500, cols 500-1500
+      dans l'espace SA exclus de l'entraînement final.
+    priority: "caen"
+
+# ── Catégories et palette ─────────────────────────────────────────────────────
+categories:
+  0: {code: "decouvert", ocad: 401, rgb: [255, 201,  15]}
+  1: {code: "blanc",     ocad: 405, rgb: [255, 255, 255]}
+  2: {code: "veg_406",   ocad: 406, rgb: [204, 255, 179]}
+  3: {code: "veg_408",   ocad: 408, rgb: [153, 255, 102]}
+  4: {code: "veg_410",   ocad: 410, rgb: [ 51, 255,   0]}
+  255: {code: "nodata",  ocad: null, rgb: [ 60,  60,  60]}
+
+# ── Références de validation ──────────────────────────────────────────────────
+validation:
+  protocol: "LOTO — 4 folds (bd, caen, montmirel, sainte_anne)"
+  scores_loto: "experiments/loto_v1/results_e/metrics_e.json"
+  note: >
+    Les scores sur les 4 terrains après entraînement final sont des résultats
+    de RÉEMPLOI (données d'apprentissage). Les scores LOTO sont les seuls
+    indicateurs disponibles de la généralisation.
+
+# ── Dépendances ───────────────────────────────────────────────────────────────
+dependencies:
+  python: ">=3.10"
+  numpy: ">=1.24"
+  scikit-learn: ">=1.3"
+  scipy: ">=1.10"
+  rasterio: ">=1.3"
+  python-pdal: ">=3.2"
+  Pillow: ">=9.0"

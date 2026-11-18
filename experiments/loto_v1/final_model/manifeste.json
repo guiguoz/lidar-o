@@ -1,0 +1,113 @@
+{
+  "model_file": "model_e_final.pkl",
+  "sha256": "48da30428cb0f42479ad5d28d668174a5e710bfdde02fa44c5f539aad320eeb5",
+  "config": {
+    "id": "E_RF_leaf5",
+    "type": "RF",
+    "n": 300,
+    "depth": 20,
+    "leaf": 5,
+    "weight": "balanced",
+    "random_seed": 42
+  },
+  "n_features_total": 63,
+  "n_features_t": 30,
+  "n_features_e_added": 33,
+  "max_px_per_terrain": 300000,
+  "geographic_deduplication": "SA rows 1000-1500 cols 500-1500 exclus (zone commune avec Caen)",
+  "training_data": {
+    "bd": {
+      "total_eligible_px": 234385,
+      "train_px": 234385,
+      "by_class": {
+        "decouvert": 159549,
+        "blanc": 28482,
+        "veg_406": 22319,
+        "veg_408": 10853,
+        "veg_410": 13182
+      }
+    },
+    "caen": {
+      "total_eligible_px": 491388,
+      "train_px": 300000,
+      "by_class": {
+        "decouvert": 71399,
+        "blanc": 192715,
+        "veg_406": 28888,
+        "veg_408": 4942,
+        "veg_410": 2056
+      }
+    },
+    "montmirel": {
+      "total_eligible_px": 1711862,
+      "train_px": 300000,
+      "by_class": {
+        "decouvert": 141786,
+        "blanc": 141943,
+        "veg_406": 11247,
+        "veg_408": 1915,
+        "veg_410": 3109
+      }
+    },
+    "sainte_anne": {
+      "total_eligible_px": 1152715,
+      "train_px": 300000,
+      "by_class": {
+        "decouvert": 120773,
+        "blanc": 115502,
+        "veg_406": 47559,
+        "veg_408": 8190,
+        "veg_410": 7976
+      }
+    }
+  },
+  "total_train_px": 1134385,
+  "categories": {
+    "0": {
+      "code": "decouvert",
+      "ocad": 401,
+      "rgb": [
+        255,
+        201,
+        15
+      ]
+    },
+    "1": {
+      "code": "blanc",
+      "ocad": 405,
+      "rgb": [
+        255,
+        255,
+        255
+      ]
+    },
+    "2": {
+      "code": "veg_406",
+      "ocad": 406,
+      "rgb": [
+        204,
+        255,
+        179
+      ]
+    },
+    "3": {
+      "code": "veg_408",
+      "ocad": 408,
+      "rgb": [
+        153,
+        255,
+        102
+      ]
+    },
+    "4": {
+      "code": "veg_410",
+      "ocad": 410,
+      "rgb": [
+        51,
+        255,
+        0
+      ]
+    }
+  },
+  "note": "Les performances sur ces 4 terrains après entraînement final sont des résultats de réemploi (données d'apprentissage), pas une validation externe. Scores LOTO disponibles dans results/ et results_e/."
+}

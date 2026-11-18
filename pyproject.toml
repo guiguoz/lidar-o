@@ -24,6 +24,7 @@ dev = ["pytest>=8.0", "pytest-httpx>=0.30", "responses>=0.25"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-v --tb=short"
 markers = ["integration: tests nécessitant des données réelles (désactivés par défaut)"]
 

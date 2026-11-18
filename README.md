@@ -11,6 +11,26 @@ The mapper retains field verification, vegetation correction, and fine detail wo
 
 ---
 
+## Download for Windows (v0.4.0)
+
+**[→ Download latest release](https://github.com/guiguoz/lidar-o/releases/latest)** (~735 MB)
+
+No separate Python, Conda, GDAL, or PDAL installation required.
+
+**Setup:**
+
+1. Download and **fully extract** the ZIP → folder `LidarO-v0.4.0-Windows-x64/`
+2. Double-click `setup.bat` — one-time initialisation (~2 min), **wait for it to complete**
+3. Double-click `LidarO.bat` → GUI
+
+> **Included guide:** open `docs/DEMARRER.html` in the extracted folder for step-by-step instructions (French).
+
+> **Results folder:** choose a folder outside the application folder (e.g. `Documents\my-maps\`) to avoid losing computed results when updating. When you install a new version into a new folder, your results stay in place.
+
+> **Experimental version** — tested on Windows 11 — field verification required before publishing an official map — manual updates (download into a new folder, re-run `setup.bat`).
+
+---
+
 ![Lidar'O GUI](docs/images/capture_gui.png)
 *Lidar'O GUI — LiDAR / BD TOPO selectors, vegetation engine and export mode*
 
@@ -48,70 +68,47 @@ assembled and georeferenced
 | Mode | Principle | Status |
 |---|---|---|
 | `kp` (default) | Karttapullautin extracts a vegetation image from LiDAR; layers 406/408/410 are vectorised from that image. | Stable |
-| `supervised_e` | Direct classification from the vertical structure of the point cloud — 4 levels (401/406/408/410). Variable performance depending on forest type. | Experimental |
+| `supervised_e` | Direct classification from the vertical structure of the point cloud — 4 levels (401/406/408/410). | Experimental |
 
 Both modes run autonomously from LiDAR data, without any external cartographic reference at inference time.
 
-> **Mode supervised_e** requires a 786 MB pre-trained model file (`experiments/loto_v1/final_model/model_e_final.pkl`), not distributed in this repository. Without it, mode `kp` works normally. See [docs/supervised_e.md](docs/supervised_e.md).
+**Which combination to use?**
+
+- **`kp`** (default): always available, no additional model required.
+- **`supervised_e` + `faithful`**: uses the pre-trained model included in the Windows package. Exact roundtrip — polygons exported as-is, no filtering. The vegetation output is an indicative estimate based on the vertical structure of the point cloud — field verification required.
+- **`supervised_e` + `smoothed`**: same model, same classification — shared boundaries between vegetation classes are rounded with a Gaussian filter (σ = 1.5 m). No raster vote, no surface threshold. The underlying model is identical to `faithful`.
+- **`supervised_e` + `generalized`**: same estimate, with geometric simplification (MMU filter + boundary smoothing).
 
 **Export mode** (`vegetation_export_mode`, `supervised_e` only):
 
 | Value | Effect |
 |---|---|
-| `faithful` (default) | Detected polygons exported as-is — no loss, noisy output |
+| `faithful` **(default)** | Exact roundtrip raster → vector — no loss, raw polygon output |
+| `smoothed` | Shared boundaries rounded (Gaussian arc, σ = 1.5 m) — same model, smoother edges |
 | `generalized` | Geometric simplification (MMU + smoothing) — clean cartographic output |
 
 ---
 
-## Installation
-
-**No installer available** — source installation only.
-
-### Quick setup (Windows)
-
-```bat
-rem Clone
-git clone https://github.com/guiguoz/lidar-o.git
-cd lidar-o
-
-rem Install geospatial Python (Miniconda Prompt)
-conda install -c conda-forge python=3.11 geopandas shapely scipy numpy ^
-    python-pdal pdal rasterio ezdxf requests pyyaml
-```
-
-### Input data (France)
+## Input data
 
 | Data | Source | Location |
 |---|---|---|
-| LiDAR HD tiles (`*.copc.laz`) | [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd) | `LIDAR/` or `--tiles-dir DIR` |
-| BD TOPO (department GPKG) | [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo) | `data/bdtopo/` |
+| LiDAR HD tiles (`*.copc.laz`) | [IGN Géoplateforme](https://geoservices.ign.fr/lidarhd) | any folder |
+| BD TOPO (department GPKG, France) | [geoservices.ign.fr/bdtopo](https://geoservices.ign.fr/bdtopo) | any file |
 
 ---
 
 ## Quick start
 
-```bash
-python main.py gui
-```
+1. Launch the GUI via `LidarO.bat`
+2. **Project name** — type a name (e.g. `my_forest`)
+3. **Choose LiDAR folder…** — select the folder containing your `.copc.laz` tiles
+4. **Load BD TOPO…** — select the department `.gpkg` file
+5. **Generate**
 
-1. **Project name** — type a name (e.g. `my_forest`)
-2. **Choose LiDAR folder…** — select the folder containing your `.copc.laz` tiles
-3. **Load BD TOPO…** — select the department `.gpkg` file
-4. **Generate**
+Output: `.omap` file in the results folder you chose — open in OpenOrienteering Mapper.
 
-Output: `output/my_forest.omap` — open in OpenOrienteering Mapper.
-
-The project is created automatically in `config.yaml` from the IGN tile filenames. No command-line setup needed for standard IGN France data.
-
-### CLI (advanced / non-IGN data)
-
-```bash
-python main.py init my_forest --center 49.043 -0.421  # declare terrain
-python main.py setup my_forest                         # interactive config
-python main.py run my_forest --tiles-dir LIDAR/        # run pipeline
-```
-
-Use the CLI for non-IGN coordinates, custom bounding boxes, or scripted workflows.
+The project is created automatically from the IGN tile filenames. No command-line setup needed for standard IGN France data.
 
 ---
 
@@ -128,13 +125,48 @@ Use the CLI for non-IGN coordinates, custom bounding boxes, or scripted workflow
 
 ## Full guide
 
-→ [docs/guide_utilisateur.md](docs/guide_utilisateur.md) (French) — step-by-step installation, configuration, example, troubleshooting
-→ [BD TOPO download guide](docs/guide_utilisateur.md#télécharger-et-préparer-la-bd-topo-france-uniquement) — format, department selection, extraction
+→ **[docs/DEMARRER.html](docs/DEMARRER.html)** (included in the Windows package) — setup, configuration, full example, troubleshooting (French)
+→ **[docs/guide_utilisateur.md](docs/guide_utilisateur.md)** (French) — same content in Markdown
+→ **[BD TOPO download guide](docs/guide_utilisateur.md#télécharger-et-préparer-la-bd-topo-france-uniquement)** — format, department selection, extraction
 
 Technical documentation:
-- [docs/supervised_e.md](docs/supervised_e.md) — supervised_e mode: architecture, model, LOTO results
+- [docs/supervised_e.md](docs/supervised_e.md) — supervised_e mode: architecture, model, results
 - [docs/portabilite.md](docs/portabilite.md) — usage outside France
 - [docs/bilan_v0.md](docs/bilan_v0.md) — evaluation results and experimental history
+
+---
+
+## Developers — source installation
+
+> This section is for developers who want to modify the code or use Lidar'O outside the Windows package.
+
+### Quick setup (Windows)
+
+```bat
+rem Clone
+git clone https://github.com/guiguoz/lidar-o.git
+cd lidar-o
+
+rem Install geospatial Python (Miniconda Prompt)
+conda install -c conda-forge python=3.11 geopandas shapely scipy numpy ^
+    python-pdal pdal rasterio ezdxf requests pyyaml
+```
+
+Launch:
+
+```bat
+python main.py gui
+```
+
+### CLI (advanced / non-IGN data)
+
+```bash
+python main.py init my_forest --center 49.043 -0.421  # declare terrain
+python main.py setup my_forest                         # interactive config
+python main.py run my_forest --tiles-dir LIDAR/        # run pipeline
+```
+
+Use the CLI for non-IGN coordinates, custom bounding boxes, or scripted workflows.
 
 ---
 
@@ -147,6 +179,7 @@ config.yaml               terrain and pipeline parameters
 src/
   vegetation.py           CO Generalization Engine (kp/hag mode)
   supervised_e.py         vegetation detection from LiDAR (supervised_e mode)
+  smooth_veg.py           boundary smoothing — smoothed export mode
   omap_writer.py          .omap generation
   pipeline_mode.py        vegetation mode resolution
 
@@ -169,4 +202,4 @@ experiments/              supervised_e training and experiments
 Third-party assets:
 - ISOM 2017-2 template from [OpenOrienteering Mapper](https://www.openorienteering.org/) (GPL-3.0)
 - CRT table from [Blaze / Trailblaze Software](https://github.com/Trailblaze-Software/Blaze) (GPL-3.0)
-- [Karttapullautin](https://github.com/karttapullautin/karttapullautin) — not bundled, downloaded automatically by `setup`
+- [Karttapullautin](https://github.com/karttapullautin/karttapullautin) v2.12.1 — bundled in the Windows package (GPL-3.0; source: [releases/tag/v2.12.1](https://github.com/karttapullautin/karttapullautin/releases/tag/v2.12.1)); in source installation, downloaded automatically by `setup`

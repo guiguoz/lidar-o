@@ -233,7 +233,7 @@ def main() -> None:
 
     import yaml as _yaml
     _cfg = _yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
-    _tcfg = _cfg.get("terrains", {}).get(args.terrain, {})
+    _tcfg = (_cfg.get("terrains") or {}).get(args.terrain, {})
     _out_dir_name = _tcfg.get("output_dir") or (
         f"output_{args.terrain}" if args.terrain != "grimbosq" else "output"
     )
