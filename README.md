@@ -11,23 +11,23 @@ The mapper retains field verification, vegetation correction, and fine detail wo
 
 ---
 
-## Download for Windows (v0.1.0)
+## Download for Windows (v0.4.0)
 
-**[→ Download LidarO-v0.1.0-Windows-x64.zip](https://github.com/guiguoz/lidar-o/releases/tag/v0.1.0)** (~738 MB)
+**[→ Download latest release](https://github.com/guiguoz/lidar-o/releases/latest)** (~735 MB)
 
 No separate Python, Conda, GDAL, or PDAL installation required.
 
 **Setup:**
 
-1. Download and **fully extract** the ZIP → folder `LidarO-v0.1.0-Windows-x64/`
+1. Download and **fully extract** the ZIP → folder `LidarO-v0.4.0-Windows-x64/`
 2. Double-click `setup.bat` — one-time initialisation (~2 min), **wait for it to complete**
 3. Double-click `LidarO.bat` → GUI
 
 > **Included guide:** open `docs/DEMARRER.html` in the extracted folder for step-by-step instructions (French).
 
-> **Results folder:** choose a folder outside the application folder (e.g. `Documents\my-maps\`) to avoid losing computed results when updating.
+> **Results folder:** choose a folder outside the application folder (e.g. `Documents\my-maps\`) to avoid losing computed results when updating. When you install a new version into a new folder, your results stay in place.
 
-> **Experimental version** — tested on Windows 11 — field verification required before publishing an official map — manual updates (download the new version into a new folder, re-run `setup.bat`).
+> **Experimental version** — tested on Windows 11 — field verification required before publishing an official map — manual updates (download into a new folder, re-run `setup.bat`).
 
 ---
 
@@ -75,14 +75,16 @@ Both modes run autonomously from LiDAR data, without any external cartographic r
 **Which combination to use?**
 
 - **`kp`** (default): always available, no additional model required.
-- **`supervised_e` + `faithful`**: uses the pre-trained model included in the Windows package. The vegetation output is an indicative estimate based on the vertical structure of the point cloud — it does not claim equivalence with an OCAD survey and requires field verification.
-- **`supervised_e` + `generalized`**: same estimate, with geometric simplification (MMU + smoothing).
+- **`supervised_e` + `faithful`**: uses the pre-trained model included in the Windows package. Exact roundtrip — polygons exported as-is, no filtering. The vegetation output is an indicative estimate based on the vertical structure of the point cloud — field verification required.
+- **`supervised_e` + `smoothed`**: same model, same classification — shared boundaries between vegetation classes are rounded with a Gaussian filter (σ = 1.5 m). No raster vote, no surface threshold. The underlying model is identical to `faithful`.
+- **`supervised_e` + `generalized`**: same estimate, with geometric simplification (MMU filter + boundary smoothing).
 
 **Export mode** (`vegetation_export_mode`, `supervised_e` only):
 
 | Value | Effect |
 |---|---|
-| `faithful` (default) | Detected polygons exported as-is — no loss, noisy output |
+| `faithful` **(default)** | Exact roundtrip raster → vector — no loss, raw polygon output |
+| `smoothed` | Shared boundaries rounded (Gaussian arc, σ = 1.5 m) — same model, smoother edges |
 | `generalized` | Geometric simplification (MMU + smoothing) — clean cartographic output |
 
 ---
@@ -177,6 +179,7 @@ config.yaml               terrain and pipeline parameters
 src/
   vegetation.py           CO Generalization Engine (kp/hag mode)
   supervised_e.py         vegetation detection from LiDAR (supervised_e mode)
+  smooth_veg.py           boundary smoothing — smoothed export mode
   omap_writer.py          .omap generation
   pipeline_mode.py        vegetation mode resolution
 

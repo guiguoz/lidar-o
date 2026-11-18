@@ -57,7 +57,7 @@ des dossiers, et la désinstallation.</p>
 <h2 id="installation">B &mdash; Installation (une seule fois)</h2>
 
 <ol>
-  <li>Extrayez l&rsquo;archive <code>LidarO-Windows-x64.zip</code> dans un dossier de votre choix.<br>
+  <li>Extrayez l&rsquo;archive téléchargée (ex. <code>LidarO-v0.4.0-Windows-x64.zip</code>) dans un dossier de votre choix.<br>
       <strong>Conseil :</strong> utilisez un chemin court sans accents ni espaces, par exemple <code>C:\LidarO\</code>.</li>
   <li>Double-cliquez sur <strong><code>setup.bat</code></strong>.<br>
       Une fenêtre s&rsquo;ouvre et affiche la progression. L&rsquo;opération dure 2 à 5 minutes selon la vitesse du disque.<br>
@@ -136,7 +136,13 @@ des dossiers, et la désinstallation.</p>
 <ul>
   <li><strong>Terrain</strong> : sélectionner ou créer un terrain depuis la liste.</li>
   <li><strong>Moteur végétation</strong> : <code>supervised_e</code> (modèle pré-entraîné, recommandé) ou <code>kp</code> (interprétation directe KP).</li>
-  <li><strong>Mode export</strong> : <code>faithful</code> (rendu fidèle au modèle) ou <code>generalized</code> (polygones simplifiés).</li>
+  <li><strong>Mode export</strong> (<code>supervised_e</code> uniquement) :
+    <ul>
+      <li><code>faithful</code> — export fidèle, polygones tels quels <strong>(défaut)</strong></li>
+      <li><code>smoothed</code> — frontières communes arrondies (σ = 1,5 m) ; même modèle que faithful, contours adoucis</li>
+      <li><code>generalized</code> — polygones simplifiés (MMU + lissage cartographique)</li>
+    </ul>
+  </li>
   <li><strong>Lancer</strong> : démarre le calcul. La progression s&rsquo;affiche dans la zone de log en bas de fenêtre.</li>
 </ul>
 

@@ -8,23 +8,23 @@ Le cartographe conserve la vérification terrain, la correction de la végétati
 
 ---
 
-## Télécharger pour Windows (v0.1.0)
+## Télécharger pour Windows (v0.4.0)
 
-**[→ Télécharger LidarO-v0.1.0-Windows-x64.zip](https://github.com/guiguoz/lidar-o/releases/tag/v0.1.0)** (~738 Mo)
+**[→ Télécharger la dernière version](https://github.com/guiguoz/lidar-o/releases/latest)** (~735 Mo)
 
 Aucune installation de Python, Conda, GDAL ou PDAL requise.
 
 **Installation :**
 
-1. Télécharger et **extraire entièrement** le ZIP → dossier `LidarO-v0.1.0-Windows-x64/`
+1. Télécharger et **extraire entièrement** le ZIP → dossier `LidarO-v0.4.0-Windows-x64/`
 2. Double-clic `setup.bat` — initialisation unique (~2 min), **attendre sa réussite**
 3. Double-clic `LidarO.bat` → GUI
 
 > **Guide inclus :** ouvrir `docs/DEMARRER.html` dans le dossier extrait pour le parcours pas à pas.
 
-> **Dossier de résultats :** choisir un dossier hors du dossier application (par exemple `Documents\mes-cartes\`), pour éviter de perdre les calculs lors d'une mise à jour.
+> **Dossier de résultats :** choisir un dossier hors du dossier application (par exemple `Documents\mes-cartes\`), pour ne pas perdre les calculs lors d'une mise à jour. En installant la nouvelle version dans un nouveau dossier, les résultats existants restent en place.
 
-> **Version expérimentale** — testée sous Windows 11 — vérification terrain nécessaire avant diffusion d'une carte officielle — mises à jour manuelles (télécharger la nouvelle version dans un nouveau dossier, relancer `setup.bat`).
+> **Version expérimentale** — testée sous Windows 11 — vérification terrain nécessaire avant diffusion d'une carte officielle — mises à jour manuelles (télécharger dans un nouveau dossier, relancer `setup.bat`).
 
 ---
 
@@ -72,14 +72,16 @@ Les deux modes fonctionnent de manière autonome depuis les données LiDAR, sans
 **Quelle combinaison choisir ?**
 
 - **`kp`** (défaut) : toujours disponible, sans modèle supplémentaire.
-- **`supervised_e` + `faithful`** : utilise le modèle pré-entraîné inclus dans le paquet Windows. La végétation produite est une estimation indicative à partir de la structure verticale du nuage de points — elle ne se substitue pas à un relevé terrain et ne prétend pas à une équivalence avec un résultat OCAD.
+- **`supervised_e` + `faithful`** : utilise le modèle pré-entraîné inclus dans le paquet Windows. Export fidèle — polygones exportés tels quels, sans filtrage. La végétation produite est une estimation indicative à partir de la structure verticale du nuage de points — vérification terrain nécessaire.
+- **`supervised_e` + `smoothed`** : même modèle, même classification — les frontières communes entre classes de végétation sont arrondies par un filtre gaussien (σ = 1,5 m). Aucun vote raster, aucun seuil de surface. Le modèle sous-jacent est identique à `faithful`.
 - **`supervised_e` + `generalized`** : même estimation, avec simplification géométrique (MMU + lissage).
 
 **Mode d'export** (`vegetation_export_mode`, `supervised_e` uniquement) :
 
 | Valeur | Effet |
 |---|---|
-| `faithful` (défaut) | Polygones détectés exportés tels quels — aucune perte, rendu bruité |
+| `faithful` **(défaut)** | Export fidèle raster → vecteur — aucune perte, rendu brut |
+| `smoothed` | Frontières communes arrondies (arc gaussien, σ = 1,5 m) — même modèle, contours adoucis |
 | `generalized` | Simplification géométrique (MMU + lissage) — rendu cartographique propre |
 
 ---
@@ -182,6 +184,7 @@ config.yaml               paramètres terrains et pipeline
 src/
   vegetation.py           CO Generalization Engine (mode kp/hag)
   supervised_e.py         détection végétation depuis LiDAR (mode supervised_e)
+  smooth_veg.py           lissage des frontières — mode d'export smoothed
   omap_writer.py          génération fichiers .omap
   pipeline_mode.py        résolution du mode végétation
   qa.py                   métriques et snapshot
