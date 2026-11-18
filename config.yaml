@@ -268,13 +268,6 @@ terrains:
   # ─────────────────────────────────────────────────────────────────────────
 
 
-  grimbosq_kp_validation_v2:
-    bbox: [448000, 6886000, 450000, 6887000]
-    crs: "EPSG:2154"
-    output_dir: "e:/tmp/sandbox_results/output_grimbosq_kp_validation_v2"
-    vegetation_source: "supervised_e"
-    bdtopo_path: "data/bdtopo/BDT_3-5_GPKG_LAMB93_D014-ED2026-06-15.gpkg"
-
   grimbosq:
     bbox: [448000, 6886000, 450001, 6889001]
     crs: "EPSG:2154"

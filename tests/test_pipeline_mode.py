@@ -202,7 +202,6 @@ class TestP1bCleGlobaleSupprimee:
         terrains = cfg.get("terrains") or {}
         # Modes attendus par terrain — à maintenir à jour explicitement
         attendu = {
-            "grimbosq_kp_validation_v2": "supervised_e",
             "grimbosq": "kp",
         }
         assert {n: resolve_veg_source(n, cfg) for n in terrains} == attendu

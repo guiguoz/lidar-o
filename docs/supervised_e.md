@@ -40,11 +40,8 @@ LAZ bruts
 
 **Interpréteur Python géospatial :**
 
-```
-C:/Users/glemi/miniconda3/python.exe
-```
-
-Le Python système (3.14) ne possède pas les bibliothèques géospatiales.
+Utiliser l'environnement Miniconda/Conda (`python` dans le prompt Miniconda,
+ou `conda run -n <env> python`). Le Python système ne possède pas les bibliothèques géospatiales.
 
 **Bibliothèques requises** (Miniconda) :
 
@@ -55,7 +52,7 @@ numpy, scikit-learn, rasterio, shapely, geopandas, scipy, laspy (ou pdal)
 **Vérification :**
 
 ```bash
-C:/Users/glemi/miniconda3/python.exe -c "
+python -c "
 import numpy, sklearn, rasterio, shapely, geopandas
 print('OK', sklearn.__version__, rasterio.__version__)
 "
@@ -109,8 +106,7 @@ La fonction vérifie la SHA-256 via `final_model/manifeste.json` avant de charge
 **Pour réentraîner** (si modèle perdu) :
 
 ```bash
-cd e:/Vikazim/Ovector
-C:/Users/glemi/miniconda3/python.exe experiments/loto_v1/train_final_e.py
+python experiments/loto_v1/train_final_e.py
 ```
 
 ---
@@ -137,8 +133,7 @@ vegetation_export_mode: "generalized" # archive — filtre composantes < 16 m²
 **Lancement pipeline complet** :
 
 ```bash
-cd e:/Vikazim/Ovector
-C:/Users/glemi/miniconda3/python.exe main.py run bois_dupont \
+python main.py run bois_dupont \
   --tiles-dir /chemin/vers/laz/ \
   --from-step supervised_e
 ```
@@ -146,7 +141,7 @@ C:/Users/glemi/miniconda3/python.exe main.py run bois_dupont \
 **Lancement assemblage seul** (raster existant, sans relancer LiDAR/inference) :
 
 ```bash
-C:/Users/glemi/miniconda3/python.exe main.py run bois_dupont \
+python main.py run bois_dupont \
   --from-step assemble --skip-pdal
 ```
 
@@ -251,9 +246,7 @@ aucun filtrage.
 **Lancement** :
 
 ```bash
-cd e:/Vikazim/Ovector
-C:/Users/glemi/miniconda3/python.exe -m pytest \
-  experiments/loto_v1/tests/test_supervised_e_integration.py -v
+python -m pytest experiments/loto_v1/tests/test_supervised_e_integration.py -v
 ```
 
 **Couverture** : 47 tests, sections §A–§K

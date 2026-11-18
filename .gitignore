@@ -92,3 +92,12 @@ travail_caen/
 # Caches intermédiaires Karttapullautin (sorties binaires par dalle)
 *.dxf.bin
 experiments/foret_caen/runs/
+
+# Configurations personnelles locales (terrains de dev, chemins absolus)
+config.yaml.local
+
+# Résultats expérimentaux à la racine
+results_vege_abc.csv
+
+# Cartes intermédiaires de test (désindexées — conserver les .py/.md/.png)
+work/expe/vectorisation/*.omap

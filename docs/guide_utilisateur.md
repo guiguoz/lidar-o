@@ -452,7 +452,7 @@ La barre de statut indique la raison précise :
 **Interpréteur Python**
 Au démarrage, le journal affiche le chemin de l'interpréteur Python utilisé par la GUI :
 ```
-Python : C:\Users\glemi\miniconda3\python.exe
+Python : C:\Users\<user>\miniconda3\python.exe
 ```
 Si la ligne indique un autre chemin (par exemple `C:\Python314\python.exe`), les bibliothèques géospatiales ne sont pas disponibles et les contrôles BD TOPO resteront orange. Lancer la GUI depuis le bon environnement :
 ```bat
